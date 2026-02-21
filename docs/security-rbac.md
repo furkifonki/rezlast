@@ -106,6 +106,12 @@ CREATE POLICY "Business owners can view own businesses"
     )
   );
 
+-- Kullanıcılar kendi adlarına işletme ekleyebilir.
+-- owner_id = auth.uid() (public.users.id = auth.users.id olmalı; trigger ile sağlanır)
+CREATE POLICY "Users can insert own businesses"
+  ON businesses FOR INSERT
+  WITH CHECK (auth.uid() = owner_id);
+
 -- İşletme sahipleri sadece kendi işletmelerini güncelleyebilir
 CREATE POLICY "Business owners can update own businesses"
   ON businesses FOR UPDATE

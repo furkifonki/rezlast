@@ -28,6 +28,13 @@ CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role ON users(role);
 ```
 
+**Önemli – Auth ile eşleşme:** `businesses.owner_id` hem FK ile `users(id)` hem RLS ile `auth.uid()` kullanıyor. Bu yüzden **her auth kullanıcı için `public.users` satırında `id = auth.users.id` olmalı**. Bunu sağlamak için:
+
+1. **Yeni kullanıcılar:** `docs/migrations/trigger-public-users-on-auth-signup.sql` içindeki trigger'ı Supabase SQL Editor'da çalıştırın. Böylece her `auth.users` INSERT'inde `public.users`'a `id = new.id` ile satır eklenir.
+2. **Mevcut kullanıcılar:** `docs/migrations/backfill-public-users-from-auth.sql` script'ini çalıştırın. Böylece zaten var olan auth kullanıcıları için de `public.users` satırı (id = auth id) oluşur.
+
+Trigger ve backfill olmadan işletme eklerken "foreign key violation" veya "row-level security" hatası alırsınız.
+
 ### 2. roles
 Rol tanımları (genişletilebilir)
 

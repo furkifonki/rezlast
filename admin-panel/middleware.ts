@@ -21,15 +21,17 @@ export async function middleware(request: NextRequest) {
     }
   );
 
+  // Session'ı güncelle (refresh token vb.); cookie'ler response'a yazılır
   const { data: { user } } = await supabase.auth.getUser();
 
   const isLoginPage = request.nextUrl.pathname === '/login';
+  const isRegisterPage = request.nextUrl.pathname === '/register';
   const isDashboard = request.nextUrl.pathname.startsWith('/dashboard');
 
   if (isDashboard && !user) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
-  if (isLoginPage && user) {
+  if ((isLoginPage || isRegisterPage) && user) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
   if (request.nextUrl.pathname === '/') {
@@ -40,5 +42,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/login', '/dashboard/:path*'],
+  matcher: ['/', '/login', '/register', '/dashboard/:path*'],
 };
