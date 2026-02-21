@@ -1,0 +1,38 @@
+# Environment (asla commit etme)
+.env
+.env.local
+.env.*.local
+*.env
+
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Expo / React Native
+.expo/
+dist/
+web-build/
+metro-health-check*
+
+# Build / IDE
+.DS_Store
+*.tsbuildinfo
+.vercel
+
+# Debug
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Native (Expo)
+/ios
+/android
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
