@@ -94,23 +94,27 @@ export default function NewTablePage() {
           <label className="block text-sm font-medium text-zinc-700 mb-1">Masa numarası *</label>
           <input type="text" required value={form.table_number} onChange={(e) => setForm((f) => ({ ...f, table_number: e.target.value }))} className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900" placeholder="Örn. 1, A1, Teras-3" />
         </div>
+        <div>
+          <label className="block text-sm font-medium text-zinc-700 mb-1">Kapasite (kişi sayısı) *</label>
+          <input type="number" min={1} max={99} required value={form.capacity} onChange={(e) => setForm((f) => ({ ...f, capacity: Number(e.target.value) || 1 }))} className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900" placeholder="Örn. 4" />
+          <p className="mt-1 text-xs text-zinc-500">Bu masada kaç kişi oturabilir?</p>
+        </div>
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1">Kapasite (kişi) *</label>
-            <input type="number" min={1} required value={form.capacity} onChange={(e) => setForm((f) => ({ ...f, capacity: Number(e.target.value) || 1 }))} className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900" />
-          </div>
           <div>
             <label className="block text-sm font-medium text-zinc-700 mb-1">Kat</label>
             <input type="number" min={1} value={form.floor_number} onChange={(e) => setForm((f) => ({ ...f, floor_number: Number(e.target.value) || 1 }))} className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900" />
           </div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-zinc-700 mb-1">Tip</label>
-          <select value={form.table_type} onChange={(e) => setForm((f) => ({ ...f, table_type: e.target.value }))} className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900">
-            <option value="indoor">İç mekân</option>
-            <option value="outdoor">Teras</option>
-            <option value="vip">VIP</option>
-          </select>
+          <div>
+            <label className="block text-sm font-medium text-zinc-700 mb-1">Alan tipi</label>
+            <select value={form.table_type} onChange={(e) => setForm((f) => ({ ...f, table_type: e.target.value }))} className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900">
+              <option value="indoor">İç Mekân</option>
+              <option value="outdoor">Dış Mekân</option>
+              <option value="terrace">Teras</option>
+              <option value="seaside">Deniz Kenarı</option>
+              <option value="vip">VIP</option>
+              <option value="bar">Bar</option>
+            </select>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <input type="checkbox" id="is_active" checked={form.is_active} onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))} className="rounded border-zinc-300" />

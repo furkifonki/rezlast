@@ -23,6 +23,8 @@ export default function DashboardLayout({
     { href: '/dashboard', label: 'Ana Sayfa' },
     { href: '/dashboard/businesses', label: 'İşletmelerim' },
     { href: '/dashboard/reservations', label: 'Rezervasyonlar' },
+    { href: '/dashboard/reviews', label: 'Yorumlar' },
+    { href: '/dashboard/sponsored', label: 'Öne Çıkan' },
     { href: '/dashboard/hizmetler', label: 'Hizmetler' },
     { href: '/dashboard/tables', label: 'Masa Planı' },
   ];

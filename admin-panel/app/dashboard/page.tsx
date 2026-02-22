@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase';
 
@@ -22,12 +22,16 @@ const STATUS_LABELS: Record<string, string> = {
   no_show: 'Gelmedi',
 };
 
+type ChartPeriod = '7d' | '4w';
+
 export default function DashboardPage() {
   const [businessCount, setBusinessCount] = useState<number>(0);
   const [reservationCount, setReservationCount] = useState<number>(0);
   const [pendingCount, setPendingCount] = useState<number>(0);
   const [todayCount, setTodayCount] = useState<number>(0);
   const [recentReservations, setRecentReservations] = useState<Reservation[]>([]);
+  const [allReservationsForChart, setAllReservationsForChart] = useState<{ reservation_date: string; status: string }[]>([]);
+  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('7d');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -44,11 +48,16 @@ export default function DashboardPage() {
         setPendingCount(0);
         setTodayCount(0);
         setRecentReservations([]);
+        setAllReservationsForChart([]);
         setLoading(false);
         return;
       }
       const today = new Date().toISOString().slice(0, 10);
-      const [businessesRes, reservationsRes, pendingRes, todayRes, recentRes] = await Promise.all([
+      const start7d = new Date();
+      start7d.setDate(start7d.getDate() - 6);
+      const start4w = new Date();
+      start4w.setDate(start4w.getDate() - 27);
+      const [businessesRes, reservationsRes, pendingRes, todayRes, recentRes, chartRes] = await Promise.all([
         supabase.from('businesses').select('id', { count: 'exact', head: true }).eq('owner_id', user.id),
         supabase.from('reservations').select('id', { count: 'exact', head: true }).in('business_id', businessIds),
         supabase.from('reservations').select('id', { count: 'exact', head: true }).in('business_id', businessIds).eq('status', 'pending'),
@@ -60,6 +69,12 @@ export default function DashboardPage() {
           .order('reservation_date', { ascending: false })
           .order('reservation_time', { ascending: false })
           .limit(5),
+        supabase
+          .from('reservations')
+          .select('reservation_date, status')
+          .in('business_id', businessIds)
+          .gte('reservation_date', start4w.toISOString().slice(0, 10))
+          .lte('reservation_date', today),
       ]);
 
       setBusinessCount(businessesRes.count ?? 0);
@@ -67,10 +82,57 @@ export default function DashboardPage() {
       setPendingCount(pendingRes.count ?? 0);
       setTodayCount(todayRes.count ?? 0);
       setRecentReservations((recentRes.data ?? []) as Reservation[]);
+      setAllReservationsForChart((chartRes.data ?? []) as { reservation_date: string; status: string }[]);
       setLoading(false);
     }
     load();
   }, []);
+
+  const chartData = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    if (chartPeriod === '7d') {
+      const days: string[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        days.push(d.toISOString().slice(0, 10));
+      }
+      const byDate: Record<string, { total: number; completed: number }> = {};
+      days.forEach((d) => { byDate[d] = { total: 0, completed: 0 }; });
+      allReservationsForChart.forEach((r) => {
+        if (!byDate[r.reservation_date]) return;
+        byDate[r.reservation_date].total += 1;
+        if (r.status === 'completed') byDate[r.reservation_date].completed += 1;
+      });
+      return days.map((d) => ({ label: d.slice(8, 10) + '/' + d.slice(5, 7), date: d, ...byDate[d] }));
+    }
+    const byWeek: { total: number; completed: number; label: string }[] = [];
+    for (let w = 0; w < 4; w++) {
+      byWeek.push({ total: 0, completed: 0, label: `Hafta ${w + 1}` });
+    }
+    allReservationsForChart.forEach((r) => {
+      const d = new Date(r.reservation_date);
+      const todayObj = new Date(today);
+      const diffDays = Math.floor((todayObj.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+      const weekIndex = Math.min(3, Math.floor(diffDays / 7));
+      const idx = 3 - weekIndex;
+      if (idx >= 0 && idx < 4) {
+        byWeek[idx].total += 1;
+        if (r.status === 'completed') byWeek[idx].completed += 1;
+      }
+    });
+    return byWeek;
+  }, [allReservationsForChart, chartPeriod]);
+
+  const periodTotal = useMemo(() => {
+    const arr = chartData as { total?: number }[];
+    return arr.reduce((s, x) => s + (x.total ?? 0), 0);
+  }, [chartData]);
+  const periodCompleted = useMemo(() => {
+    const arr = chartData as { completed?: number }[];
+    return arr.reduce((s, x) => s + (x.completed ?? 0), 0);
+  }, [chartData]);
+  const occupancyPercent = periodTotal > 0 ? Math.round((periodCompleted / periodTotal) * 100) : 0;
 
   if (loading) {
     return (
@@ -119,6 +181,51 @@ export default function DashboardPage() {
           <Link href="/dashboard/reservations" className="mt-2 inline-block text-sm text-green-700 hover:underline">
             Görüntüle →
           </Link>
+        </div>
+      </div>
+
+      {/* Analytics: grafik + doluluk */}
+      <div className="rounded-xl border border-zinc-200 bg-white shadow-sm overflow-hidden mb-8">
+        <div className="px-4 py-3 border-b border-zinc-200 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-medium text-zinc-900">Rezervasyon analitiği</h2>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-zinc-500">Dönem:</span>
+            <button
+              type="button"
+              onClick={() => setChartPeriod('7d')}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium ${chartPeriod === '7d' ? 'bg-green-700 text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'}`}
+            >
+              Son 7 gün
+            </button>
+            <button
+              type="button"
+              onClick={() => setChartPeriod('4w')}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium ${chartPeriod === '4w' ? 'bg-green-700 text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'}`}
+            >
+              Son 4 hafta
+            </button>
+          </div>
+        </div>
+        <div className="p-4">
+          <div className="mb-4 flex flex-wrap gap-4 text-sm">
+            <span className="text-zinc-600">Seçili dönemde toplam: <strong className="text-zinc-900">{periodTotal}</strong> rezervasyon</span>
+            <span className="text-zinc-600">Tamamlanan: <strong className="text-zinc-900">{periodCompleted}</strong></span>
+            <span className="text-zinc-600">Doluluk (tamamlanan/toplam): <strong className="text-green-700">{occupancyPercent}%</strong></span>
+          </div>
+          <div className="flex items-end gap-2 h-40">
+            {chartData.map((item, i) => {
+              const max = Math.max(1, ...(chartData as { total: number }[]).map((x) => x.total));
+              const h = max > 0 ? Math.round(((item as { total: number }).total / max) * 120) : 0;
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                  <div className="w-full bg-zinc-100 rounded-t flex flex-col justify-end" style={{ height: 120 }}>
+                    <div className="w-full bg-green-600 rounded-t" style={{ height: h }} title={`${(item as { total: number }).total} rezervasyon`} />
+                  </div>
+                  <span className="text-xs text-zinc-500 truncate w-full text-center">{(item as { label: string }).label}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 

@@ -98,11 +98,14 @@ export default function EditTablePage() {
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-zinc-700 mb-1">Tip</label>
+          <label className="block text-sm font-medium text-zinc-700 mb-1">Alan tipi</label>
           <select value={form.table_type ?? 'indoor'} onChange={(e) => setForm((f) => f ? { ...f, table_type: e.target.value || null } : f)} className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900">
-            <option value="indoor">İç mekân</option>
-            <option value="outdoor">Teras</option>
+            <option value="indoor">İç Mekân</option>
+            <option value="outdoor">Dış Mekân</option>
+            <option value="terrace">Teras</option>
+            <option value="seaside">Deniz Kenarı</option>
             <option value="vip">VIP</option>
+            <option value="bar">Bar</option>
           </select>
         </div>
         <div className="flex items-center gap-2">

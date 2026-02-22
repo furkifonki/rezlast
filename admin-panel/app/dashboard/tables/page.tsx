@@ -16,15 +16,19 @@ type TableRow = {
 };
 
 const TYPE_LABELS: Record<string, string> = {
-  indoor: 'İç mekân',
-  outdoor: 'Teras',
+  indoor: 'İç Mekân',
+  outdoor: 'Dış Mekân',
+  terrace: 'Teras',
+  seaside: 'Deniz Kenarı',
   vip: 'VIP',
+  bar: 'Bar',
 };
 
 export default function TablesPage() {
   const [tables, setTables] = useState<TableRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [updatingCapacityId, setUpdatingCapacityId] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -70,6 +74,17 @@ export default function TablesPage() {
     const { error: err } = await supabase.from('tables').delete().eq('id', id);
     if (err) setError(err.message);
     else setTables((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const handleCapacityChange = async (id: string, newCapacity: number) => {
+    if (newCapacity < 1 || newCapacity > 99) return;
+    setUpdatingCapacityId(id);
+    setError(null);
+    const supabase = createClient();
+    const { error: err } = await supabase.from('tables').update({ capacity: newCapacity }).eq('id', id);
+    setUpdatingCapacityId(null);
+    if (err) setError(err.message);
+    else setTables((prev) => prev.map((t) => (t.id === id ? { ...t, capacity: newCapacity } : t)));
   };
 
   if (loading) {
@@ -137,7 +152,37 @@ export default function TablesPage() {
                 <tr key={t.id} className="hover:bg-zinc-50">
                   <td className="px-4 py-3 font-medium text-zinc-900">{t.table_number}</td>
                   <td className="px-4 py-3 text-sm text-zinc-600">{(t.businesses as { name: string } | null)?.name ?? '—'}</td>
-                  <td className="px-4 py-3 text-sm text-zinc-600">{t.capacity} kişi</td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="number"
+                      min={1}
+                      max={99}
+                      value={t.capacity}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        if (!Number.isNaN(v) && v >= 1 && v <= 99) {
+                          setTables((prev) => prev.map((x) => (x.id === t.id ? { ...x, capacity: v } : x)));
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const v = Number(e.target.value);
+                        if (v >= 1 && v <= 99) {
+                          if (v !== t.capacity) handleCapacityChange(t.id, v);
+                        } else {
+                          setTables((prev) => prev.map((x) => (x.id === t.id ? { ...x, capacity: 1 } : x)));
+                          handleCapacityChange(t.id, 1);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      disabled={updatingCapacityId === t.id}
+                      className="w-16 rounded border border-zinc-300 px-2 py-1 text-sm text-zinc-900 disabled:opacity-50"
+                    />
+                    {updatingCapacityId === t.id ? <span className="ml-1 text-xs text-zinc-400">kaydediliyor...</span> : <span className="ml-1 text-xs text-zinc-500">kişi</span>}
+                  </td>
                   <td className="px-4 py-3 text-sm text-zinc-600">{t.floor_number}</td>
                   <td className="px-4 py-3 text-sm text-zinc-600">{t.table_type ? TYPE_LABELS[t.table_type] ?? t.table_type : '—'}</td>
                   <td className="px-4 py-3">

@@ -18,8 +18,29 @@ type TableRow = {
 
 const CANVAS_WIDTH = 1000;
 const CANVAS_HEIGHT = 700;
-const TABLE_WIDTH = 64;
-const TABLE_HEIGHT = 48;
+const TABLE_WIDTH = 72;
+const TABLE_HEIGHT = 56;
+
+const AREA_TYPE_LABELS: Record<string, string> = {
+  indoor: 'İç Mekân',
+  outdoor: 'Dış Mekân',
+  terrace: 'Teras',
+  seaside: 'Deniz Kenarı',
+  vip: 'VIP',
+  bar: 'Bar',
+};
+const AREA_TYPE_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+  indoor: { bg: '#f0fdf4', border: '#22c55e', text: '#166534' },
+  outdoor: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
+  terrace: { bg: '#e0e7ff', border: '#6366f1', text: '#3730a3' },
+  seaside: { bg: '#e0f2fe', border: '#0ea5e9', text: '#0369a1' },
+  vip: { bg: '#fce7f3', border: '#ec4899', text: '#9d174d' },
+  bar: { bg: '#f3e8ff', border: '#a855f7', text: '#6b21a8' },
+};
+function getTableStyle(tableType: string | null) {
+  const key = tableType && AREA_TYPE_COLORS[tableType] ? tableType : 'indoor';
+  return AREA_TYPE_COLORS[key] ?? AREA_TYPE_COLORS.indoor;
+}
 
 export default function TablePlanPage() {
   const router = useRouter();
@@ -200,11 +221,26 @@ export default function TablePlanPage() {
         <div className="rounded-2xl border border-zinc-200 bg-white p-12 text-center text-zinc-500">Yükleniyor...</div>
       ) : (
         <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-zinc-600">
-              <span className="font-medium text-zinc-700">Oda alanı</span> — Masayı tutup sürükleyin; bırakınca konum otomatik kaydedilir.
+              <span className="font-medium text-zinc-700">Oda alanı</span> — Masayı tutup sürükleyin; bırakınca konum otomatik kaydedilir. Renkler alan tipini gösterir.
             </p>
             <span className="text-xs text-zinc-400">{tables.length} masa</span>
+          </div>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {Object.entries(AREA_TYPE_LABELS).map(([key]) => {
+              const s = getTableStyle(key);
+              return (
+                <span
+                  key={key}
+                  className="inline-flex items-center gap-1.5 rounded-lg border-2 px-2 py-1 text-xs font-medium"
+                  style={{ backgroundColor: s.bg, borderColor: s.border, color: s.text }}
+                >
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: s.border }} />
+                  {AREA_TYPE_LABELS[key]}
+                </span>
+              );
+            })}
           </div>
           <div
             ref={canvasRef}
@@ -225,6 +261,7 @@ export default function TablePlanPage() {
               const x = t.position_x ?? 0;
               const y = t.position_y ?? 0;
               const isDragging = draggingId === t.id;
+              const style = getTableStyle(t.table_type);
               return (
                 <div
                   key={t.id}
@@ -237,13 +274,17 @@ export default function TablePlanPage() {
                     height: TABLE_HEIGHT,
                     zIndex: isDragging ? 50 : 1,
                     cursor: isDragging ? 'grabbing' : 'grab',
-                    backgroundColor: isDragging ? '#dcfce7' : '#f0fdf4',
-                    borderColor: isDragging ? '#16a34a' : '#22c55e',
+                    backgroundColor: isDragging ? '#dcfce7' : style.bg,
+                    borderColor: isDragging ? '#16a34a' : style.border,
                     boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.15)' : '0 2px 8px rgba(0,0,0,0.08)',
                   }}
+                  title={AREA_TYPE_LABELS[t.table_type ?? 'indoor'] ?? t.table_type ?? '—'}
                 >
-                  <span className="text-sm font-bold text-green-900">{t.table_number}</span>
-                  <span className="text-[10px] text-green-700 mt-0.5">{t.capacity} kişi</span>
+                  <span className="text-sm font-bold" style={{ color: style.text }}>{t.table_number}</span>
+                  <span className="text-[10px] mt-0.5" style={{ color: style.text }}>{t.capacity} kişi</span>
+                  <span className="text-[9px] mt-0.5 opacity-90 truncate max-w-full px-1" style={{ color: style.text }}>
+                    {AREA_TYPE_LABELS[t.table_type ?? 'indoor'] ?? t.table_type ?? '—'}
+                  </span>
                 </div>
               );
             })}
