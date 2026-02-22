@@ -28,7 +28,11 @@ export async function POST(request: NextRequest) {
   }
 
   const redirectUrl = new URL(next, request.url);
-  const response = NextResponse.redirect(redirectUrl);
+  const wantJson = request.headers.get('accept')?.includes('application/json');
+
+  const response = wantJson
+    ? NextResponse.json({ redirect: next }, { status: 200 })
+    : NextResponse.redirect(redirectUrl);
 
   const supabase = createServerClient(supabaseUrl, supabaseKey, {
     cookies: {
@@ -51,7 +55,9 @@ export async function POST(request: NextRequest) {
         error.message === 'fetch failed'
           ? 'Supabase sunucusuna bağlanılamadı. İnternet bağlantınızı ve .env.local içindeki SUPABASE_URL / ANON_KEY değerlerini kontrol edin. Supabase projesi duraklatılmış olabilir.'
           : error.message;
-      return redirectError(request, msg);
+      return wantJson
+        ? NextResponse.json({ error: msg }, { status: 401 })
+        : redirectError(request, msg);
     }
   } catch (e) {
     const msg =
@@ -60,7 +66,9 @@ export async function POST(request: NextRequest) {
         : e instanceof Error
           ? e.message
           : 'Beklenmeyen hata.';
-    return redirectError(request, msg);
+    return wantJson
+      ? NextResponse.json({ error: msg }, { status: 500 })
+      : redirectError(request, msg);
   }
 
   return response;
