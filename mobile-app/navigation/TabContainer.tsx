@@ -2,13 +2,15 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ExploreScreen from '../screens/main/ExploreScreen';
+import FavoritesScreen from '../screens/main/FavoritesScreen';
 import ReservationsScreen from '../screens/main/ReservationsScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
 
-type TabName = 'Explore' | 'Reservations' | 'Profile';
+type TabName = 'Explore' | 'Favorites' | 'Reservations' | 'Profile';
 
 const TABS: { key: TabName; label: string }[] = [
   { key: 'Explore', label: 'Keşfet' },
+  { key: 'Favorites', label: 'Favoriler' },
   { key: 'Reservations', label: 'Rezervasyonlarım' },
   { key: 'Profile', label: 'Profil' },
 ];
@@ -26,6 +28,7 @@ export function TabContainer() {
       </View>
       <View style={styles.content}>
         {tab === 'Explore' && <ExploreScreen />}
+        {tab === 'Favorites' && <FavoritesScreen />}
         {tab === 'Reservations' && <ReservationsScreen />}
         {tab === 'Profile' && <ProfileScreen />}
       </View>

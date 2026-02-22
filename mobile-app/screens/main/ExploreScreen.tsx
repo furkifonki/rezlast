@@ -10,12 +10,10 @@ import {
   Image,
   Modal,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 import BusinessDetailScreen from './BusinessDetailScreen';
 import ReservationFlowScreen from './ReservationFlowScreen';
-
-const FAV_STORAGE_KEY = 'fav_business_ids';
 
 type Category = { id: string; name: string; slug: string };
 type Business = {
@@ -44,6 +42,7 @@ function getBusinessFromSponsored(item: SponsoredItem): Business | null {
 }
 
 export default function ExploreScreen() {
+  const { session } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [sponsored, setSponsored] = useState<SponsoredItem[]>([]);
@@ -60,22 +59,44 @@ export default function ExploreScreen() {
   const [reservationBusinessName, setReservationBusinessName] = useState<string>('');
 
   const loadFavorites = useCallback(async () => {
-    try {
-      const raw = await AsyncStorage.getItem(FAV_STORAGE_KEY);
-      const ids = raw ? (JSON.parse(raw) as string[]) : [];
-      setFavorites(new Set(ids));
-    } catch {
+    if (!supabase || !session?.user?.id) {
       setFavorites(new Set());
+      return;
     }
-  }, []);
+    const { data, error: err } = await supabase
+      .from('user_favorites')
+      .select('business_id')
+      .eq('user_id', session.user.id);
+    if (err) {
+      setFavorites(new Set());
+      return;
+    }
+    const ids = (data ?? []).map((r: { business_id: string }) => r.business_id).filter(Boolean);
+    setFavorites(new Set(ids));
+  }, [session?.user?.id]);
 
   const toggleFavorite = useCallback(async (businessId: string) => {
-    const next = new Set(favorites);
-    if (next.has(businessId)) next.delete(businessId);
-    else next.add(businessId);
-    setFavorites(next);
-    await AsyncStorage.setItem(FAV_STORAGE_KEY, JSON.stringify([...next]));
-  }, [favorites]);
+    if (!session?.user?.id) return;
+    if (!supabase) return;
+    const isFav = favorites.has(businessId);
+    if (isFav) {
+      await supabase
+        .from('user_favorites')
+        .delete()
+        .eq('user_id', session.user.id)
+        .eq('business_id', businessId);
+      setFavorites((prev) => {
+        const next = new Set(prev);
+        next.delete(businessId);
+        return next;
+      });
+    } else {
+      await supabase
+        .from('user_favorites')
+        .insert({ user_id: session.user.id, business_id: businessId });
+      setFavorites((prev) => new Set([...prev, businessId]));
+    }
+  }, [favorites, session?.user?.id]);
 
   const loadSponsored = useCallback(async () => {
     if (!supabase) return;
