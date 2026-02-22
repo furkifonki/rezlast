@@ -10,7 +10,12 @@ import {
   Alert,
   Image,
 } from 'react-native';
+import Constants from 'expo-constants';
 import { supabase } from '../../lib/supabase';
+
+// Harita sadece development build'de yüklensin; Expo Go'da native modül yok.
+const isExpoGo = Constants.appOwnership === 'expo';
+const InAppMap = isExpoGo ? null : require('./InAppMap').default;
 
 type Business = {
   id: string;
@@ -24,6 +29,8 @@ type Business = {
   description: string | null;
   rating: number | null;
   categories: { name: string } | null;
+  latitude: number | null;
+  longitude: number | null;
 };
 type Photo = { id: string; photo_url: string; photo_order: number; is_primary: boolean };
 type Hour = {
@@ -59,7 +66,7 @@ export default function BusinessDetailScreen({ businessId, onBack, onReservation
       const [bRes, pRes, hRes] = await Promise.all([
         supabase
           .from('businesses')
-          .select('id, name, address, city, district, phone, email, website, description, rating, categories ( name )')
+          .select('id, name, address, city, district, phone, email, website, description, rating, categories ( name ), latitude, longitude')
           .eq('id', businessId)
           .eq('is_active', true)
           .single(),
@@ -145,6 +152,16 @@ export default function BusinessDetailScreen({ businessId, onBack, onReservation
         ) : null}
         <View style={styles.body}>
           <Text style={styles.title}>{business.name}</Text>
+          {photos.length > 0 ? (
+            <>
+              <Text style={styles.label}>Fotoğraflar</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoGallery} contentContainerStyle={styles.photoGalleryContent}>
+                {photos.map((p) => (
+                  <Image key={p.id} source={{ uri: p.photo_url }} style={styles.photoThumb} resizeMode="cover" />
+                ))}
+              </ScrollView>
+            </>
+          ) : null}
           <Text style={styles.category}>
             {(business.categories as { name: string } | null)?.name ?? '—'}
           </Text>
@@ -179,6 +196,41 @@ export default function BusinessDetailScreen({ businessId, onBack, onReservation
               </View>
             ))
           )}
+          <>
+            <Text style={styles.label}>Konum / Harita</Text>
+            {business.latitude != null && business.longitude != null && Number(business.latitude) && Number(business.longitude) ? (
+              InAppMap ? (
+                <InAppMap
+                  latitude={Number(business.latitude)}
+                  longitude={Number(business.longitude)}
+                  name={business.name}
+                />
+              ) : (
+                <TouchableOpacity
+                  style={styles.mapLink}
+                  onPress={() => {
+                    const lat = Number(business.latitude);
+                    const lng = Number(business.longitude);
+                    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`);
+                  }}
+                >
+                  <Text style={styles.mapLinkText}>📍 Haritada aç</Text>
+                </TouchableOpacity>
+              )
+            ) : business.address ? (
+              <TouchableOpacity
+                style={styles.mapLink}
+                onPress={() => {
+                  const q = encodeURIComponent([business.address, business.district, business.city].filter(Boolean).join(', '));
+                  Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${q}`);
+                }}
+              >
+                <Text style={styles.mapLinkText}>📍 Adres üzerinden haritada aç</Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.mapPlaceholder}>Konum belirtilmemiş</Text>
+            )}
+          </>
           {(business.phone || business.email || business.website) ? (
             <>
               <Text style={styles.label}>İletişim</Text>
@@ -247,6 +299,22 @@ const styles = StyleSheet.create({
   body: {
     padding: 16,
   },
+  photoGallery: {
+    marginHorizontal: -16,
+    marginTop: 8,
+  },
+  photoGalleryContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+    flexDirection: 'row',
+  },
+  photoThumb: {
+    width: 120,
+    height: 120,
+    borderRadius: 12,
+    backgroundColor: '#e2e8f0',
+    marginRight: 8,
+  },
   title: {
     fontSize: 22,
     fontWeight: '700',
@@ -290,6 +358,26 @@ const styles = StyleSheet.create({
   hourTime: {
     fontSize: 14,
     color: '#64748b',
+  },
+  mapLink: {
+    marginTop: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  mapLinkText: {
+    fontSize: 15,
+    color: '#15803d',
+    fontWeight: '600',
+  },
+  mapPlaceholder: {
+    fontSize: 14,
+    color: '#64748b',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   contactRow: {
     gap: 8,

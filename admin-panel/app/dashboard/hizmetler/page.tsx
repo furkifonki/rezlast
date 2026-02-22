@@ -42,9 +42,26 @@ export default function HizmetlerPage() {
     async function load() {
       setLoading(true);
       setError(null);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setList([]);
+        setLoading(false);
+        return;
+      }
+      const { data: myBusinesses } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('owner_id', user.id);
+      const businessIds = (myBusinesses ?? []).map((b) => b.id);
+      if (businessIds.length === 0) {
+        setList([]);
+        setLoading(false);
+        return;
+      }
       const { data, error: err } = await supabase
         .from('services')
         .select('id, business_id, name, description, duration_minutes, duration_display, price, is_active, businesses ( name )')
+        .in('business_id', businessIds)
         .order('created_at', { ascending: false });
       if (err) {
         setError(err.message);

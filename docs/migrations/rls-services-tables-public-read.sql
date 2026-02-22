@@ -1,6 +1,9 @@
 -- Mobil: Aktif işletmelerin hizmet ve masalarını herkes (anon + authenticated) okuyabilsin.
--- Keşfet ve rezervasyon akışında hizmet listesi ve müsait masa (RPC) için gerekli.
--- Supabase SQL Editor'da çalıştırın.
+-- Keşfet ve rezervasyon akışında hizmet listesi ve müsait masa için gerekli.
+-- Supabase SQL Editor'da çalıştırın. Tekrar çalıştırılabilir (idempotent).
+
+DROP POLICY IF EXISTS "Anyone can view services of active businesses" ON services;
+DROP POLICY IF EXISTS "Anyone can view tables of active businesses" ON tables;
 
 -- Aktif işletmenin hizmetlerini herkes okuyabilsin
 CREATE POLICY "Anyone can view services of active businesses"

@@ -31,9 +31,26 @@ export default function TablesPage() {
     async function load() {
       setLoading(true);
       setError(null);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setTables([]);
+        setLoading(false);
+        return;
+      }
+      const { data: myBusinesses } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('owner_id', user.id);
+      const businessIds = (myBusinesses ?? []).map((b) => b.id);
+      if (businessIds.length === 0) {
+        setTables([]);
+        setLoading(false);
+        return;
+      }
       const { data, error: err } = await supabase
         .from('tables')
         .select('id, business_id, table_number, capacity, floor_number, table_type, is_active, businesses ( name )')
+        .in('business_id', businessIds)
         .order('table_number');
       if (err) {
         setError(err.message);
