@@ -26,6 +26,7 @@ export default function DashboardLayout({
     { href: '/dashboard/reviews', label: 'Yorumlar' },
     { href: '/dashboard/sponsored', label: 'Öne Çıkan' },
     { href: '/dashboard/hizmetler', label: 'Hizmetler' },
+    { href: '/dashboard/loyalty', label: 'Puan İşlemleri' },
     { href: '/dashboard/tables', label: 'Masa Planı' },
   ];
 

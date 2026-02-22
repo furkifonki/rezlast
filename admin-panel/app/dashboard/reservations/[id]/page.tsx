@@ -255,13 +255,22 @@ export default function ReservationDetailPage() {
               </>
             )}
             {reservation.status === 'confirmed' && (
-              <button
-                onClick={() => updateStatus('cancelled')}
-                disabled={actionLoading}
-                className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
-              >
-                İptal
-              </button>
+              <>
+                <button
+                  onClick={() => updateStatus('completed')}
+                  disabled={actionLoading}
+                  className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Tamamlandı
+                </button>
+                <button
+                  onClick={() => updateStatus('cancelled')}
+                  disabled={actionLoading}
+                  className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                >
+                  İptal
+                </button>
+              </>
             )}
           </div>
         </div>

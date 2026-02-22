@@ -68,11 +68,25 @@ export default function NewReservationPage() {
     })();
   }, [form.business_id]);
 
+  const selectedTable = form.table_id ? tables.find((t) => t.id === form.table_id) ?? null;
+  const capacityExceeded = selectedTable !== null && form.party_size > selectedTable.capacity;
+
+  useEffect(() => {
+    if (!selectedTable) return;
+    if (form.party_size > selectedTable.capacity) {
+      setForm((f) => ({ ...f, party_size: selectedTable.capacity }));
+    }
+  }, [form.table_id, selectedTable?.id, selectedTable?.capacity]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!form.business_id || !form.reservation_date || !form.reservation_time) {
       setError('İşletme, tarih ve saat zorunludur.');
+      return;
+    }
+    if (capacityExceeded || (selectedTable && form.party_size > selectedTable.capacity)) {
+      setError(`Seçilen masa ${selectedTable?.capacity ?? 0} kişiliktir. Kişi sayısını buna göre girin.`);
       return;
     }
     setSaving(true);
@@ -245,10 +259,21 @@ export default function NewReservationPage() {
             <input
               type="number"
               min={1}
+              max={selectedTable ? selectedTable.capacity : undefined}
               value={form.party_size}
-              onChange={(e) => setForm((f) => ({ ...f, party_size: Number(e.target.value) || 1 }))}
+              onChange={(e) => {
+                const v = Number(e.target.value) || 1;
+                const max = selectedTable ? selectedTable.capacity : 99;
+                setForm((f) => ({ ...f, party_size: Math.min(Math.max(1, v), max) }));
+              }}
               className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900"
             />
+            {selectedTable && (
+              <p className="mt-1 text-xs text-zinc-500">Seçilen masa kapasitesi: {selectedTable.capacity} kişi. Kişi sayısı bunu aşamaz.</p>
+            )}
+            {capacityExceeded && (
+              <p className="mt-1 text-xs text-red-600">Kişi sayısı masa kapasitesini ({selectedTable?.capacity}) aşıyor.</p>
+            )}
           </div>
         </div>
         <div>
@@ -302,7 +327,7 @@ export default function NewReservationPage() {
           </Link>
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || capacityExceeded}
             className="rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
           >
             {saving ? 'Kaydediliyor...' : 'Rezervasyon Ekle'}

@@ -40,3 +40,11 @@ npm install
 npm run start:lan
 ```
 (`rm -rf` bazı sistemlerde “Operation not permitted” verebilir; o zaman node_modules’ü manuel silip tekrar `npm install` deneyin.)
+
+---
+
+## Admin’de eklenen fotoğraflar uygulamada görünmüyorsa
+
+Bunun en sık nedeni Supabase’de `business_photos` tablosu için “herkes okuyabilsin” RLS politikasının ekli olmamasıdır. Adım adım çözüm için:
+
+- **[docs/PHOTOS-IN-APP.md](../docs/PHOTOS-IN-APP.md)** — Bu rehberi takip edin (RLS + Storage public bucket).

@@ -22,7 +22,7 @@ export default function EditHizmetPage() {
   const params = useParams();
   const id = params?.id as string;
   const [businesses, setBusinesses] = useState<Business[]>([]);
-  type FormState = ServiceRow & { duration_type: 'no_limit' | 'all_day' | 'all_evening' | 'minutes' };
+  type FormState = ServiceRow & { duration_type: 'no_limit' | 'all_day' | 'all_evening' | 'minutes'; loyalty_points: number | '' };
   const [form, setForm] = useState<FormState | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -35,19 +35,22 @@ export default function EditHizmetPage() {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
-      const [sRes, bRes] = await Promise.all([
+      const [sRes, bRes, ruleRes] = await Promise.all([
         supabase.from('services').select('*').eq('id', id).single(),
         supabase.from('businesses').select('id, name').eq('owner_id', user.id).order('name'),
+        supabase.from('service_loyalty_rules').select('points').eq('service_id', id).eq('is_active', true).maybeSingle(),
       ]);
       if (sRes.data) {
         const row = sRes.data as ServiceRow;
         const duration_type = (row.duration_minutes === 0 && row.duration_display)
           ? row.duration_display
           : 'minutes';
+        const rule = ruleRes.data as { points: number } | null;
         setForm({
           ...row,
           duration_type: duration_type as FormState['duration_type'],
           duration_minutes: row.duration_minutes > 0 ? row.duration_minutes : 30,
+          loyalty_points: rule?.points != null ? rule.points : 10,
         });
       }
       setBusinesses((bRes.data ?? []) as Business[]);
@@ -65,21 +68,32 @@ export default function EditHizmetPage() {
     const isTimed = form.duration_type === 'minutes';
     const duration_minutes = isTimed ? Math.max(1, form.duration_minutes) : 0;
     const duration_display = isTimed ? null : form.duration_type;
-    const { error: err } = await supabase
-      .from('services')
-      .update({
-        business_id: form.business_id,
-        name: form.name.trim(),
-        description: form.description?.trim() || null,
-        duration_minutes,
-        duration_display,
-        price: form.price != null ? form.price : null,
-        is_active: form.is_active,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id);
+    const [errService, errRule] = await Promise.all([
+      supabase
+        .from('services')
+        .update({
+          business_id: form.business_id,
+          name: form.name.trim(),
+          description: form.description?.trim() || null,
+          duration_minutes,
+          duration_display,
+          price: form.price != null ? form.price : null,
+          is_active: form.is_active,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id),
+      (async () => {
+        const points = form.loyalty_points === '' ? 10 : Math.max(0, Number(form.loyalty_points) || 0);
+        const { data: existing } = await supabase.from('service_loyalty_rules').select('id').eq('service_id', id).maybeSingle();
+        if (existing) {
+          return supabase.from('service_loyalty_rules').update({ points, is_active: true, updated_at: new Date().toISOString() }).eq('service_id', id);
+        }
+        return supabase.from('service_loyalty_rules').insert({ service_id: id, points, is_active: true });
+      })(),
+    ]);
     setSaving(false);
-    if (err) setError(err.message);
+    if (errService.error) setError(errService.error.message);
+    else if (errRule.error) setError(errRule.error.message);
     else {
       router.push('/dashboard/hizmetler');
       router.refresh();
@@ -170,6 +184,19 @@ export default function EditHizmetPage() {
               placeholder="Opsiyonel"
             />
           </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-zinc-700 mb-1">Tamamlanan randevuda verilecek puan</label>
+          <input
+            type="number"
+            min={0}
+            step={1}
+            value={form.loyalty_points === '' ? '' : form.loyalty_points}
+            onChange={(e) => setForm((f) => (f ? { ...f, loyalty_points: e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value, 10) || 0) } : f))}
+            className="w-full max-w-[120px] rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900"
+            placeholder="10"
+          />
+          <p className="mt-1 text-xs text-zinc-500">Bu hizmet için randevu &quot;Tamamlandı&quot; işaretlendiğinde müşteriye verilecek puan.</p>
         </div>
         <div className="flex items-center gap-2">
           <input

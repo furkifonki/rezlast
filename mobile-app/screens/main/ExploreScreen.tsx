@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,15 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Image,
+  Modal,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
 import BusinessDetailScreen from './BusinessDetailScreen';
 import ReservationFlowScreen from './ReservationFlowScreen';
+
+const FAV_STORAGE_KEY = 'fav_business_ids';
 
 type Category = { id: string; name: string; slug: string };
 type Business = {
@@ -27,15 +32,25 @@ type SponsoredItem = {
   id: string;
   business_id: string;
   priority: number;
-  businesses: Business | null;
+  businesses: Business | Business[] | null;
 };
 
 const today = new Date().toISOString().slice(0, 10);
+
+function getBusinessFromSponsored(item: SponsoredItem): Business | null {
+  const b = item.businesses;
+  if (!b) return null;
+  return Array.isArray(b) ? b[0] ?? null : b;
+}
 
 export default function ExploreScreen() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [sponsored, setSponsored] = useState<SponsoredItem[]>([]);
+  const [sponsoredError, setSponsoredError] = useState<string | null>(null);
+  const [photoMap, setPhotoMap] = useState<Record<string, string>>({});
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [showAllFeatured, setShowAllFeatured] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -44,17 +59,41 @@ export default function ExploreScreen() {
   const [reservationBusinessId, setReservationBusinessId] = useState<string | null>(null);
   const [reservationBusinessName, setReservationBusinessName] = useState<string>('');
 
-  const loadSponsored = async () => {
+  const loadFavorites = useCallback(async () => {
+    try {
+      const raw = await AsyncStorage.getItem(FAV_STORAGE_KEY);
+      const ids = raw ? (JSON.parse(raw) as string[]) : [];
+      setFavorites(new Set(ids));
+    } catch {
+      setFavorites(new Set());
+    }
+  }, []);
+
+  const toggleFavorite = useCallback(async (businessId: string) => {
+    const next = new Set(favorites);
+    if (next.has(businessId)) next.delete(businessId);
+    else next.add(businessId);
+    setFavorites(next);
+    await AsyncStorage.setItem(FAV_STORAGE_KEY, JSON.stringify([...next]));
+  }, [favorites]);
+
+  const loadSponsored = useCallback(async () => {
     if (!supabase) return;
-    const { data } = await supabase
+    setSponsoredError(null);
+    const { data, error: err } = await supabase
       .from('sponsored_listings')
       .select('id, business_id, priority, businesses ( id, name, address, city, district, description, rating, categories ( name ) )')
       .eq('payment_status', 'paid')
       .lte('start_date', today)
       .gte('end_date', today)
       .order('priority', { ascending: false });
+    if (err) {
+      setSponsoredError(err.message);
+      setSponsored([]);
+      return;
+    }
     setSponsored((data ?? []) as SponsoredItem[]);
-  };
+  }, []);
 
   const loadCategories = async () => {
     if (!supabase) return;
@@ -66,7 +105,9 @@ export default function ExploreScreen() {
     setCategories((data ?? []) as Category[]);
   };
 
-  const loadBusinesses = async () => {
+  // Filtreler: Kategori (Restoran, Berber, Güzellik) business.category_id ile eşleşir.
+  // Admin paneldeki "hizmetler" (services) işletme bazlıdır; rezervasyon ekranında o işletmenin hizmetleri gösterilir.
+  const loadBusinesses = useCallback(async () => {
     if (!supabase) {
       setError('Bağlantı yok');
       setLoading(false);
@@ -77,6 +118,7 @@ export default function ExploreScreen() {
       .from('businesses')
       .select('id, name, address, city, district, description, rating, categories ( name )')
       .eq('is_active', true)
+      .order('rating', { ascending: false })
       .order('name');
     if (selectedCategoryId) {
       query = query.eq('category_id', selectedCategoryId);
@@ -85,24 +127,46 @@ export default function ExploreScreen() {
     if (err) {
       setError(err.message);
       setBusinesses([]);
+      setPhotoMap({});
     } else {
-      setBusinesses((data ?? []) as Business[]);
+      const list = (data ?? []) as Business[];
+      setBusinesses(list);
+      const ids = list.map((b) => b.id).filter(Boolean);
+      if (ids.length > 0 && supabase) {
+        const { data: photoRows } = await supabase
+          .from('business_photos')
+          .select('business_id, photo_url, is_primary, photo_order')
+          .in('business_id', ids)
+          .order('is_primary', { ascending: false })
+          .order('photo_order');
+        const map: Record<string, string> = {};
+        (photoRows ?? []).forEach((row: { business_id: string; photo_url: string }) => {
+          if (!map[row.business_id]) map[row.business_id] = row.photo_url;
+        });
+        setPhotoMap(map);
+      } else {
+        setPhotoMap({});
+      }
     }
     setLoading(false);
     setRefreshing(false);
-  };
+  }, [selectedCategoryId]);
 
   useEffect(() => {
     loadCategories();
     loadSponsored();
-  }, []);
+    loadFavorites();
+  }, [loadSponsored, loadFavorites]);
 
   useEffect(() => {
     setLoading(true);
     loadBusinesses();
-  }, [selectedCategoryId]);
+  }, [loadBusinesses]);
 
   const sponsoredBusinessIds = new Set(sponsored.map((s) => s.business_id).filter(Boolean));
+  const sponsoredBusinesses = sponsored
+    .map(getBusinessFromSponsored)
+    .filter((b): b is Business => b != null);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -140,51 +204,83 @@ export default function ExploreScreen() {
     );
   }
 
-  const renderBusinessCard = (item: Business, isFeatured?: boolean) => (
-    <TouchableOpacity
-      style={[styles.card, isFeatured && styles.cardFeatured]}
-      onPress={() => setSelectedBusinessId(item.id)}
-      activeOpacity={0.7}
-    >
-      {isFeatured ? (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>Öne Çıkan</Text>
+  const renderBusinessCard = (item: Business, isFeatured?: boolean, cardWidth?: number) => {
+    const photoUrl = photoMap[item.id];
+    const isFav = favorites.has(item.id);
+    const rating = item.rating != null && Number(item.rating) > 0 ? Number(item.rating).toFixed(1) : null;
+    const categoryName = (item.categories as { name: string } | null)?.name ?? '—';
+    return (
+      <TouchableOpacity
+        style={[styles.card, isFeatured && styles.cardFeatured, cardWidth ? { width: cardWidth } : undefined]}
+        onPress={() => setSelectedBusinessId(item.id)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.cardImageWrap}>
+          {photoUrl ? (
+            <Image source={{ uri: photoUrl }} style={styles.cardImage} resizeMode="cover" />
+          ) : (
+            <View style={styles.cardImagePlaceholder}>
+              <Text style={styles.cardImagePlaceholderText}>📷</Text>
+            </View>
+          )}
+          {isFeatured ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>Öne Çıkan</Text>
+            </View>
+          ) : null}
+          <TouchableOpacity
+            style={styles.favButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              toggleFavorite(item.id);
+            }}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Text style={styles.favIcon}>{isFav ? '❤️' : '🤍'}</Text>
+          </TouchableOpacity>
         </View>
-      ) : null}
-      <Text style={styles.cardTitle}>{item.name}</Text>
-      <Text style={styles.cardCategory}>
-        {(item.categories as { name: string } | null)?.name ?? '—'}
-      </Text>
-      {item.address ? (
-        <Text style={styles.cardAddress} numberOfLines={1}>{item.address}</Text>
-      ) : null}
-      {item.rating != null && Number(item.rating) > 0 ? (
-        <Text style={styles.cardRating}>★ {Number(item.rating).toFixed(1)}</Text>
-      ) : null}
-    </TouchableOpacity>
-  );
+        <View style={styles.cardBody}>
+          <Text style={styles.cardTitle} numberOfLines={1}>{item.name}</Text>
+          <View style={styles.cardMeta}>
+            {rating ? (
+              <Text style={styles.cardRating}>★ {rating}</Text>
+            ) : null}
+            <Text style={styles.cardCategory} numberOfLines={1}>{categoryName}</Text>
+          </View>
+          {item.address ? (
+            <Text style={styles.cardAddress} numberOfLines={1}>{item.address}</Text>
+          ) : null}
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
-      {sponsored.length > 0 ? (
+      {sponsoredBusinesses.length > 0 ? (
         <View style={styles.featuredBlock}>
-          <Text style={styles.featuredTitle}>Öne Çıkan</Text>
+          <View style={styles.featuredHeader}>
+            <Text style={styles.featuredTitle}>Öne Çıkan</Text>
+            <TouchableOpacity onPress={() => setShowAllFeatured(true)}>
+              <Text style={styles.tumunuGor}>Tümünü gör</Text>
+            </TouchableOpacity>
+          </View>
           <FlatList
             horizontal
-            data={sponsored}
+            data={sponsoredBusinesses}
             keyExtractor={(item) => item.id}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.featuredScroll}
-            renderItem={({ item }) => {
-              const b = item.businesses;
-              if (!b) return null;
-              return (
-                <View style={styles.featuredCardWrap}>
-                  {renderBusinessCard(b, true)}
-                </View>
-              );
-            }}
+            renderItem={({ item }) => (
+              <View style={styles.featuredCardWrap}>
+                {renderBusinessCard(item, true, 220)}
+              </View>
+            )}
           />
+        </View>
+      ) : sponsoredError ? (
+        <View style={styles.featuredErrorWrap}>
+          <Text style={styles.featuredErrorText}>Öne çıkanlar yüklenemedi</Text>
         </View>
       ) : null}
       <View style={styles.categoryRow}>
@@ -237,6 +333,29 @@ export default function ExploreScreen() {
           renderItem={({ item }) => renderBusinessCard(item, sponsoredBusinessIds.has(item.id))}
         />
       )}
+
+      <Modal visible={showAllFeatured} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Öne Çıkan İşletmeler</Text>
+              <TouchableOpacity onPress={() => setShowAllFeatured(false)}>
+                <Text style={styles.modalClose}>Kapat</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={sponsoredBusinesses}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.modalList}
+              renderItem={({ item }) => (
+                <View style={styles.modalCardWrap}>
+                  {renderBusinessCard(item, true)}
+                </View>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -291,6 +410,27 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
     gap: 12,
   },
+  featuredHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    paddingHorizontal: 16,
+  },
+  tumunuGor: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#15803d',
+  },
+  featuredErrorWrap: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: '#fef2f2',
+  },
+  featuredErrorText: {
+    fontSize: 12,
+    color: '#b91c1c',
+  },
   featuredCardWrap: {
     width: 220,
     marginRight: 12,
@@ -298,7 +438,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 16,
+    overflow: 'hidden',
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#e2e8f0',
@@ -312,13 +452,34 @@ const styles = StyleSheet.create({
     borderColor: '#15803d',
     borderWidth: 1.5,
   },
+  cardImageWrap: {
+    width: '100%',
+    height: 140,
+    position: 'relative',
+    backgroundColor: '#f1f5f9',
+  },
+  cardImage: {
+    width: '100%',
+    height: '100%',
+  },
+  cardImagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e2e8f0',
+  },
+  cardImagePlaceholderText: {
+    fontSize: 40,
+  },
   badge: {
-    alignSelf: 'flex-start',
+    position: 'absolute',
+    top: 8,
+    left: 8,
     backgroundColor: '#15803d',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
-    marginBottom: 8,
   },
   badgeText: {
     fontSize: 11,
@@ -326,25 +487,80 @@ const styles = StyleSheet.create({
     color: '#fff',
     textTransform: 'uppercase',
   },
+  favButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    padding: 4,
+  },
+  favIcon: {
+    fontSize: 22,
+  },
+  cardBody: {
+    padding: 12,
+  },
   cardTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '600',
     color: '#0f172a',
     marginBottom: 4,
   },
+  cardMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 2,
+  },
   cardCategory: {
     fontSize: 13,
     color: '#15803d',
-    marginBottom: 4,
+    flex: 1,
   },
   cardAddress: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#64748b',
-    marginBottom: 4,
+    marginTop: 2,
   },
   cardRating: {
     fontSize: 13,
+    fontWeight: '600',
     color: '#f59e0b',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '85%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  modalClose: {
+    fontSize: 16,
+    color: '#15803d',
+    fontWeight: '600',
+  },
+  modalList: {
+    padding: 16,
+    paddingBottom: 32,
+  },
+  modalCardWrap: {
+    marginBottom: 12,
   },
   centered: {
     flex: 1,

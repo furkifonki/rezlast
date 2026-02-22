@@ -260,13 +260,22 @@ function ReservationsContent() {
                       </>
                     )}
                     {r.status === 'confirmed' && (
-                      <button
-                        onClick={() => updateStatus(r.id, 'cancelled')}
-                        disabled={actionLoading === r.id}
-                        className="text-sm font-medium text-red-700 hover:underline disabled:opacity-50"
-                      >
-                        İptal
-                      </button>
+                      <>
+                        <button
+                          onClick={() => updateStatus(r.id, 'completed')}
+                          disabled={actionLoading === r.id}
+                          className="mr-2 text-sm font-medium text-blue-700 hover:underline disabled:opacity-50"
+                        >
+                          Tamamlandı
+                        </button>
+                        <button
+                          onClick={() => updateStatus(r.id, 'cancelled')}
+                          disabled={actionLoading === r.id}
+                          className="text-sm font-medium text-red-700 hover:underline disabled:opacity-50"
+                        >
+                          İptal
+                        </button>
+                      </>
                     )}
                   </td>
                 </tr>

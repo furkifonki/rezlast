@@ -185,7 +185,9 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
   const [specialRequests, setSpecialRequests] = useState('');
 
   const selectedTable = tableId ? (tables.find((t) => t.id === tableId) || null) : null;
+  const maxTableCapacity = tables.length > 0 ? Math.max(...tables.map((t) => t.capacity)) : null;
   const capacityExceeded = selectedTable !== null && selectedTable !== undefined && partySize > selectedTable.capacity;
+  const exceedsMaxCapacity = maxTableCapacity != null && partySize > maxTableCapacity;
 
   const availableDates = useMemo(() => {
     const out: { date: string; label: string; dayOfWeek: number }[] = [];
@@ -278,6 +280,11 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
     if (t && partySize > t.capacity) setPartySize(t.capacity);
   }, [tableId, tables]);
 
+  useEffect(() => {
+    if (maxTableCapacity == null) return;
+    if (partySize > maxTableCapacity) setPartySize(maxTableCapacity);
+  }, [maxTableCapacity]);
+
   const loadAvailableTables = async () => {
     if (!supabase || !businessId || !reservationDate || !reservationTime) return;
     setTablesLoadAttempted(true);
@@ -316,6 +323,10 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
     }
     if (!reservationDate || !reservationTime) {
       Alert.alert('Hata', 'Tarih ve saat seçin.');
+      return;
+    }
+    if (maxTableCapacity != null && partySize > maxTableCapacity) {
+      Alert.alert('Hata', `Bu işletmede masa kapasitesi en fazla ${maxTableCapacity} kişiliktir. Kişi sayısını ${maxTableCapacity} veya altına düşürün.`);
       return;
     }
     if (selectedTable && partySize > selectedTable.capacity) {
@@ -492,21 +503,31 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
           ) : null}
 
           <Text style={styles.label}>Kişi sayısı</Text>
+          {maxTableCapacity != null && (
+            <Text style={styles.hintText}>Bu işletmede masa kapasitesi en fazla {maxTableCapacity} kişiliktir.</Text>
+          )}
           {capacityExceeded ? (
             <Text style={styles.capacityError}>
-              Seçilen masa {selectedTable?.capacity} kişiliktir. Kişi sayısını azaltın veya &quot;Seçmeyeyim&quot; ile masa seçimini kaldırın.
+              Seçilen masa {selectedTable?.capacity} kişiliktir. Kişi sayısını azaltın veya başka masa seçin.
+            </Text>
+          ) : null}
+          {exceedsMaxCapacity ? (
+            <Text style={styles.capacityError}>
+              Kişi sayısı en fazla {maxTableCapacity} olabilir.
             </Text>
           ) : null}
           <View style={styles.chipRow}>
-            {[1, 2, 3, 4, 5, 6].map((n) => (
-              <TouchableOpacity
-                key={n}
-                style={[styles.chip, partySize === n && styles.chipActive]}
-                onPress={() => setPartySize(n)}
-              >
-                <Text style={[styles.chipText, partySize === n && styles.chipTextActive]}>{n}</Text>
-              </TouchableOpacity>
-            ))}
+            {[1, 2, 3, 4, 5, 6]
+              .filter((n) => maxTableCapacity == null || n <= maxTableCapacity)
+              .map((n) => (
+                <TouchableOpacity
+                  key={n}
+                  style={[styles.chip, partySize === n && styles.chipActive]}
+                  onPress={() => setPartySize(n)}
+                >
+                  <Text style={[styles.chipText, partySize === n && styles.chipTextActive]}>{n}</Text>
+                </TouchableOpacity>
+              ))}
           </View>
 
           <Text style={styles.label}>Özel istek (opsiyonel)</Text>
@@ -521,9 +542,9 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
           />
 
           <TouchableOpacity
-            style={[styles.submitButton, (saving || capacityExceeded) && styles.submitDisabled]}
+            style={[styles.submitButton, (saving || capacityExceeded || exceedsMaxCapacity) && styles.submitDisabled]}
             onPress={handleSubmit}
-            disabled={saving || !reservationDate || !reservationTime || capacityExceeded}
+            disabled={saving || !reservationDate || !reservationTime || capacityExceeded || exceedsMaxCapacity}
           >
             {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitButtonText}>Rezervasyonu oluştur</Text>}
           </TouchableOpacity>
@@ -597,6 +618,7 @@ const styles = StyleSheet.create({
   mapTableType: { fontSize: 10, marginTop: 2 },
   mapFallback: { marginTop: 12 },
   mapFallbackLabel: { fontSize: 12, color: '#64748b', marginBottom: 6 },
+  hintText: { fontSize: 12, color: '#64748b', marginBottom: 4 },
   capacityError: { fontSize: 13, color: '#dc2626', marginTop: 4, marginBottom: 4 },
   specialInput: {
     borderWidth: 1,
