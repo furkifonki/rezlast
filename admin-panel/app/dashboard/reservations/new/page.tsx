@@ -68,7 +68,9 @@ export default function NewReservationPage() {
     })();
   }, [form.business_id]);
 
-  const selectedTable = form.table_id ? tables.find((t) => t.id === form.table_id) ?? null;
+  const selectedTable = form.table_id
+    ? (tables.find((t) => t.id === form.table_id) ?? null)
+    : null;
   const capacityExceeded = selectedTable !== null && form.party_size > selectedTable.capacity;
 
   useEffect(() => {
