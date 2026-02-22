@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase';
 
@@ -12,7 +11,6 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,11 +33,11 @@ export default function RegisterPage() {
         setError('Bu e-posta adresi zaten kullanılıyor. Giriş yapmayı deneyin.');
         return;
       }
-      setSuccess('Hesap oluşturuldu. E-posta doğrulama linki gönderildiyse önce onu kontrol edin; yoksa doğrudan giriş yapabilirsiniz.');
+      setSuccess('Hesap oluşturuldu. Yönlendiriliyorsunuz...');
+      // Tam sayfa yönlendirmesi: oturum cookie'leri yüklendikten sonra dashboard açılsın (yenileme gerekmez)
       setTimeout(() => {
-        router.push('/login');
-        router.refresh();
-      }, 2000);
+        window.location.href = '/dashboard';
+      }, 1200);
     }
   };
 

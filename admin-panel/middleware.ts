@@ -26,12 +26,14 @@ export async function middleware(request: NextRequest) {
 
   const isLoginPage = request.nextUrl.pathname === '/login';
   const isRegisterPage = request.nextUrl.pathname === '/register';
+  const isForgotPage = request.nextUrl.pathname === '/forgot-password';
+  const isResetPage = request.nextUrl.pathname === '/reset-password';
   const isDashboard = request.nextUrl.pathname.startsWith('/dashboard');
 
   if (isDashboard && !user) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
-  if ((isLoginPage || isRegisterPage) && user) {
+  if ((isLoginPage || isRegisterPage || isForgotPage || isResetPage) && user) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
   if (request.nextUrl.pathname === '/') {
@@ -42,5 +44,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/login', '/register', '/dashboard/:path*'],
+  matcher: ['/', '/login', '/register', '/forgot-password', '/reset-password', '/dashboard/:path*'],
 };

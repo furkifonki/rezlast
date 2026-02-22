@@ -64,9 +64,14 @@ export default function LoginForm({ initialError }: Props) {
           />
         </div>
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-zinc-700 mb-1">
-            Şifre
-          </label>
+          <div className="flex items-center justify-between mb-1">
+            <label htmlFor="password" className="block text-sm font-medium text-zinc-700">
+              Şifre
+            </label>
+            <Link href="/forgot-password" className="text-sm text-green-700 hover:underline">
+              Şifremi unuttum
+            </Link>
+          </div>
           <input
             id="password"
             name="password"

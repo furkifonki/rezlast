@@ -77,6 +77,14 @@ export default function LoginScreen({ navigation }: Props) {
         </TouchableOpacity>
 
         <TouchableOpacity
+          style={styles.forgotLink}
+          onPress={() => navigation.navigate('ForgotPassword')}
+          disabled={Boolean(loading)}
+        >
+          <Text style={styles.linkText}>Şifremi unuttum</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={styles.link}
           onPress={() => navigation.navigate('Register')}
           disabled={Boolean(loading)}
@@ -140,6 +148,10 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  forgotLink: {
+    marginTop: 12,
+    alignItems: 'center',
   },
   link: {
     marginTop: 20,
