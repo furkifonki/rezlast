@@ -1,7 +1,10 @@
+import React, { Component, type ReactNode } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { View, Text, Button, StyleSheet } from 'react-native';
-import { supabase } from './lib/supabase';
-import { useState, Component, type ReactNode } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { NavigationContainer } from '@react-navigation/native';
+import { AuthProvider } from './contexts/AuthContext';
+import { RootNavigator } from './navigation/RootNavigator';
 
 class ErrorBoundary extends Component<
   { children: ReactNode },
@@ -31,63 +34,22 @@ class ErrorBoundary extends Component<
 }
 
 function AppContent() {
-  const [message, setMessage] = useState<string>('');
-  const [loading, setLoading] = useState(false);
-
-  const testConnection = async () => {
-    if (!supabase) {
-      setMessage(
-        'Hata: .env içinde EXPO_PUBLIC_SUPABASE_URL ve EXPO_PUBLIC_SUPABASE_ANON_KEY tanımlı olmalı.'
-      );
-      return;
-    }
-    setLoading(true);
-    setMessage('');
-    try {
-      const { data, error } = await supabase.from('categories').select('*');
-      if (error) {
-        setMessage('Supabase hata: ' + error.message);
-        return;
-      }
-      setMessage('Bağlantı OK. Kategori sayısı: ' + (data?.length ?? 0));
-    } catch (e: unknown) {
-      setMessage('Hata: ' + (e instanceof Error ? e.message : String(e)));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!supabase) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Rezervasyon App</Text>
-        <Text style={styles.error}>
-          Supabase yapılandırılmamış. .env dosyasında EXPO_PUBLIC_SUPABASE_URL ve
-          EXPO_PUBLIC_SUPABASE_ANON_KEY tanımlı olmalı.
-        </Text>
-        <StatusBar style="auto" />
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Rezervasyon App</Text>
-      <Button
-        title={loading ? 'Bekle...' : 'Test Connection'}
-        onPress={testConnection}
-        disabled={loading}
-      />
-      {message ? <Text style={styles.message}>{message}</Text> : null}
-      <StatusBar style="auto" />
-    </View>
+    <SafeAreaProvider>
+      <NavigationContainer>
+        <RootNavigator />
+        <StatusBar style="auto" />
+      </NavigationContainer>
+    </SafeAreaProvider>
   );
 }
 
 export default function App() {
   return (
     <ErrorBoundary>
-      <AppContent />
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </ErrorBoundary>
   );
 }
@@ -98,19 +60,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
   },
   title: {
     fontSize: 20,
     marginBottom: 16,
   },
-  message: {
-    marginTop: 16,
-    color: '#333',
-    textAlign: 'center',
-  },
   error: {
-    marginTop: 8,
     color: '#c00',
     textAlign: 'center',
     paddingHorizontal: 16,
