@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import ReservationDetailScreen from './ReservationDetailScreen';
 
 type Reservation = {
   id: string;
@@ -44,6 +45,7 @@ export default function ReservationsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedReservationId, setSelectedReservationId] = useState<string | null>(null);
 
   const load = async () => {
     if (!supabase || !session?.user?.id) {
@@ -105,6 +107,19 @@ export default function ReservationsScreen() {
     );
   }
 
+  if (selectedReservationId) {
+    return (
+      <ReservationDetailScreen
+        reservationId={selectedReservationId}
+        onBack={() => setSelectedReservationId(null)}
+        onUpdated={() => {
+          setSelectedReservationId(null);
+          load();
+        }}
+      />
+    );
+  }
+
   if (list.length === 0) {
     return (
       <View style={styles.centered}>
@@ -125,7 +140,11 @@ export default function ReservationsScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#15803d']} />
         }
         renderItem={({ item }) => (
-          <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => setSelectedReservationId(item.id)}
+            activeOpacity={0.7}
+          >
             <View style={styles.cardRow}>
               <Text style={styles.cardTitle}>
                 {(item.businesses as { name: string } | null)?.name ?? '—'}
@@ -146,7 +165,8 @@ export default function ReservationsScreen() {
             {item.special_requests ? (
               <Text style={styles.cardNote} numberOfLines={2}>{item.special_requests}</Text>
             ) : null}
-          </View>
+            <Text style={styles.tapHint}>Detay ve düzenleme için dokunun</Text>
+          </TouchableOpacity>
         )}
       />
     </View>
@@ -171,6 +191,7 @@ const styles = StyleSheet.create({
   cardDate: { fontSize: 14, color: '#64748b', marginBottom: 4 },
   cardMeta: { fontSize: 13, color: '#94a3b8' },
   cardNote: { fontSize: 13, color: '#64748b', marginTop: 8, fontStyle: 'italic' },
+  tapHint: { fontSize: 12, color: '#94a3b8', marginTop: 8 },
   centered: {
     flex: 1,
     justifyContent: 'center',
