@@ -23,6 +23,8 @@ export default function DashboardLayout({
     { href: '/dashboard', label: 'Ana Sayfa' },
     { href: '/dashboard/businesses', label: 'İşletmelerim' },
     { href: '/dashboard/reservations', label: 'Rezervasyonlar' },
+    { href: '/dashboard/hizmetler', label: 'Hizmetler' },
+    { href: '/dashboard/tables', label: 'Masa Planı' },
   ];
 
   return (
@@ -32,19 +34,22 @@ export default function DashboardLayout({
           <h1 className="font-semibold text-green-400">Rezervasyon Admin</h1>
         </div>
         <nav className="flex-1 p-2 space-y-1">
-          {nav.map(({ href, label }) => (
-            <Link
-              key={href}
-              href={href}
-              className={`block rounded-lg px-3 py-2 text-sm ${
-                pathname === href
-                  ? 'bg-green-700 text-white'
-                  : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'
-              }`}
-            >
-              {label}
-            </Link>
-          ))}
+          {nav.map(({ href, label }) => {
+            const isActive = href === '/dashboard' ? pathname === href : pathname.startsWith(href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`block rounded-lg px-3 py-2 text-sm ${
+                  isActive
+                    ? 'bg-green-700 text-white'
+                    : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'
+                }`}
+              >
+                {label}
+              </Link>
+            );
+          })}
         </nav>
         <div className="p-2 border-t border-zinc-700">
           <button

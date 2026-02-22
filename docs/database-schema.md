@@ -159,6 +159,8 @@ CREATE TABLE business_hours (
 CREATE INDEX idx_business_hours_business ON business_hours(business_id);
 ```
 
+**Rezervasyon müsaitliği:** Mobil uygulama ve API, müsait saatleri hesaplarken `business_hours` (gün + açılış/kapanış + mola) ve `business_closures` (kapalı tarihler) tablolarını kullanır. Rezervasyon alınacak tarih/saat, işletmenin o gün açık olduğu saat aralığında ve kapalı günler listesinde olmamalıdır.
+
 ### 7. business_closures
 Kapalı günler (tatil, özel günler)
 
@@ -201,7 +203,8 @@ CREATE TABLE services (
   business_id UUID REFERENCES businesses(id) ON DELETE CASCADE NOT NULL,
   name VARCHAR(255) NOT NULL,
   description TEXT,
-  duration_minutes INTEGER NOT NULL, -- Hizmet süresi (dakika)
+  duration_minutes INTEGER NOT NULL, -- 0 = süre yok/tüm gün/akşam, >0 = dakika
+  duration_display VARCHAR(50), -- 0 iken: no_limit, all_day, all_evening
   price DECIMAL(10, 2),
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -266,7 +269,8 @@ CREATE TABLE reservations (
   user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
   reservation_date DATE NOT NULL,
   reservation_time TIME NOT NULL,
-  duration_minutes INTEGER NOT NULL,
+  duration_minutes INTEGER NOT NULL, -- 0 = süre sınırı yok (restoran), >0 = dakika (berber/salon)
+  duration_display VARCHAR(50), -- 0 iken etiket: no_limit, all_day, all_evening (Tüm gün, Tüm akşam vb.)
   end_time TIME, -- Otomatik hesaplanır
   party_size INTEGER NOT NULL DEFAULT 1,
   status VARCHAR(50) DEFAULT 'pending', -- pending, confirmed, cancelled, completed, no_show

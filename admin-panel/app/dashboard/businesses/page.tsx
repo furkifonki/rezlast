@@ -26,6 +26,12 @@ export default function BusinessesPage() {
     async function load() {
       setLoading(true);
       setError(null);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setBusinesses([]);
+        setLoading(false);
+        return;
+      }
       const { data, error: err } = await supabase
         .from('businesses')
         .select(`
@@ -38,6 +44,7 @@ export default function BusinessesPage() {
           is_active,
           categories ( id, name )
         `)
+        .eq('owner_id', user.id)
         .order('created_at', { ascending: false });
       if (err) {
         setError(err.message);
@@ -119,7 +126,9 @@ export default function BusinessesPage() {
               {businesses.map((b) => (
                 <tr key={b.id} className="hover:bg-zinc-50">
                   <td className="px-4 py-3">
-                    <span className="font-medium text-zinc-900">{b.name}</span>
+                    <Link href={`/dashboard/businesses/${b.id}`} className="font-medium text-green-700 hover:underline">
+                      {b.name}
+                    </Link>
                   </td>
                   <td className="px-4 py-3 text-zinc-600">
                     {(b.categories as Category)?.name ?? '—'}
