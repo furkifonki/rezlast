@@ -4,10 +4,10 @@
   "private": true,
   "description": "Rezervasyon uygulaması - Admin panel + Mobil app",
   "scripts": {
-    "start": "cd mobile-app && npm start",
+    "start": "cd mobile-app && CI=1 npm run start:lan",
     "admin": "cd admin-panel && npm run dev",
     "admin:build": "cd admin-panel && npm run build",
-    "mobile": "cd mobile-app && npm start",
-    "mobile:lan": "cd mobile-app && npm run start:lan"
+    "mobile": "cd mobile-app && CI=1 npm run start:lan",
+    "mobile:lan": "cd mobile-app && CI=1 npm run start:lan"
   }
 }

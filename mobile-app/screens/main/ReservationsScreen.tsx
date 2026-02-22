@@ -16,7 +16,6 @@ type Reservation = {
   id: string;
   reservation_date: string;
   reservation_time: string;
-  duration_minutes: number;
   party_size: number;
   status: string;
   special_requests: string | null;
@@ -56,7 +55,7 @@ export default function ReservationsScreen() {
     setError(null);
     const { data, err } = await supabase
       .from('reservations')
-      .select('id, reservation_date, reservation_time, duration_minutes, party_size, status, special_requests, businesses ( name )')
+      .select('id, reservation_date, reservation_time, party_size, status, special_requests, businesses ( name )')
       .eq('user_id', session.user.id)
       .order('reservation_date', { ascending: false })
       .order('reservation_time', { ascending: false });
@@ -158,10 +157,7 @@ export default function ReservationsScreen() {
             <Text style={styles.cardDate}>
               {item.reservation_date} · {String(item.reservation_time).slice(0, 5)}
             </Text>
-            <Text style={styles.cardMeta}>
-              {item.party_size} kişi
-              {item.duration_minutes > 0 ? ` · ${item.duration_minutes} dk` : ''}
-            </Text>
+            <Text style={styles.cardMeta}>{item.party_size} kişi</Text>
             {item.special_requests ? (
               <Text style={styles.cardNote} numberOfLines={2}>{item.special_requests}</Text>
             ) : null}

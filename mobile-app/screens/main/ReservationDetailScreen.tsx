@@ -17,7 +17,6 @@ type ReservationDetail = {
   id: string;
   reservation_date: string;
   reservation_time: string;
-  duration_minutes: number;
   party_size: number;
   status: string;
   special_requests: string | null;
@@ -67,7 +66,7 @@ export default function ReservationDetailScreen({ reservationId, onBack, onUpdat
       setLoading(true);
       setError(null);
       try {
-        const baseSelect = 'id, reservation_date, reservation_time, duration_minutes, party_size, status, special_requests, businesses ( name )';
+        const baseSelect = 'id, reservation_date, reservation_time, party_size, status, special_requests, businesses ( name )';
         const res = await supabase
           .from('reservations')
           .select(`${baseSelect}, payment_method_id, payment_methods ( id, name )`)
@@ -207,7 +206,6 @@ export default function ReservationDetailScreen({ reservationId, onBack, onUpdat
         </Text>
         <Text style={styles.cardMeta}>
           {reservation.party_size} kişi
-          {reservation.duration_minutes > 0 ? ` · ${reservation.duration_minutes} dk` : ''}
         </Text>
         {hasPaymentColumn && (reservation.payment_methods as PaymentMethod | null)?.name && (
           <Text style={styles.cardMeta}>Ödeme: {(reservation.payment_methods as PaymentMethod).name}</Text>

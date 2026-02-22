@@ -193,7 +193,6 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
   const [serviceId, setServiceId] = useState<string | null>(null);
   const [reservationDate, setReservationDate] = useState('');
   const [reservationTime, setReservationTime] = useState('');
-  const [durationMinutes, setDurationMinutes] = useState(120);
   const [tableId, setTableId] = useState<string | null>(null);
   const [tableViewMode, setTableViewMode] = useState<'list' | 'map'>('list');
   const [partySize, setPartySize] = useState(2);
@@ -203,6 +202,11 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
   const maxTableCapacity = tables.length > 0 ? Math.max(...tables.map((t) => t.capacity)) : null;
   const capacityExceeded = selectedTable !== null && selectedTable !== undefined && partySize > selectedTable.capacity;
   const exceedsMaxCapacity = maxTableCapacity != null && partySize > maxTableCapacity;
+
+  const effectiveDuration = useMemo(() => {
+    const s = serviceId ? services.find((se) => se.id === serviceId) : null;
+    return s?.duration_minutes && s.duration_minutes > 0 ? s.duration_minutes : 120;
+  }, [serviceId, services]);
 
   const availableDates = useMemo(() => {
     const out: { date: string; label: string; dayOfWeek: number }[] = [];
@@ -238,11 +242,11 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
     const closeMin = timeToMinutes(hourRow.close_time);
     if (openMin >= closeMin) return FALLBACK_TIMES;
     const slots: string[] = [];
-    for (let m = openMin; m + durationMinutes <= closeMin; m += SLOT_INTERVAL_MIN) {
+    for (let m = openMin; m + effectiveDuration <= closeMin; m += SLOT_INTERVAL_MIN) {
       slots.push(minutesToTime(m));
     }
     return slots.length > 0 ? slots : FALLBACK_TIMES;
-  }, [reservationDate, hours, durationMinutes]);
+  }, [reservationDate, hours, effectiveDuration]);
 
   useEffect(() => {
     if (!supabase || !businessId) return;
@@ -264,7 +268,6 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
       if ((sRes.data?.length ?? 0) === 1) {
         const s = sRes.data![0] as Service;
         setServiceId(s.id);
-        if (s.duration_minutes > 0) setDurationMinutes(s.duration_minutes);
       }
       setLoadingServices(false);
       setLoadingSlots(false);
@@ -337,7 +340,7 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
       p_business_id: businessId,
       p_date: reservationDate,
       p_time: timeParam,
-      p_duration_minutes: durationMinutes,
+      p_duration_minutes: effectiveDuration,
     });
     const availableIds = new Set((availableRows ?? []).map((r: { id: string }) => r.id));
     const occupied = new Set(list.map((t) => t.id).filter((id) => !availableIds.has(id)));
@@ -370,7 +373,7 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
       user_id: session.user.id,
       reservation_date: reservationDate,
       reservation_time: reservationTime.slice(0, 5),
-      duration_minutes: durationMinutes,
+      duration_minutes: effectiveDuration,
       party_size: partySize,
       service_id: serviceId || null,
       table_id: tableId || null,
@@ -414,10 +417,7 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
                 <TouchableOpacity
                   key={s.id}
                   style={[styles.chip, serviceId === s.id && styles.chipActive]}
-                  onPress={() => {
-                    setServiceId(s.id);
-                    if (s.duration_minutes > 0) setDurationMinutes(s.duration_minutes);
-                  }}
+                  onPress={() => setServiceId(s.id)}
                 >
                   <Text style={[styles.chipText, serviceId === s.id && styles.chipTextActive]} numberOfLines={1}>
                     {s.name} ({getDurationLabel(s)})
@@ -426,19 +426,6 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
               ))}
             </View>
           )}
-
-          <Text style={styles.label}>Süre (dakika)</Text>
-          <View style={styles.chipRow}>
-            {[30, 60, 90, 120].map((d) => (
-              <TouchableOpacity
-                key={d}
-                style={[styles.chip, durationMinutes === d && styles.chipActive]}
-                onPress={() => setDurationMinutes(d)}
-              >
-                <Text style={[styles.chipText, durationMinutes === d && styles.chipTextActive]}>{d} dk</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
 
           <Text style={styles.label}>Tarih *</Text>
           {loadingSlots ? (
