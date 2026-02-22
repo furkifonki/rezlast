@@ -66,7 +66,14 @@ export default function SponsoredPage() {
         setError(err.message);
         setListings([]);
       } else {
-        setListings((data ?? []) as SponsoredListing[]);
+        const rows = (data ?? []) as Array<Record<string, unknown>>;
+        const normalized: SponsoredListing[] = rows.map((row) => {
+          const b = row.businesses;
+          const businessesNorm: { name: string } | null =
+            Array.isArray(b) && b.length > 0 ? (b[0] as { name: string }) : b && typeof b === 'object' && 'name' in b ? (b as { name: string }) : null;
+          return { ...row, businesses: businessesNorm } as SponsoredListing;
+        });
+        setListings(normalized);
       }
       setLoading(false);
     }
@@ -124,7 +131,11 @@ export default function SponsoredPage() {
       const { data, error: err } = await supabase.from('sponsored_listings').insert(payload).select('id, business_id, start_date, end_date, priority, payment_status, created_at, businesses ( name )').single();
       if (err) setError(err.message);
       else {
-        setListings((prev) => [data as SponsoredListing, ...prev]);
+        const raw = data as Record<string, unknown>;
+        const b = raw?.businesses;
+        const businessesNorm: { name: string } | null =
+          Array.isArray(b) && b.length > 0 ? (b[0] as { name: string }) : b && typeof b === 'object' && 'name' in b ? (b as { name: string }) : null;
+        setListings((prev) => [{ ...raw, businesses: businessesNorm } as SponsoredListing, ...prev]);
         setShowForm(false);
       }
     }

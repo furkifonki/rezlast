@@ -50,7 +50,14 @@ export default function BusinessesPage() {
         setError(err.message);
         setBusinesses([]);
       } else {
-        setBusinesses((data ?? []) as Business[]);
+        const list = (data ?? []) as Array<Record<string, unknown>>;
+        const normalized: Business[] = list.map((row) => {
+          const c = row.categories;
+          const cat: Category | null =
+            Array.isArray(c) && c.length > 0 ? (c[0] as Category) : c && typeof c === 'object' && 'id' in c ? (c as Category) : null;
+          return { ...row, categories: cat } as Business;
+        });
+        setBusinesses(normalized);
       }
       setLoading(false);
     }

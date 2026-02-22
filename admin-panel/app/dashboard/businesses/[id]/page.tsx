@@ -86,7 +86,15 @@ export default function BusinessDetailPage() {
         setError(bRes.error.message);
         setBusiness(null);
       } else {
-        setBusiness(bRes.data as Business);
+        const raw = bRes.data as Record<string, unknown>;
+        const categoriesRaw = raw?.categories;
+        const categoriesNormalized: Category | null =
+          Array.isArray(categoriesRaw) && categoriesRaw.length > 0
+            ? (categoriesRaw[0] as Category)
+            : categoriesRaw && typeof categoriesRaw === 'object' && 'id' in categoriesRaw
+              ? (categoriesRaw as Category)
+              : null;
+        setBusiness({ ...raw, categories: categoriesNormalized } as Business);
       }
       setHours((hRes.data ?? []) as BusinessHour[]);
       setPhotos((pRes.data ?? []) as BusinessPhoto[]);

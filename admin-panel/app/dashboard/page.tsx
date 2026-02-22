@@ -81,7 +81,14 @@ export default function DashboardPage() {
       setReservationCount(reservationsRes.count ?? 0);
       setPendingCount(pendingRes.count ?? 0);
       setTodayCount(todayRes.count ?? 0);
-      setRecentReservations((recentRes.data ?? []) as Reservation[]);
+      const recentRaw = (recentRes.data ?? []) as Array<Record<string, unknown>>;
+      const recentNormalized: Reservation[] = recentRaw.map((row) => {
+        const b = row.businesses;
+        const businessesNorm: { name: string } | null =
+          Array.isArray(b) && b.length > 0 ? (b[0] as { name: string }) : b && typeof b === 'object' && 'name' in b ? (b as { name: string }) : null;
+        return { ...row, businesses: businessesNorm } as Reservation;
+      });
+      setRecentReservations(recentNormalized);
       setAllReservationsForChart((chartRes.data ?? []) as { reservation_date: string; status: string }[]);
       setLoading(false);
     }

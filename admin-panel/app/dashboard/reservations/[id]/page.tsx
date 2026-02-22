@@ -97,7 +97,11 @@ export default function ReservationDetailPage() {
         setError(err.message);
         setReservation(null);
       } else {
-        setReservation(data as ReservationDetail);
+        const raw = data as Record<string, unknown>;
+        const b = raw?.businesses;
+        const businessesNorm: { name: string } | null =
+          Array.isArray(b) && b.length > 0 ? (b[0] as { name: string }) : b && typeof b === 'object' && 'name' in b ? (b as { name: string }) : null;
+        setReservation({ ...raw, businesses: businessesNorm } as ReservationDetail);
       }
       setLoading(false);
     }

@@ -60,7 +60,14 @@ export default function TablesPage() {
         setError(err.message);
         setTables([]);
       } else {
-        setTables((data ?? []) as TableRow[]);
+        const rows = (data ?? []) as Array<Record<string, unknown>>;
+        const normalized: TableRow[] = rows.map((row) => {
+          const b = row.businesses;
+          const businessesNorm: { name: string } | null =
+            Array.isArray(b) && b.length > 0 ? (b[0] as { name: string }) : b && typeof b === 'object' && 'name' in b ? (b as { name: string }) : null;
+          return { ...row, businesses: businessesNorm } as TableRow;
+        });
+        setTables(normalized);
       }
       setLoading(false);
     }

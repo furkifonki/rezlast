@@ -67,7 +67,14 @@ export default function HizmetlerPage() {
         setError(err.message);
         setList([]);
       } else {
-        setList((data ?? []) as ServiceRow[]);
+        const rows = (data ?? []) as Array<Record<string, unknown>>;
+        const normalized: ServiceRow[] = rows.map((row) => {
+          const b = row.businesses;
+          const businessesNormalized: { name: string } | null =
+            Array.isArray(b) && b.length > 0 ? (b[0] as { name: string }) : b && typeof b === 'object' && 'name' in b ? (b as { name: string }) : null;
+          return { ...row, businesses: businessesNormalized } as ServiceRow;
+        });
+        setList(normalized);
       }
       setLoading(false);
     }

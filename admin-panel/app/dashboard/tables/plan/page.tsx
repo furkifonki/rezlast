@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { Suspense, useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
@@ -42,7 +42,7 @@ function getTableStyle(tableType: string | null) {
   return AREA_TYPE_COLORS[key] ?? AREA_TYPE_COLORS.indoor;
 }
 
-export default function TablePlanPage() {
+function TablePlanContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const businessIdFromUrl = searchParams.get('business_id');
@@ -292,5 +292,13 @@ export default function TablePlanPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function TablePlanPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-zinc-500">Yükleniyor...</div>}>
+      <TablePlanContent />
+    </Suspense>
   );
 }

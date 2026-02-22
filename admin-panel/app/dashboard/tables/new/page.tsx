@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 
 type Business = { id: string; name: string };
 
-export default function NewTablePage() {
+function NewTableContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const businessIdFromUrl = searchParams.get('business_id');
@@ -126,5 +126,13 @@ export default function NewTablePage() {
         </div>
       </form>
     </div>
+  );
+}
+
+export default function NewTablePage() {
+  return (
+    <Suspense fallback={<p className="text-zinc-500">Yükleniyor...</p>}>
+      <NewTableContent />
+    </Suspense>
   );
 }

@@ -62,7 +62,14 @@ export default function ReviewsPage() {
         setError(err.message);
         setReviews([]);
       } else {
-        setReviews((data ?? []) as Review[]);
+        const rows = (data ?? []) as Array<Record<string, unknown>>;
+        const normalized: Review[] = rows.map((row) => {
+          const b = row.businesses;
+          const businessesNorm: { name: string } | null =
+            Array.isArray(b) && b.length > 0 ? (b[0] as { name: string }) : b && typeof b === 'object' && 'name' in b ? (b as { name: string }) : null;
+          return { ...row, businesses: businessesNorm } as Review;
+        });
+        setReviews(normalized);
       }
       setLoading(false);
     }

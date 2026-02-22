@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
@@ -37,7 +37,7 @@ const STATUS_CLASS: Record<string, string> = {
   no_show: 'bg-red-100 text-red-800',
 };
 
-export default function ReservationsPage() {
+function ReservationsContent() {
   const searchParams = useSearchParams();
   const statusFromUrl = searchParams.get('status');
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -108,7 +108,14 @@ export default function ReservationsPage() {
         setError(err.message);
         setReservations([]);
       } else {
-        setReservations((data ?? []) as Reservation[]);
+        const rows = (data ?? []) as Array<Record<string, unknown>>;
+        const normalized: Reservation[] = rows.map((row) => {
+          const b = row.businesses;
+          const businessesNorm: { name: string } | null =
+            Array.isArray(b) && b.length > 0 ? (b[0] as { name: string }) : b && typeof b === 'object' && 'name' in b ? (b as { name: string }) : null;
+          return { ...row, businesses: businessesNorm } as Reservation;
+        });
+        setReservations(normalized);
       }
       setLoading(false);
     }
@@ -269,5 +276,13 @@ export default function ReservationsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ReservationsPage() {
+  return (
+    <Suspense fallback={<div className="p-6"><p className="text-zinc-500">Yükleniyor...</p></div>}>
+      <ReservationsContent />
+    </Suspense>
   );
 }

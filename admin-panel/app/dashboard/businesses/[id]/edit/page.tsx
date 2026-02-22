@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { Suspense, useState, useEffect, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase';
@@ -53,7 +53,7 @@ const defaultHourRow = (day: number): HourRow => ({
   break_end: '',
 });
 
-export default function EditBusinessPage() {
+function EditBusinessContent() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -563,5 +563,13 @@ export default function EditBusinessPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function EditBusinessPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-zinc-500">Yükleniyor...</div>}>
+      <EditBusinessContent />
+    </Suspense>
   );
 }
