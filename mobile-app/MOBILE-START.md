@@ -1,5 +1,21 @@
 # Mobil uygulamayı başlatma
 
+## Hızlı başlatma (önce bunu deneyin)
+
+1. **Terminali açın** ve şunu yazın:
+   ```bash
+   cd "/Users/furkanaydemir/Documents/Furkan/Rezervasyon Uygulaması/mobile-app"
+   npm run start:lan
+   ```
+2. Birkaç saniye sonra **"Waiting on http://localhost:8083"** ve bir **QR kodu** görmelisiniz.
+3. **Telefonda:** Expo Go uygulamasını açın, QR kodu tarayın. **Bilgisayarda:** Aynı terminalde `a` (Android emülatör) veya `i` (iOS simülatör) tuşuna basın.
+
+**macOS’ta çift tıklama:** `mobile-app` klasöründeki **`baslat-mobil.command`** dosyasına çift tıklayın (ilk seferde Terminal’in açılmasına izin verin).
+
+Varsayılan port artık **8083**; 8081 meşgul olsa bile sunucu başlar.
+
+---
+
 ## ConfigError: "The expected package.json path ... does not exist"
 
 Expo **mutlaka `mobile-app` klasörü içinden** çalıştırılmalı. Proje kökünde (Rezervasyon Uygulaması) değil.
