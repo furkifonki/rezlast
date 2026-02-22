@@ -17,8 +17,11 @@ type Reservation = {
   customer_phone: string | null;
   customer_email: string | null;
   special_requests: string | null;
+  amount: number | null;
+  payment_method_id: string | null;
   created_at: string;
   businesses: { name: string } | null;
+  payment_methods: { id: string; name: string } | null;
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -47,6 +50,7 @@ function ReservationsContent() {
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showRevenueColumns, setShowRevenueColumns] = useState(true);
 
   useEffect(() => {
     if (statusFromUrl && ['pending', 'confirmed', 'cancelled', 'completed', 'no_show'].includes(statusFromUrl)) {
@@ -55,26 +59,26 @@ function ReservationsContent() {
   }, [statusFromUrl]);
 
   useEffect(() => {
-    const supabase = createClient();
+    let cancelled = false;
     async function load() {
       setLoading(true);
       setError(null);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setReservations([]);
-        setLoading(false);
-        return;
-      }
-      const { data: myBusinesses } = await supabase.from('businesses').select('id').eq('owner_id', user.id);
-      const businessIds = (myBusinesses ?? []).map((b) => b.id);
-      if (businessIds.length === 0) {
-        setReservations([]);
-        setLoading(false);
-        return;
-      }
-      let query = supabase
-        .from('reservations')
-        .select(`
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          if (!cancelled) setReservations([]);
+          setLoading(false);
+          return;
+        }
+        const { data: myBusinesses } = await supabase.from('businesses').select('id').eq('owner_id', user.id);
+        const businessIds = (myBusinesses ?? []).map((b) => b.id);
+        if (businessIds.length === 0) {
+          if (!cancelled) setReservations([]);
+          setLoading(false);
+          return;
+        }
+        const baseSelect = `
           id,
           business_id,
           reservation_date,
@@ -88,38 +92,69 @@ function ReservationsContent() {
           special_requests,
           created_at,
           businesses ( name )
-        `)
-        .in('business_id', businessIds)
-        .order('reservation_date', { ascending: false })
-        .order('reservation_time', { ascending: false });
-
-      if (filterStatus !== 'all') {
-        query = query.eq('status', filterStatus);
-      }
-      if (filterDateFrom) {
-        query = query.gte('reservation_date', filterDateFrom);
-      }
-      if (filterDateTo) {
-        query = query.lte('reservation_date', filterDateTo);
-      }
-
-      const { data, error: err } = await query;
-      if (err) {
-        setError(err.message);
-        setReservations([]);
-      } else {
-        const rows = (data ?? []) as Array<Record<string, unknown>>;
-        const normalized: Reservation[] = rows.map((row) => {
-          const b = row.businesses;
-          const businessesNorm: { name: string } | null =
-            Array.isArray(b) && b.length > 0 ? (b[0] as { name: string }) : b && typeof b === 'object' && 'name' in b ? (b as { name: string }) : null;
-          return { ...row, businesses: businessesNorm } as Reservation;
-        });
-        setReservations(normalized);
+        `;
+        const fullSelect = `${baseSelect}, amount, payment_method_id, payment_methods ( id, name )`;
+        let query = supabase
+          .from('reservations')
+          .select(fullSelect)
+          .in('business_id', businessIds)
+          .order('reservation_date', { ascending: false })
+          .order('reservation_time', { ascending: false });
+        if (filterStatus !== 'all') query = query.eq('status', filterStatus);
+        if (filterDateFrom) query = query.gte('reservation_date', filterDateFrom);
+        if (filterDateTo) query = query.lte('reservation_date', filterDateTo);
+        const { data, error: err } = await query;
+        if (cancelled) return;
+        if (err) {
+          setShowRevenueColumns(false);
+          query = supabase
+            .from('reservations')
+            .select(baseSelect)
+            .in('business_id', businessIds)
+            .order('reservation_date', { ascending: false })
+            .order('reservation_time', { ascending: false });
+          if (filterStatus !== 'all') query = query.eq('status', filterStatus);
+          if (filterDateFrom) query = query.gte('reservation_date', filterDateFrom);
+          if (filterDateTo) query = query.lte('reservation_date', filterDateTo);
+          const res2 = await query;
+          if (cancelled) return;
+          if (res2.error) {
+            setError(res2.error.message);
+            setReservations([]);
+          } else {
+            const rows = (res2.data ?? []) as Array<Record<string, unknown>>;
+            const normalized: Reservation[] = rows.map((row) => {
+              const b = row.businesses;
+              const businessesNorm: { name: string } | null =
+                Array.isArray(b) && b.length > 0 ? (b[0] as { name: string }) : b && typeof b === 'object' && 'name' in b ? (b as { name: string }) : null;
+              return { ...row, businesses: businessesNorm, amount: null, payment_method_id: null, payment_methods: null } as Reservation;
+            });
+            setReservations(normalized);
+          }
+        } else {
+          setShowRevenueColumns(true);
+          const rows = (data ?? []) as Array<Record<string, unknown>>;
+          const normalized: Reservation[] = rows.map((row) => {
+            const b = row.businesses;
+            const businessesNorm: { name: string } | null =
+              Array.isArray(b) && b.length > 0 ? (b[0] as { name: string }) : b && typeof b === 'object' && 'name' in b ? (b as { name: string }) : null;
+            const pm = row.payment_methods;
+            const pmNorm: { id: string; name: string } | null =
+              Array.isArray(pm) && pm.length > 0 ? (pm[0] as { id: string; name: string }) : pm && typeof pm === 'object' && 'name' in pm ? (pm as { id: string; name: string }) : null;
+            return { ...row, businesses: businessesNorm, payment_methods: pmNorm } as Reservation;
+          });
+          setReservations(normalized);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Veri yüklenemedi.');
+          setReservations([]);
+        }
       }
       setLoading(false);
     }
     load();
+    return () => { cancelled = true; };
   }, [filterStatus, filterDateFrom, filterDateTo]);
 
   const updateStatus = async (id: string, status: string) => {
@@ -208,6 +243,12 @@ function ReservationsContent() {
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-zinc-500">İşletme</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-zinc-500">Müşteri</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-zinc-500">Kişi</th>
+                {showRevenueColumns && (
+                  <>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase text-zinc-500">Ücret</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase text-zinc-500">Ödeme</th>
+                  </>
+                )}
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-zinc-500">Durum</th>
                 <th className="px-4 py-3 text-right text-xs font-medium uppercase text-zinc-500">İşlem</th>
               </tr>
@@ -227,6 +268,16 @@ function ReservationsContent() {
                     {r.customer_name || r.customer_phone || r.customer_email || '—'}
                   </td>
                   <td className="px-4 py-3 text-sm text-zinc-600">{r.party_size}</td>
+                  {showRevenueColumns && (
+                    <>
+                      <td className="px-4 py-3 text-sm text-zinc-600 font-medium">
+                        {r.amount != null ? Number(r.amount).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₺' : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-zinc-600">
+                        {(r.payment_methods as { name: string } | null)?.name ?? '—'}
+                      </td>
+                    </>
+                  )}
                   <td className="px-4 py-3">
                     <span
                       className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASS[r.status] ?? 'bg-zinc-100 text-zinc-600'}`}

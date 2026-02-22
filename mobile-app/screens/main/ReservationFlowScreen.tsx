@@ -56,9 +56,10 @@ type TableMapViewProps = {
   selectedTableId: string | null;
   onSelectTable: (id: string | null) => void;
   getAreaLabel: (tableType: string | null) => string;
+  occupiedTableIds: Set<string>;
 };
 
-function TableMapView({ tables, selectedTableId, onSelectTable, getAreaLabel }: TableMapViewProps) {
+function TableMapView({ tables, selectedTableId, onSelectTable, getAreaLabel, occupiedTableIds }: TableMapViewProps) {
   const screenWidth = Dimensions.get('window').width - 32;
   const scaleX = screenWidth / PLAN_CANVAS_W;
   const scaleY = MAP_HEIGHT / PLAN_CANVAS_H;
@@ -74,6 +75,7 @@ function TableMapView({ tables, selectedTableId, onSelectTable, getAreaLabel }: 
           const w = Math.max(MAP_TABLE_MIN_W, PLAN_TABLE_W * scaleX);
           const h = Math.max(MAP_TABLE_MIN_H, PLAN_TABLE_H * scaleY);
           const isSelected = selectedTableId === t.id;
+          const isOccupied = occupiedTableIds.has(t.id);
           const areaLabel = getAreaLabel(t.table_type);
           const style = getTableStyle(t.table_type);
           return (
@@ -87,17 +89,23 @@ function TableMapView({ tables, selectedTableId, onSelectTable, getAreaLabel }: 
                   top: y,
                   width: w,
                   height: h,
-                  backgroundColor: isSelected ? '#15803d' : style.bg,
-                  borderColor: isSelected ? '#0f766e' : style.border,
+                  backgroundColor: isOccupied ? '#e5e7eb' : isSelected ? '#15803d' : style.bg,
+                  borderColor: isOccupied ? '#9ca3af' : isSelected ? '#0f766e' : style.border,
                   borderWidth: isSelected ? 3 : 2,
+                  opacity: isOccupied ? 0.9 : 1,
                 },
               ]}
-              onPress={() => onSelectTable(t.id)}
-              activeOpacity={0.8}
+              onPress={() => !isOccupied && onSelectTable(t.id)}
+              activeOpacity={isOccupied ? 1 : 0.8}
+              disabled={isOccupied}
             >
-              <Text style={[styles.mapTableNum, { color: isSelected ? '#fff' : style.text }]} numberOfLines={1}>{t.table_number}</Text>
-              <Text style={[styles.mapTableCapacity, { color: isSelected ? '#fff' : style.text }]}>{t.capacity} kişi</Text>
-              {areaLabel ? <Text style={[styles.mapTableType, { color: isSelected ? '#fff' : style.text }]} numberOfLines={1}>{areaLabel}</Text> : null}
+              <Text style={[styles.mapTableNum, { color: isOccupied ? '#6b7280' : isSelected ? '#fff' : style.text }]} numberOfLines={1}>{t.table_number}</Text>
+              {isOccupied ? (
+                <Text style={[styles.mapTableCapacity, { color: '#6b7280', fontSize: 10 }]}>Meşgul</Text>
+              ) : (
+                <Text style={[styles.mapTableCapacity, { color: isSelected ? '#fff' : style.text }]}>{t.capacity} kişi</Text>
+              )}
+              {areaLabel && !isOccupied ? <Text style={[styles.mapTableType, { color: isSelected ? '#fff' : style.text }]} numberOfLines={1}>{areaLabel}</Text> : null}
             </TouchableOpacity>
           );
         })}
@@ -110,10 +118,16 @@ function TableMapView({ tables, selectedTableId, onSelectTable, getAreaLabel }: 
               const areaLabel = getAreaLabel(t.table_type);
               const subtitle = areaLabel ? ` · ${areaLabel}` : '';
               const isSelected = selectedTableId === t.id;
+              const isOccupied = occupiedTableIds.has(t.id);
               return (
-                <TouchableOpacity key={t.id} style={[styles.chip, isSelected && styles.chipActive]} onPress={() => onSelectTable(t.id)}>
-                  <Text style={[styles.chipText, isSelected && styles.chipTextActive]} numberOfLines={1}>
-                    Masa {t.table_number}{subtitle}
+                <TouchableOpacity
+                  key={t.id}
+                  style={[styles.chip, isSelected && styles.chipActive, isOccupied && styles.chipOccupied]}
+                  onPress={() => !isOccupied && onSelectTable(t.id)}
+                  disabled={isOccupied}
+                >
+                  <Text style={[styles.chipText, isSelected && styles.chipTextActive, isOccupied && styles.chipTextOccupied]} numberOfLines={1}>
+                    Masa {t.table_number}{subtitle}{isOccupied ? ' · Meşgul' : ''}
                   </Text>
                 </TouchableOpacity>
               );
@@ -167,6 +181,7 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
   const [hours, setHours] = useState<HourRow[]>([]);
   const [closures, setClosures] = useState<ClosureRow[]>([]);
   const [tables, setTables] = useState<TableRow[]>([]);
+  const [occupiedTableIds, setOccupiedTableIds] = useState<Set<string>>(new Set());
   const [tablesError, setTablesError] = useState<string | null>(null);
   const [tablesLoadAttempted, setTablesLoadAttempted] = useState(false);
   const [loadingServices, setLoadingServices] = useState(true);
@@ -290,30 +305,45 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
     setTablesLoadAttempted(true);
     setLoadingTables(true);
     setTablesError(null);
-    // Masaları doğrudan tables tablosundan alıyoruz (RPC mobilde bazen boş dönüyor).
-    // RLS: "Anyone can view tables of active businesses" policy gerekli (rls-services-tables-public-read.sql).
-    const { data, error: listError } = await supabase
+    // 1) Tüm masaları göster (her masa listede/haritada görünsün).
+    const { data: tablesData, error: listError } = await supabase
       .from('tables')
       .select('id, table_number, capacity, table_type, position_x, position_y')
       .eq('business_id', businessId)
       .eq('is_active', true)
       .order('table_number');
-    setLoadingTables(false);
     if (listError) {
+      setLoadingTables(false);
       setTables([]);
+      setOccupiedTableIds(new Set());
       setTablesError(
         'Masa listesi alınamadı: ' + listError.message + '. Supabase\'de "Anyone can view tables of active businesses" (rls-services-tables-public-read.sql) çalıştırıldı mı?'
       );
       return;
     }
-    const list = (data ?? []) as TableRow[];
+    const list = (tablesData ?? []) as TableRow[];
     setTables(list);
-    setTableId(null);
     if (list.length === 0) {
+      setLoadingTables(false);
+      setOccupiedTableIds(new Set());
+      setTableId(null);
       setTablesError('Bu işletmede henüz masa tanımlanmamış. Admin panel > Masalar bölümünden bu işletme için masa ekleyin.');
-    } else {
-      setTablesError(null);
+      return;
     }
+    setTablesError(null);
+    // 2) Bu tarih/saat için müsait masaları RPC ile al; dolu olanları "Meşgul" göstereceğiz.
+    const timeParam = reservationTime.length === 5 ? `${reservationTime}:00` : reservationTime;
+    const { data: availableRows } = await supabase.rpc('get_available_tables', {
+      p_business_id: businessId,
+      p_date: reservationDate,
+      p_time: timeParam,
+      p_duration_minutes: durationMinutes,
+    });
+    const availableIds = new Set((availableRows ?? []).map((r: { id: string }) => r.id));
+    const occupied = new Set(list.map((t) => t.id).filter((id) => !availableIds.has(id)));
+    setOccupiedTableIds(occupied);
+    setTableId((prev) => (prev && occupied.has(prev) ? null : prev));
+    setLoadingTables(false);
   };
 
   const handleSubmit = async () => {
@@ -459,7 +489,7 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
           {tables.length > 0 ? (
             <>
               <Text style={styles.label}>Masa / Alan (opsiyonel)</Text>
-              <Text style={styles.hint}>Deniz kenarı, VIP, teras vb. alan tipleri işletmenin tanımladığı şekilde gösterilir.</Text>
+              <Text style={styles.hint}>Deniz kenarı, VIP, teras vb. alan tipleri işletmenin tanımladığı şekilde gösterilir. Seçtiğiniz tarih ve saatte dolu olan masalar &quot;Meşgul&quot; olarak görünür ve seçilemez.</Text>
               <View style={styles.chipRow}>
                 <TouchableOpacity style={[styles.chip, tableId === null && styles.chipActive]} onPress={() => setTableId(null)}>
                   <Text style={[styles.chipText, tableId === null && styles.chipTextActive]}>Seçmeyeyim</Text>
@@ -482,10 +512,16 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
                   {tables.map((t) => {
                     const areaLabel = getAreaLabel(t.table_type);
                     const subtitle = areaLabel ? ` · ${areaLabel}` : '';
+                    const isOccupied = occupiedTableIds.has(t.id);
                     return (
-                      <TouchableOpacity key={t.id} style={[styles.chip, tableId === t.id && styles.chipActive]} onPress={() => setTableId(t.id)}>
-                        <Text style={[styles.chipText, tableId === t.id && styles.chipTextActive]} numberOfLines={1}>
-                          Masa {t.table_number}{subtitle} ({t.capacity} kişi)
+                      <TouchableOpacity
+                        key={t.id}
+                        style={[styles.chip, tableId === t.id && styles.chipActive, isOccupied && styles.chipOccupied]}
+                        onPress={() => !isOccupied && setTableId(t.id)}
+                        disabled={isOccupied}
+                      >
+                        <Text style={[styles.chipText, tableId === t.id && styles.chipTextActive, isOccupied && styles.chipTextOccupied]} numberOfLines={1}>
+                          Masa {t.table_number}{subtitle} ({t.capacity} kişi){isOccupied ? ' · Meşgul' : ''}
                         </Text>
                       </TouchableOpacity>
                     );
@@ -497,6 +533,7 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
                   selectedTableId={tableId}
                   onSelectTable={setTableId}
                   getAreaLabel={getAreaLabel}
+                  occupiedTableIds={occupiedTableIds}
                 />
               )}
             </>
@@ -574,8 +611,10 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   chip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20, backgroundColor: '#f1f5f9' },
   chipActive: { backgroundColor: '#15803d' },
+  chipOccupied: { backgroundColor: '#e5e7eb', borderColor: '#d1d5db' },
   chipText: { fontSize: 14, color: '#64748b' },
   chipTextActive: { color: '#fff', fontWeight: '600' },
+  chipTextOccupied: { color: '#6b7280' },
   dateScroll: { marginHorizontal: -16, paddingHorizontal: 16, marginTop: 4 },
   chipRowScroll: { flexDirection: 'row', paddingBottom: 4 },
   dateChip: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, backgroundColor: '#f1f5f9', marginRight: 8, minWidth: 80, alignItems: 'center' },

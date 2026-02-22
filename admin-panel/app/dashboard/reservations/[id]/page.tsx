@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 
+type PaymentMethod = { id: string; name: string };
 type ReservationDetail = {
   id: string;
   business_id: string;
@@ -18,11 +19,14 @@ type ReservationDetail = {
   customer_phone: string | null;
   customer_email: string | null;
   special_requests: string | null;
+  amount: number | null;
+  payment_method_id: string | null;
   created_at: string;
   updated_at: string | null;
   confirmed_at: string | null;
   cancelled_at: string | null;
   businesses: { name: string } | null;
+  payment_methods: PaymentMethod | null;
 };
 
 const DURATION_DISPLAY_LABELS: Record<string, string> = {
@@ -60,52 +64,73 @@ export default function ReservationDetailPage() {
   const params = useParams();
   const id = params?.id as string;
   const [reservation, setReservation] = useState<ReservationDetail | null>(null);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [amountInput, setAmountInput] = useState<string>('');
+  const [paymentMethodIdInput, setPaymentMethodIdInput] = useState<string>('');
+  const [savingRevenue, setSavingRevenue] = useState(false);
+  const [revenueMessage, setRevenueMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [revenueSectionAvailable, setRevenueSectionAvailable] = useState(true);
 
   useEffect(() => {
     if (!id) return;
-    const supabase = createClient();
+    let cancelled = false;
     async function load() {
       setLoading(true);
       setError(null);
-      const { data, error: err } = await supabase
-        .from('reservations')
-        .select(`
-          id,
-          business_id,
-          reservation_date,
-          reservation_time,
-          duration_minutes,
-          duration_display,
-          party_size,
-          status,
-          customer_name,
-          customer_phone,
-          customer_email,
-          special_requests,
-          created_at,
-          updated_at,
-          confirmed_at,
-          cancelled_at,
-          businesses ( name )
-        `)
-        .eq('id', id)
-        .single();
-      if (err) {
-        setError(err.message);
-        setReservation(null);
-      } else {
-        const raw = data as Record<string, unknown>;
-        const b = raw?.businesses;
-        const businessesNorm: { name: string } | null =
-          Array.isArray(b) && b.length > 0 ? (b[0] as { name: string }) : b && typeof b === 'object' && 'name' in b ? (b as { name: string }) : null;
-        setReservation({ ...raw, businesses: businessesNorm } as ReservationDetail);
+      try {
+        const supabase = createClient();
+        const resSelect = `
+          id, business_id, reservation_date, reservation_time, duration_minutes, duration_display,
+          party_size, status, customer_name, customer_phone, customer_email, special_requests,
+          created_at, updated_at, confirmed_at, cancelled_at, businesses ( name )
+        `;
+        const resSelectWithRevenue = `${resSelect}, amount, payment_method_id, payment_methods ( id, name )`;
+        let resData: Record<string, unknown> | null = null;
+        let resErr: { message: string } | null = null;
+        const res = await supabase.from('reservations').select(resSelectWithRevenue).eq('id', id).single();
+        resData = res.data as Record<string, unknown> | null;
+        resErr = res.error;
+        if (resErr && (resErr.message.includes('payment_methods') || resErr.message.includes('amount'))) {
+          setRevenueSectionAvailable(false);
+          const retry = await supabase.from('reservations').select(resSelect).eq('id', id).single();
+          resData = retry.data as Record<string, unknown> | null;
+          resErr = retry.error;
+        } else if (!resErr) {
+          setRevenueSectionAvailable(true);
+        }
+        let pmData: PaymentMethod[] = [];
+        const pmRes = await supabase.from('payment_methods').select('id, name').order('sort_order').order('name');
+        if (!pmRes.error) pmData = (pmRes.data ?? []) as PaymentMethod[];
+        if (cancelled) return;
+        setPaymentMethods(pmData);
+        if (resErr) {
+          setError(resErr.message);
+          setReservation(null);
+        } else if (resData) {
+          const b = resData.businesses;
+          const businessesNorm: { name: string } | null =
+            Array.isArray(b) && b.length > 0 ? (b[0] as { name: string }) : b && typeof b === 'object' && 'name' in b ? (b as { name: string }) : null;
+          const pm = resData.payment_methods;
+          const pmNorm: PaymentMethod | null =
+            Array.isArray(pm) && pm.length > 0 ? (pm[0] as PaymentMethod) : pm && typeof pm === 'object' && 'name' in pm ? (pm as PaymentMethod) : null;
+          const resObj = { ...resData, businesses: businessesNorm, payment_methods: pmNorm, amount: resData.amount ?? null, payment_method_id: resData.payment_method_id ?? null } as ReservationDetail;
+          setReservation(resObj);
+          setAmountInput(resObj.amount != null ? String(resObj.amount) : '');
+          setPaymentMethodIdInput(resObj.payment_method_id ?? '');
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Veri yüklenemedi.');
+          setReservation(null);
+        }
       }
       setLoading(false);
     }
     load();
+    return () => { cancelled = true; };
   }, [id]);
 
   const updateStatus = async (status: string) => {
@@ -135,6 +160,31 @@ export default function ReservationDetailPage() {
           }
         : null
     );
+  };
+
+  const saveRevenue = async () => {
+    if (!reservation) return;
+    setRevenueMessage(null);
+    setSavingRevenue(true);
+    const supabase = createClient();
+    const amountVal = amountInput.trim() === '' ? null : parseFloat(amountInput.replace(',', '.'));
+    const paymentMethodIdVal = paymentMethodIdInput === '' ? null : paymentMethodIdInput;
+    const payload: { amount: number | null; payment_method_id: string | null; updated_at: string } = {
+      amount: amountVal != null && !Number.isNaN(amountVal) ? amountVal : null,
+      payment_method_id: paymentMethodIdVal,
+      updated_at: new Date().toISOString(),
+    };
+    const { error: err } = await supabase.from('reservations').update(payload).eq('id', id);
+    setSavingRevenue(false);
+    if (err) {
+      setRevenueMessage({ type: 'error', text: err.message });
+      return;
+    }
+    setReservation((prev) =>
+      prev ? { ...prev, amount: payload.amount, payment_method_id: payload.payment_method_id } : null
+    );
+    setRevenueMessage({ type: 'success', text: 'Gelir bilgisi kaydedildi.' });
+    setTimeout(() => setRevenueMessage(null), 4000);
   };
 
   if (loading) {
@@ -233,6 +283,55 @@ export default function ReservationDetailPage() {
               </div>
             )}
           </dl>
+
+          {/* Gelir bilgisi (opsiyonel) - migration sonrası görünür */}
+          {revenueSectionAvailable && (
+          <div className="mt-4 border-t border-zinc-100 pt-4">
+            <h3 className="text-sm font-semibold text-zinc-700 mb-2">Gelir bilgisi</h3>
+            {revenueMessage && (
+              <div
+                className={`mb-2 rounded-lg border px-3 py-2 text-sm ${revenueMessage.type === 'success' ? 'border-green-200 bg-green-50 text-green-800' : 'border-red-200 bg-red-50 text-red-700'}`}
+              >
+                {revenueMessage.type === 'success' ? '✓ ' : '✗ '}{revenueMessage.text}
+              </div>
+            )}
+            <p className="text-xs text-zinc-500 mb-2">Ücret ve ödeme yöntemi opsiyoneldir; gelir tablosunda listelenir.</p>
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Ücret (₺)</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={amountInput}
+                  onChange={(e) => setAmountInput(e.target.value)}
+                  className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm w-28"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Ödeme yöntemi</label>
+                <select
+                  value={paymentMethodIdInput}
+                  onChange={(e) => setPaymentMethodIdInput(e.target.value)}
+                  className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm min-w-[140px]"
+                >
+                  <option value="">Seçin</option>
+                  {paymentMethods.map((pm) => (
+                    <option key={pm.id} value={pm.id}>{pm.name}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="button"
+                onClick={saveRevenue}
+                disabled={savingRevenue}
+                className="rounded-lg bg-green-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
+              >
+                {savingRevenue ? 'Kaydediliyor...' : 'Kaydet'}
+              </button>
+            </div>
+          </div>
+          )}
 
           {/* Aksiyonlar */}
           <div className="mt-4 flex flex-wrap gap-2 border-t border-zinc-100 pt-4">
