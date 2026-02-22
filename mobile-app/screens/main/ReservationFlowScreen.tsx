@@ -10,12 +10,121 @@ import {
   KeyboardAvoidingView,
   Platform,
   TextInput,
+  Dimensions,
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 
 type Service = { id: string; name: string; duration_minutes: number; duration_display: string | null; price: number | null };
-type TableRow = { id: string; table_number: string; capacity: number };
+type TableRow = { id: string; table_number: string; capacity: number; table_type: string | null; position_x: number | null; position_y: number | null };
+
+const AREA_TYPE_LABELS: Record<string, string> = {
+  indoor: 'İç Mekân',
+  outdoor: 'Dış Mekân',
+  terrace: 'Teras',
+  seaside: 'Deniz Kenarı',
+  vip: 'VIP',
+  bar: 'Bar',
+};
+const AREA_TYPE_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+  indoor: { bg: '#f0fdf4', border: '#22c55e', text: '#166534' },
+  outdoor: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
+  terrace: { bg: '#e0e7ff', border: '#6366f1', text: '#3730a3' },
+  seaside: { bg: '#e0f2fe', border: '#0ea5e9', text: '#0369a1' },
+  vip: { bg: '#fce7f3', border: '#ec4899', text: '#9d174d' },
+  bar: { bg: '#f3e8ff', border: '#a855f7', text: '#6b21a8' },
+};
+function getAreaLabel(tableType: string | null): string {
+  if (!tableType) return '';
+  return AREA_TYPE_LABELS[tableType] ?? tableType;
+}
+function getTableStyle(tableType: string | null) {
+  const key = tableType && AREA_TYPE_COLORS[tableType] ? tableType : 'indoor';
+  return AREA_TYPE_COLORS[key] ?? AREA_TYPE_COLORS.indoor;
+}
+
+const PLAN_CANVAS_W = 1000;
+const PLAN_CANVAS_H = 700;
+const PLAN_TABLE_W = 72;
+const PLAN_TABLE_H = 56;
+const MAP_TABLE_MIN_W = 64;
+const MAP_TABLE_MIN_H = 52;
+const MAP_HEIGHT = 380;
+
+type TableMapViewProps = {
+  tables: TableRow[];
+  selectedTableId: string | null;
+  onSelectTable: (id: string | null) => void;
+  getAreaLabel: (tableType: string | null) => string;
+};
+
+function TableMapView({ tables, selectedTableId, onSelectTable, getAreaLabel }: TableMapViewProps) {
+  const screenWidth = Dimensions.get('window').width - 32;
+  const scaleX = screenWidth / PLAN_CANVAS_W;
+  const scaleY = MAP_HEIGHT / PLAN_CANVAS_H;
+  const tablesWithPosition = tables.filter((t) => t.position_x != null && t.position_y != null);
+  const tablesWithoutPosition = tables.filter((t) => t.position_x == null || t.position_y == null);
+
+  return (
+    <View style={styles.mapContainer}>
+      <View style={[styles.mapCanvas, { width: screenWidth, height: MAP_HEIGHT }]}>
+        {tablesWithPosition.map((t) => {
+          const x = (t.position_x ?? 0) * scaleX;
+          const y = (t.position_y ?? 0) * scaleY;
+          const w = Math.max(MAP_TABLE_MIN_W, PLAN_TABLE_W * scaleX);
+          const h = Math.max(MAP_TABLE_MIN_H, PLAN_TABLE_H * scaleY);
+          const isSelected = selectedTableId === t.id;
+          const areaLabel = getAreaLabel(t.table_type);
+          const style = getTableStyle(t.table_type);
+          return (
+            <TouchableOpacity
+              key={t.id}
+              style={[
+                styles.mapTable,
+                {
+                  position: 'absolute',
+                  left: x,
+                  top: y,
+                  width: w,
+                  height: h,
+                  backgroundColor: isSelected ? '#15803d' : style.bg,
+                  borderColor: isSelected ? '#0f766e' : style.border,
+                  borderWidth: isSelected ? 3 : 2,
+                },
+              ]}
+              onPress={() => onSelectTable(t.id)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.mapTableNum, { color: isSelected ? '#fff' : style.text }]} numberOfLines={1}>{t.table_number}</Text>
+              <Text style={[styles.mapTableCapacity, { color: isSelected ? '#fff' : style.text }]}>{t.capacity} kişi</Text>
+              {areaLabel ? <Text style={[styles.mapTableType, { color: isSelected ? '#fff' : style.text }]} numberOfLines={1}>{areaLabel}</Text> : null}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      {tablesWithoutPosition.length > 0 ? (
+        <View style={styles.mapFallback}>
+          <Text style={styles.mapFallbackLabel}>Konumu tanımlanmamış masalar:</Text>
+          <View style={styles.chipRow}>
+            {tablesWithoutPosition.map((t) => {
+              const areaLabel = getAreaLabel(t.table_type);
+              const subtitle = areaLabel ? ` · ${areaLabel}` : '';
+              const isSelected = selectedTableId === t.id;
+              return (
+                <TouchableOpacity key={t.id} style={[styles.chip, isSelected && styles.chipActive]} onPress={() => onSelectTable(t.id)}>
+                  <Text style={[styles.chipText, isSelected && styles.chipTextActive]} numberOfLines={1}>
+                    Masa {t.table_number}{subtitle}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 type HourRow = { day_of_week: number; open_time: string | null; close_time: string | null; is_closed: boolean };
 type ClosureRow = { closure_date: string };
 
@@ -71,8 +180,12 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
   const [reservationTime, setReservationTime] = useState('');
   const [durationMinutes, setDurationMinutes] = useState(120);
   const [tableId, setTableId] = useState<string | null>(null);
+  const [tableViewMode, setTableViewMode] = useState<'list' | 'map'>('list');
   const [partySize, setPartySize] = useState(2);
   const [specialRequests, setSpecialRequests] = useState('');
+
+  const selectedTable = tableId ? (tables.find((t) => t.id === tableId) || null) : null;
+  const capacityExceeded = selectedTable !== null && selectedTable !== undefined && partySize > selectedTable.capacity;
 
   const availableDates = useMemo(() => {
     const out: { date: string; label: string; dayOfWeek: number }[] = [];
@@ -159,6 +272,12 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
     }
   }, [availableTimes, reservationDate]);
 
+  useEffect(() => {
+    if (!tableId || tables.length === 0) return;
+    const t = tables.find((x) => x.id === tableId);
+    if (t && partySize > t.capacity) setPartySize(t.capacity);
+  }, [tableId, tables]);
+
   const loadAvailableTables = async () => {
     if (!supabase || !businessId || !reservationDate || !reservationTime) return;
     setTablesLoadAttempted(true);
@@ -168,7 +287,7 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
     // RLS: "Anyone can view tables of active businesses" policy gerekli (rls-services-tables-public-read.sql).
     const { data, error: listError } = await supabase
       .from('tables')
-      .select('id, table_number, capacity')
+      .select('id, table_number, capacity, table_type, position_x, position_y')
       .eq('business_id', businessId)
       .eq('is_active', true)
       .order('table_number');
@@ -197,6 +316,10 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
     }
     if (!reservationDate || !reservationTime) {
       Alert.alert('Hata', 'Tarih ve saat seçin.');
+      return;
+    }
+    if (selectedTable && partySize > selectedTable.capacity) {
+      Alert.alert('Hata', `Seçilen masa ${selectedTable.capacity} kişiliktir. Kişi sayısını azaltın veya masa seçimini kaldırın.`);
       return;
     }
     setError(null);
@@ -324,22 +447,56 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
 
           {tables.length > 0 ? (
             <>
-              <Text style={styles.label}>Masa (opsiyonel)</Text>
-              <Text style={styles.hint}>İşletmenin masaları listeleniyor.</Text>
+              <Text style={styles.label}>Masa / Alan (opsiyonel)</Text>
+              <Text style={styles.hint}>Deniz kenarı, VIP, teras vb. alan tipleri işletmenin tanımladığı şekilde gösterilir.</Text>
               <View style={styles.chipRow}>
                 <TouchableOpacity style={[styles.chip, tableId === null && styles.chipActive]} onPress={() => setTableId(null)}>
                   <Text style={[styles.chipText, tableId === null && styles.chipTextActive]}>Seçmeyeyim</Text>
                 </TouchableOpacity>
-                {tables.map((t) => (
-                  <TouchableOpacity key={t.id} style={[styles.chip, tableId === t.id && styles.chipActive]} onPress={() => setTableId(t.id)}>
-                    <Text style={[styles.chipText, tableId === t.id && styles.chipTextActive]}>Masa {t.table_number}</Text>
-                  </TouchableOpacity>
-                ))}
+                <TouchableOpacity
+                  style={[styles.chip, tableViewMode === 'list' && styles.chipActive]}
+                  onPress={() => setTableViewMode('list')}
+                >
+                  <Text style={[styles.chipText, tableViewMode === 'list' && styles.chipTextActive]}>Liste</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.chip, tableViewMode === 'map' && styles.chipActive]}
+                  onPress={() => setTableViewMode('map')}
+                >
+                  <Text style={[styles.chipText, tableViewMode === 'map' && styles.chipTextActive]}>Harita</Text>
+                </TouchableOpacity>
               </View>
+              {tableViewMode === 'list' ? (
+                <View style={styles.chipRow}>
+                  {tables.map((t) => {
+                    const areaLabel = getAreaLabel(t.table_type);
+                    const subtitle = areaLabel ? ` · ${areaLabel}` : '';
+                    return (
+                      <TouchableOpacity key={t.id} style={[styles.chip, tableId === t.id && styles.chipActive]} onPress={() => setTableId(t.id)}>
+                        <Text style={[styles.chipText, tableId === t.id && styles.chipTextActive]} numberOfLines={1}>
+                          Masa {t.table_number}{subtitle} ({t.capacity} kişi)
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ) : (
+                <TableMapView
+                  tables={tables}
+                  selectedTableId={tableId}
+                  onSelectTable={setTableId}
+                  getAreaLabel={getAreaLabel}
+                />
+              )}
             </>
           ) : null}
 
           <Text style={styles.label}>Kişi sayısı</Text>
+          {capacityExceeded ? (
+            <Text style={styles.capacityError}>
+              Seçilen masa {selectedTable?.capacity} kişiliktir. Kişi sayısını azaltın veya &quot;Seçmeyeyim&quot; ile masa seçimini kaldırın.
+            </Text>
+          ) : null}
           <View style={styles.chipRow}>
             {[1, 2, 3, 4, 5, 6].map((n) => (
               <TouchableOpacity
@@ -364,9 +521,9 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
           />
 
           <TouchableOpacity
-            style={[styles.submitButton, saving && styles.submitDisabled]}
+            style={[styles.submitButton, (saving || capacityExceeded) && styles.submitDisabled]}
             onPress={handleSubmit}
-            disabled={saving || !reservationDate || !reservationTime}
+            disabled={saving || !reservationDate || !reservationTime || capacityExceeded}
           >
             {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitButtonText}>Rezervasyonu oluştur</Text>}
           </TouchableOpacity>
@@ -420,6 +577,27 @@ const styles = StyleSheet.create({
   submitDisabled: { opacity: 0.7 },
   submitButtonText: { fontSize: 16, fontWeight: '600', color: '#fff' },
   errorText: { fontSize: 14, color: '#dc2626', marginBottom: 8 },
+  mapContainer: { marginTop: 8 },
+  mapCanvas: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  mapTable: {
+    borderRadius: 10,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 2,
+  },
+  mapTableNum: { fontSize: 14, fontWeight: '700' },
+  mapTableCapacity: { fontSize: 11, marginTop: 2 },
+  mapTableType: { fontSize: 10, marginTop: 2 },
+  mapFallback: { marginTop: 12 },
+  mapFallbackLabel: { fontSize: 12, color: '#64748b', marginBottom: 6 },
+  capacityError: { fontSize: 13, color: '#dc2626', marginTop: 4, marginBottom: 4 },
   specialInput: {
     borderWidth: 1,
     borderColor: '#e2e8f0',

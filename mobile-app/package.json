@@ -5,6 +5,7 @@
   "scripts": {
     "start": "expo start",
     "start:lan": "expo start --lan",
+    "start:lan:clear": "expo start --lan --clear",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web"
@@ -15,7 +16,7 @@
     "@react-navigation/native": "^7.1.28",
     "@react-navigation/stack": "^7.7.2",
     "@supabase/supabase-js": "^2.97.0",
-    "expo": "~54.0.33",
+    "expo": "^54.0.33",
     "expo-constants": "~18.0.13",
     "expo-location": "^19.0.8",
     "expo-status-bar": "~3.0.9",
