@@ -107,16 +107,16 @@ function ReservationsContent() {
         if (cancelled) return;
         if (err) {
           setShowRevenueColumns(false);
-          query = supabase
+          let queryFallback = supabase
             .from('reservations')
             .select(baseSelect)
             .in('business_id', businessIds)
             .order('reservation_date', { ascending: false })
             .order('reservation_time', { ascending: false });
-          if (filterStatus !== 'all') query = query.eq('status', filterStatus);
-          if (filterDateFrom) query = query.gte('reservation_date', filterDateFrom);
-          if (filterDateTo) query = query.lte('reservation_date', filterDateTo);
-          const res2 = await query;
+          if (filterStatus !== 'all') queryFallback = queryFallback.eq('status', filterStatus);
+          if (filterDateFrom) queryFallback = queryFallback.gte('reservation_date', filterDateFrom);
+          if (filterDateTo) queryFallback = queryFallback.lte('reservation_date', filterDateTo);
+          const res2 = await queryFallback;
           if (cancelled) return;
           if (res2.error) {
             setError(res2.error.message);

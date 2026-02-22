@@ -1,5 +1,39 @@
 # Mobil uygulamayı başlatma
 
+## ConfigError: "The expected package.json path ... does not exist"
+
+Expo **mutlaka `mobile-app` klasörü içinden** çalıştırılmalı. Proje kökünde (Rezervasyon Uygulaması) değil.
+
+**Doğru yöntem:**
+
+1. Terminali açın ve **önce** `mobile-app` klasörüne girin:
+   ```bash
+   cd "/Users/furkanaydemir/Documents/Furkan/Rezervasyon Uygulaması/mobile-app"
+   ```
+2. Sonra Expo'yu başlatın:
+   ```bash
+   npm start
+   ```
+   veya ağ üzerinden (telefonda test için):
+   ```bash
+   npm run start:lan
+   ```
+
+**Proje kökünden başlatmak isterseniz** (yine `mobile-app` çalışır):
+```bash
+cd "/Users/furkanaydemir/Documents/Furkan/Rezervasyon Uygulaması"
+npm run mobile
+```
+veya `npm start` (kök package.json’daki `start` script’i mobil uygulamayı açar).
+
+---
+
+## "Port 8081 is running" / "Skipping dev server" hatası
+
+Expo başka bir pencerede çalışıyorsa veya 8081 meşgulse: `npm run start:port` veya `npm run start:lan:port` (port 8083) kullanın.
+
+---
+
 ## "Cannot determine Expo SDK version / expo is not installed" hatası
 
 Aşağıdakileri **sırayla** uygulayın (terminali her seferinde `mobile-app` klasöründe açın).

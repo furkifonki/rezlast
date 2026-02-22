@@ -102,7 +102,15 @@ export default function GelirPage() {
             : err.message);
           setRows([]);
         } else {
-          setRows((data ?? []) as Row[]);
+          const raw = (data ?? []) as Array<Record<string, unknown>>;
+          const normalized: Row[] = raw.map((r) => {
+            const b = r.businesses;
+            const business: Business | null = Array.isArray(b) && b.length > 0 ? (b[0] as Business) : (b && typeof b === 'object' && 'name' in b ? (b as Business) : null);
+            const pm = r.payment_methods;
+            const paymentMethod: PaymentMethod | null = Array.isArray(pm) && pm.length > 0 ? (pm[0] as PaymentMethod) : (pm && typeof pm === 'object' && 'name' in pm ? (pm as PaymentMethod) : null);
+            return { ...r, businesses: business, payment_methods: paymentMethod } as Row;
+          });
+          setRows(normalized);
         }
       } catch (e) {
         if (!cancelled) {

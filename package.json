@@ -1,0 +1,13 @@
+{
+  "name": "rezervasyon-uygulamasi",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Rezervasyon uygulaması - Admin panel + Mobil app",
+  "scripts": {
+    "start": "cd mobile-app && npm start",
+    "admin": "cd admin-panel && npm run dev",
+    "admin:build": "cd admin-panel && npm run build",
+    "mobile": "cd mobile-app && npm start",
+    "mobile:lan": "cd mobile-app && npm run start:lan"
+  }
+}
