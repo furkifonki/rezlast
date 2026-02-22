@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Image,
   Modal,
+  ScrollView,
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -41,7 +42,11 @@ function getBusinessFromSponsored(item: SponsoredItem): Business | null {
   return Array.isArray(b) ? b[0] ?? null : b;
 }
 
-export default function ExploreScreen() {
+type ExploreScreenProps = {
+  popToRootRef?: React.MutableRefObject<(() => void) | null>;
+};
+
+export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
   const { session } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -57,6 +62,19 @@ export default function ExploreScreen() {
   const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
   const [reservationBusinessId, setReservationBusinessId] = useState<string | null>(null);
   const [reservationBusinessName, setReservationBusinessName] = useState<string>('');
+
+  useEffect(() => {
+    if (!popToRootRef) return;
+    popToRootRef.current = () => {
+      setSelectedBusinessId(null);
+      setReservationBusinessId(null);
+      setReservationBusinessName('');
+      setShowAllFeatured(false);
+    };
+    return () => {
+      popToRootRef.current = null;
+    };
+  }, [popToRootRef]);
 
   const loadFavorites = useCallback(async () => {
     if (!supabase || !session?.user?.id) {
@@ -304,26 +322,36 @@ export default function ExploreScreen() {
           <Text style={styles.featuredErrorText}>Öne çıkanlar yüklenemedi</Text>
         </View>
       ) : null}
-      <View style={styles.categoryRow}>
-        <TouchableOpacity
-          style={[styles.categoryChip, selectedCategoryId === null && styles.categoryChipActive]}
-          onPress={() => setSelectedCategoryId(null)}
+      <View style={styles.filterSection}>
+        <Text style={styles.filterLabel}>Kategori</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScroll}
+          style={styles.filterScrollView}
         >
-          <Text style={[styles.categoryChipText, selectedCategoryId === null && styles.categoryChipTextActive]}>
-            Tümü
-          </Text>
-        </TouchableOpacity>
-        {categories.map((c) => (
           <TouchableOpacity
-            key={c.id}
-            style={[styles.categoryChip, selectedCategoryId === c.id && styles.categoryChipActive]}
-            onPress={() => setSelectedCategoryId(c.id)}
+            style={[styles.filterChip, selectedCategoryId === null && styles.filterChipActive]}
+            onPress={() => setSelectedCategoryId(null)}
+            activeOpacity={0.8}
           >
-            <Text style={[styles.categoryChipText, selectedCategoryId === c.id && styles.categoryChipTextActive]}>
-              {c.name}
+            <Text style={[styles.filterChipText, selectedCategoryId === null && styles.filterChipTextActive]}>
+              Tümü
             </Text>
           </TouchableOpacity>
-        ))}
+          {categories.map((c) => (
+            <TouchableOpacity
+              key={c.id}
+              style={[styles.filterChip, selectedCategoryId === c.id && styles.filterChipActive]}
+              onPress={() => setSelectedCategoryId(c.id)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.filterChipText, selectedCategoryId === c.id && styles.filterChipTextActive]}>
+                {c.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
       {error ? (
@@ -386,30 +414,55 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8fafc',
   },
-  categoryRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 8,
+  filterSection: {
     backgroundColor: '#fff',
+    paddingVertical: 14,
+    paddingLeft: 16,
+    paddingRight: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
-  categoryChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f1f5f9',
+  filterLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 10,
+    paddingLeft: 4,
   },
-  categoryChipActive: {
+  filterScrollView: { marginHorizontal: -16 },
+  filterScroll: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingLeft: 12,
+    paddingRight: 16,
+  },
+  filterChip: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 24,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  filterChipActive: {
     backgroundColor: '#15803d',
+    borderColor: '#15803d',
+    shadowColor: '#15803d',
+    shadowOpacity: 0.2,
   },
-  categoryChipText: {
+  filterChipText: {
     fontSize: 14,
     color: '#64748b',
+    fontWeight: '500',
   },
-  categoryChipTextActive: {
+  filterChipTextActive: {
     color: '#fff',
     fontWeight: '600',
   },

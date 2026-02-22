@@ -31,7 +31,11 @@ type FavoriteRow = {
   businesses: Business | null;
 };
 
-export default function FavoritesScreen() {
+type FavoritesScreenProps = {
+  popToRootRef?: React.MutableRefObject<(() => void) | null>;
+};
+
+export default function FavoritesScreen({ popToRootRef }: FavoritesScreenProps) {
   const { session } = useAuth();
   const [list, setList] = useState<FavoriteRow[]>([]);
   const [photoMap, setPhotoMap] = useState<Record<string, string>>({});
@@ -41,6 +45,18 @@ export default function FavoritesScreen() {
   const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
   const [reservationBusinessId, setReservationBusinessId] = useState<string | null>(null);
   const [reservationBusinessName, setReservationBusinessName] = useState<string>('');
+
+  useEffect(() => {
+    if (!popToRootRef) return;
+    popToRootRef.current = () => {
+      setSelectedBusinessId(null);
+      setReservationBusinessId(null);
+      setReservationBusinessName('');
+    };
+    return () => {
+      popToRootRef.current = null;
+    };
+  }, [popToRootRef]);
 
   const loadFavorites = useCallback(async () => {
     if (!supabase || !session?.user?.id) {

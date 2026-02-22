@@ -178,8 +178,8 @@ export default function ReservationDetailScreen({ reservationId, onBack, onUpdat
     return (
       <View style={styles.centered}>
         <Text style={styles.errorText}>{error ?? 'Rezervasyon bulunamadı.'}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={onBack}>
-          <Text style={styles.retryButtonText}>← Listeye dön</Text>
+        <TouchableOpacity style={styles.backBtnRound} onPress={onBack} activeOpacity={0.7}>
+          <Text style={styles.backBtnIcon}>←</Text>
         </TouchableOpacity>
       </View>
     );
@@ -189,9 +189,12 @@ export default function ReservationDetailScreen({ reservationId, onBack, onUpdat
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <TouchableOpacity onPress={onBack} style={styles.backRow}>
-        <Text style={styles.backText}>← Rezervasyonlarım</Text>
-      </TouchableOpacity>
+      <View style={styles.headerRow}>
+        <TouchableOpacity onPress={onBack} style={styles.backBtnRound} activeOpacity={0.7}>
+          <Text style={styles.backBtnIcon}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Rezervasyon detayı</Text>
+      </View>
 
       <View style={[styles.statusBadge, { backgroundColor: `${STATUS_COLOR[reservation.status] ?? '#64748b'}20` }]}>
         <Text style={[styles.statusText, { color: STATUS_COLOR[reservation.status] ?? '#64748b' }]}>
@@ -274,8 +277,22 @@ export default function ReservationDetailScreen({ reservationId, onBack, onUpdat
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
   content: { padding: 16, paddingBottom: 32 },
-  backRow: { marginBottom: 12 },
-  backText: { fontSize: 15, color: '#15803d', fontWeight: '600' },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  backBtnRound: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  backBtnIcon: { fontSize: 22, color: '#15803d', fontWeight: '600' },
+  headerTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: '#0f172a' },
   statusBadge: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, marginBottom: 16 },
   statusText: { fontSize: 14, fontWeight: '600' },
   card: {
@@ -314,6 +331,4 @@ const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   loadingText: { marginTop: 12, fontSize: 14, color: '#64748b' },
   errorText: { fontSize: 14, color: '#dc2626', marginBottom: 12 },
-  retryButton: { paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, backgroundColor: '#15803d' },
-  retryButtonText: { fontSize: 14, fontWeight: '600', color: '#fff' },
 });

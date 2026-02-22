@@ -394,11 +394,13 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-          <Text style={styles.backBtnText}>← Geri</Text>
+        <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
+          <Text style={styles.backBtnIcon}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Rezervasyon</Text>
-        {businessName ? <Text style={styles.headerSubtitle} numberOfLines={1}>{businessName}</Text> : null}
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>Rezervasyon</Text>
+          {businessName ? <Text style={styles.headerSubtitle} numberOfLines={1}>{businessName}</Text> : null}
+        </View>
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
@@ -411,7 +413,7 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
           ) : (
             <View style={styles.chipRow}>
               <TouchableOpacity style={[styles.chip, serviceId === null && styles.chipActive]} onPress={() => setServiceId(null)}>
-                <Text style={[styles.chipText, serviceId === null && styles.chipTextActive]}>Yok</Text>
+                <Text style={[styles.chipText, serviceId === null && styles.chipTextActive]}>Belirtmeyeyim</Text>
               </TouchableOpacity>
               {services.map((s) => (
                 <TouchableOpacity
@@ -479,7 +481,7 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
               <Text style={styles.hint}>Deniz kenarı, VIP, teras vb. alan tipleri işletmenin tanımladığı şekilde gösterilir. Seçtiğiniz tarih ve saatte dolu olan masalar &quot;Meşgul&quot; olarak görünür ve seçilemez.</Text>
               <View style={styles.chipRow}>
                 <TouchableOpacity style={[styles.chip, tableId === null && styles.chipActive]} onPress={() => setTableId(null)}>
-                  <Text style={[styles.chipText, tableId === null && styles.chipTextActive]}>Seçmeyeyim</Text>
+                  <Text style={[styles.chipText, tableId === null && styles.chipTextActive]}>İşletme belirlesin</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.chip, tableViewMode === 'list' && styles.chipActive]}
@@ -582,15 +584,26 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
   flex: { flex: 1 },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#fff',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
-  backBtn: { alignSelf: 'flex-start', paddingVertical: 8, paddingRight: 16 },
-  backBtnText: { fontSize: 16, color: '#15803d', fontWeight: '600' },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: '#0f172a', marginTop: 4 },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  backBtnIcon: { fontSize: 22, color: '#15803d', fontWeight: '600' },
+  headerCenter: { flex: 1, justifyContent: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
   headerSubtitle: { fontSize: 13, color: '#64748b', marginTop: 2 },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 32 },

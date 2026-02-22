@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ExploreScreen from '../screens/main/ExploreScreen';
@@ -18,6 +18,19 @@ const TABS: { key: TabName; label: string }[] = [
 export function TabContainer() {
   const [tab, setTab] = useState<TabName>('Explore');
   const insets = useSafeAreaInsets();
+  const explorePopToRoot = useRef<(() => void) | null>(null);
+  const favoritesPopToRoot = useRef<(() => void) | null>(null);
+  const reservationsPopToRoot = useRef<(() => void) | null>(null);
+
+  const handleTabPress = (key: TabName) => {
+    if (key === tab) {
+      if (key === 'Explore') explorePopToRoot.current?.();
+      else if (key === 'Favorites') favoritesPopToRoot.current?.();
+      else if (key === 'Reservations') reservationsPopToRoot.current?.();
+    } else {
+      setTab(key);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -27,9 +40,9 @@ export function TabContainer() {
         </Text>
       </View>
       <View style={styles.content}>
-        {tab === 'Explore' && <ExploreScreen />}
-        {tab === 'Favorites' && <FavoritesScreen />}
-        {tab === 'Reservations' && <ReservationsScreen />}
+        {tab === 'Explore' && <ExploreScreen popToRootRef={explorePopToRoot} />}
+        {tab === 'Favorites' && <FavoritesScreen popToRootRef={favoritesPopToRoot} />}
+        {tab === 'Reservations' && <ReservationsScreen popToRootRef={reservationsPopToRoot} />}
         {tab === 'Profile' && <ProfileScreen />}
       </View>
       <View style={[styles.tabBar, { paddingBottom: insets.bottom + 8 }]}>
@@ -37,7 +50,7 @@ export function TabContainer() {
           <TouchableOpacity
             key={t.key}
             style={[styles.tab, tab === t.key && styles.tabActive]}
-            onPress={() => setTab(t.key)}
+            onPress={() => handleTabPress(t.key)}
             activeOpacity={0.7}
           >
             <Text

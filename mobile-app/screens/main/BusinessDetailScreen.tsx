@@ -186,8 +186,8 @@ export default function BusinessDetailScreen({ businessId, onBack, onReservation
     return (
       <View style={styles.centered}>
         <Text style={styles.errorText}>{error ?? 'İşletme bulunamadı.'}</Text>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backButtonText}>← Geri</Text>
+        <TouchableOpacity style={styles.backButtonRound} onPress={onBack} activeOpacity={0.7}>
+          <Text style={styles.backButtonIcon}>←</Text>
         </TouchableOpacity>
       </View>
     );
@@ -198,9 +198,10 @@ export default function BusinessDetailScreen({ businessId, onBack, onReservation
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Text style={styles.backButtonText}>← Geri</Text>
+        <TouchableOpacity onPress={onBack} style={styles.backButtonRound} activeOpacity={0.7}>
+          <Text style={styles.backButtonIcon}>←</Text>
         </TouchableOpacity>
+        <Text style={styles.headerBackLabel}>Keşfet'e dön</Text>
       </View>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {primaryPhoto?.photo_url ? (
@@ -435,10 +436,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
+  },
+  backButtonRound: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  backButtonIcon: {
+    fontSize: 22,
+    color: '#15803d',
+    fontWeight: '600',
+  },
+  headerBackLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#15803d',
   },
   backButton: {
     paddingVertical: 8,

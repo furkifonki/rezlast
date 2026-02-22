@@ -38,13 +38,25 @@ const STATUS_COLOR: Record<string, string> = {
   no_show: '#dc2626',
 };
 
-export default function ReservationsScreen() {
+type ReservationsScreenProps = {
+  popToRootRef?: React.MutableRefObject<(() => void) | null>;
+};
+
+export default function ReservationsScreen({ popToRootRef }: ReservationsScreenProps) {
   const { session } = useAuth();
   const [list, setList] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedReservationId, setSelectedReservationId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!popToRootRef) return;
+    popToRootRef.current = () => setSelectedReservationId(null);
+    return () => {
+      popToRootRef.current = null;
+    };
+  }, [popToRootRef]);
 
   const load = async () => {
     if (!supabase || !session?.user?.id) {
