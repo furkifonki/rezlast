@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Rezervasyon Admin Panel",
-  description: "İşletme yönetim paneli",
+  title: "Rezvio Admin Panel",
+  description: "Rezvio işletme yönetim paneli",
 };
 
 export default function RootLayout({

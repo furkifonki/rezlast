@@ -10,9 +10,13 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import PointsInfoScreen from './PointsInfoScreen';
+import HizmetlerScreen from './HizmetlerScreen';
+import LegalTextScreen from './LegalTextScreen';
 
 type UserRow = {
   id: string;
@@ -21,6 +25,10 @@ type UserRow = {
   phone: string | null;
   total_points: number;
   loyalty_level: string | null;
+  email_marketing_consent?: boolean;
+  sms_marketing_consent?: boolean;
+  kvkk_accepted_at?: string | null;
+  etk_accepted_at?: string | null;
 };
 type TxRow = { id: string; points: number; transaction_type: string; description: string | null; created_at: string; businesses: { name: string } | null };
 
@@ -39,6 +47,13 @@ export default function ProfileScreen() {
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const [activeSubScreen, setActiveSubScreen] = useState<'points' | 'hizmetler' | 'kvkk' | 'etk' | null>(null);
+  const [emailConsent, setEmailConsent] = useState(false);
+  const [smsConsent, setSmsConsent] = useState(false);
+  const [consentSaving, setConsentSaving] = useState(false);
+  const [openEtkWithAcceptButton, setOpenEtkWithAcceptButton] = useState(false);
+  const [pendingEmailConsent, setPendingEmailConsent] = useState(false);
+  const [pendingSmsConsent, setPendingSmsConsent] = useState(false);
 
   useEffect(() => {
     if (!supabase || !session?.user?.id) {
@@ -50,7 +65,7 @@ export default function ProfileScreen() {
       const [uRes, txRes] = await Promise.all([
         supabase
           .from('users')
-          .select('id, first_name, last_name, phone, total_points, loyalty_level')
+          .select('id, first_name, last_name, phone, total_points, loyalty_level, email_marketing_consent, sms_marketing_consent, kvkk_accepted_at, etk_accepted_at')
           .eq('id', session.user.id)
           .single(),
         supabase
@@ -66,6 +81,8 @@ export default function ProfileScreen() {
         setFirstName(u.first_name ?? '');
         setLastName(u.last_name ?? '');
         setPhone(u.phone ?? '');
+        setEmailConsent(!!u.email_marketing_consent);
+        setSmsConsent(!!u.sms_marketing_consent);
       }
       setTransactions((txRes.data ?? []) as TxRow[]);
       setLoading(false);
@@ -115,12 +132,77 @@ export default function ProfileScreen() {
   const level = user?.loyalty_level ?? 'bronze';
   const levelLabel = { bronze: 'Bronz', silver: 'Gümüş', gold: 'Altın', platinum: 'Platin' }[level] ?? level;
 
+  const etkAcceptedAt = user?.etk_accepted_at ?? null;
+  const kvkkAcceptedAt = user?.kvkk_accepted_at ?? null;
+
+  const saveConsent = async (email: boolean, sms: boolean, setEtkAccepted?: string | null) => {
+    if (!supabase || !session?.user?.id) return;
+    setConsentSaving(true);
+    const payload: Record<string, unknown> = {
+      email_marketing_consent: email,
+      sms_marketing_consent: sms,
+      marketing_consent_at: new Date().toISOString(),
+    };
+    if (setEtkAccepted !== undefined) payload.etk_accepted_at = setEtkAccepted;
+    await supabase.from('users').update(payload).eq('id', session.user.id);
+    setConsentSaving(false);
+    setUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            email_marketing_consent: email,
+            sms_marketing_consent: sms,
+            ...(setEtkAccepted !== undefined && { etk_accepted_at: setEtkAccepted }),
+          }
+        : null
+    );
+  };
+
+  const handleEtkAccept = () => {
+    setEmailConsent(pendingEmailConsent);
+    setSmsConsent(pendingSmsConsent);
+    saveConsent(pendingEmailConsent, pendingSmsConsent, new Date().toISOString());
+    setPendingEmailConsent(false);
+    setPendingSmsConsent(false);
+    setOpenEtkWithAcceptButton(false);
+    setActiveSubScreen(null);
+  };
+
+  if (activeSubScreen === 'points') {
+    return <PointsInfoScreen onBack={() => setActiveSubScreen(null)} />;
+  }
+  if (activeSubScreen === 'hizmetler') {
+    return <HizmetlerScreen onBack={() => setActiveSubScreen(null)} />;
+  }
+  if (activeSubScreen === 'kvkk') {
+    return (
+      <LegalTextScreen
+        legalKey="kvkk"
+        onBack={() => setActiveSubScreen(null)}
+        showAcceptButton={false}
+      />
+    );
+  }
+  if (activeSubScreen === 'etk') {
+    return (
+      <LegalTextScreen
+        legalKey="etk"
+        onBack={() => {
+          setOpenEtkWithAcceptButton(false);
+          setActiveSubScreen(null);
+        }}
+        onAccept={handleEtkAccept}
+        showAcceptButton={openEtkWithAcceptButton && !etkAcceptedAt}
+      />
+    );
+  }
+
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Profil bilgileri</Text>
-          <Text style={styles.hint}>Rezervasyon ve iletişim için ad, soyad ve telefon zorunludur.</Text>
+          <Text style={styles.hint}>Rezvio’da rezervasyon ve iletişim için ad, soyad ve telefon zorunludur.</Text>
           {fieldError ? <Text style={styles.fieldError}>{fieldError}</Text> : null}
           <Text style={styles.label}>Ad *</Text>
           <TextInput
@@ -177,8 +259,91 @@ export default function ProfileScreen() {
               <View style={styles.levelBadge}>
                 <Text style={styles.levelText}>{levelLabel}</Text>
               </View>
+              <TouchableOpacity style={styles.linkRow} onPress={() => setActiveSubScreen('points')}>
+                <Text style={styles.linkText}>Puanlarımı nasıl kullanırım?</Text>
+                <Text style={styles.linkArrow}>→</Text>
+              </TouchableOpacity>
             </>
           )}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Hizmetler</Text>
+          <Text style={styles.hint}>Rezvio ile neler yapabileceğinizi öğrenin.</Text>
+          <TouchableOpacity style={styles.linkRow} onPress={() => setActiveSubScreen('hizmetler')}>
+            <Text style={styles.linkText}>Hizmetler ve özellikler</Text>
+            <Text style={styles.linkArrow}>→</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>KVKK</Text>
+          <View style={styles.kvkkRow}>
+            <TouchableOpacity onPress={() => setActiveSubScreen('kvkk')}>
+              <Text style={styles.legalLinkText}>KVKK Aydınlatma Metni</Text>
+            </TouchableOpacity>
+            <View style={styles.kvkkBadge}>
+              <Text style={styles.kvkkBadgeText}>Kabul edildi</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>İletişim tercihleri (ETK)</Text>
+          <Text style={styles.hint}>Kampanya ve bilgilendirmeler için e-posta/SMS izinleri (isteğe bağlı). Açtığınızda ETK metnini kabul etmeniz gerekir.</Text>
+          <View style={styles.consentRow}>
+            <Text style={styles.consentLabel}>E-posta ile ticari ileti</Text>
+            <Switch
+              value={emailConsent}
+              onValueChange={(v) => {
+                if (v) {
+                  if (etkAcceptedAt) {
+                    saveConsent(true, smsConsent);
+                    setEmailConsent(true);
+                  } else {
+                    setPendingEmailConsent(true);
+                    setPendingSmsConsent(smsConsent);
+                    setOpenEtkWithAcceptButton(true);
+                    setActiveSubScreen('etk');
+                  }
+                } else {
+                  setEmailConsent(false);
+                  saveConsent(false, smsConsent, !smsConsent ? null : undefined);
+                }
+              }}
+              disabled={consentSaving}
+              trackColor={{ false: '#e2e8f0', true: '#86efac' }}
+              thumbColor={emailConsent ? '#15803d' : '#94a3b8'}
+            />
+          </View>
+          <View style={styles.consentRow}>
+            <Text style={styles.consentLabel}>SMS ile ticari ileti</Text>
+            <Switch
+              value={smsConsent}
+              onValueChange={(v) => {
+                if (v) {
+                  if (etkAcceptedAt) {
+                    saveConsent(emailConsent, true);
+                    setSmsConsent(true);
+                  } else {
+                    setPendingEmailConsent(emailConsent);
+                    setPendingSmsConsent(true);
+                    setOpenEtkWithAcceptButton(true);
+                    setActiveSubScreen('etk');
+                  }
+                } else {
+                  setSmsConsent(false);
+                  saveConsent(emailConsent, false, !emailConsent ? null : undefined);
+                }
+              }}
+              disabled={consentSaving}
+              trackColor={{ false: '#e2e8f0', true: '#86efac' }}
+              thumbColor={smsConsent ? '#15803d' : '#94a3b8'}
+            />
+          </View>
+          <TouchableOpacity onPress={() => { setOpenEtkWithAcceptButton(false); setActiveSubScreen('etk'); }} style={{ marginTop: 12 }}>
+            <Text style={styles.legalLinkText}>ETK / İletişim İzinleri metnini oku</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.card}>
@@ -247,6 +412,15 @@ const styles = StyleSheet.create({
   pointsValue: { fontSize: 20, fontWeight: '700', color: '#15803d' },
   levelBadge: { alignSelf: 'flex-start', backgroundColor: '#fef3c7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   levelText: { fontSize: 12, fontWeight: '600', color: '#92400e' },
+  linkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, paddingVertical: 8 },
+  linkText: { fontSize: 15, color: '#15803d', fontWeight: '600' },
+  linkArrow: { fontSize: 16, color: '#15803d' },
+  consentRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 },
+  consentLabel: { fontSize: 15, color: '#0f172a' },
+  kvkkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  kvkkBadge: { backgroundColor: '#dcfce7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  kvkkBadgeText: { fontSize: 12, fontWeight: '600', color: '#15803d' },
+  legalLinkText: { fontSize: 14, color: '#64748b', textDecorationLine: 'underline' },
   emptyText: { fontSize: 14, color: '#64748b', marginBottom: 8 },
   txList: { marginTop: 4 },
   txRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },

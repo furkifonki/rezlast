@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ExploreScreen from '../screens/main/ExploreScreen';
 import FavoritesScreen from '../screens/main/FavoritesScreen';
@@ -35,6 +35,7 @@ export function TabContainer() {
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <Image source={require('../assets/icon.png')} style={styles.headerLogo} resizeMode="contain" />
         <Text style={styles.headerTitle}>
           {TABS.find((t) => t.key === tab)?.label ?? 'Keşfet'}
         </Text>
@@ -74,16 +75,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#fff',
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
+  headerLogo: { width: 32, height: 32, marginRight: 10 },
   headerTitle: {
     fontSize: 20,
     fontWeight: '600',
     color: '#0f172a',
+    flex: 1,
   },
   content: {
     flex: 1,

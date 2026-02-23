@@ -184,6 +184,8 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
   const [occupiedTableIds, setOccupiedTableIds] = useState<Set<string>>(new Set());
   const [tablesError, setTablesError] = useState<string | null>(null);
   const [tablesLoadAttempted, setTablesLoadAttempted] = useState(false);
+  const [availableSlotsForDate, setAvailableSlotsForDate] = useState<string[] | null>(null);
+  const [loadingSlotsForDate, setLoadingSlotsForDate] = useState(false);
   const [loadingServices, setLoadingServices] = useState(true);
   const [loadingSlots, setLoadingSlots] = useState(true);
   const [loadingTables, setLoadingTables] = useState(false);
@@ -194,7 +196,7 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
   const [reservationDate, setReservationDate] = useState('');
   const [reservationTime, setReservationTime] = useState('');
   const [tableId, setTableId] = useState<string | null>(null);
-  const [tableViewMode, setTableViewMode] = useState<'list' | 'map'>('list');
+  const [tableViewMode, setTableViewMode] = useState<'list' | 'map'>('map');
   const [partySize, setPartySize] = useState(2);
   const [specialRequests, setSpecialRequests] = useState('');
 
@@ -283,14 +285,47 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
   useEffect(() => {
     if (!reservationDate) {
       if (reservationTime) setReservationTime('');
+      setAvailableSlotsForDate(null);
       return;
     }
-    if (availableTimes.length > 0) {
-      if (!reservationTime || !availableTimes.includes(reservationTime)) {
-        setReservationTime(availableTimes[0]);
+    let cancelled = false;
+    setLoadingSlotsForDate(true);
+    setAvailableSlotsForDate(null);
+    (async () => {
+      try {
+        const { data: rows } = await supabase.rpc('get_available_slots_for_date', {
+          p_business_id: businessId,
+          p_date: reservationDate,
+          p_duration_minutes: effectiveDuration,
+        });
+        if (cancelled) return;
+        const slots = (rows ?? []).map((r: { slot_time: string }) => {
+          const t = r?.slot_time ?? '';
+          return t.length >= 5 ? t.slice(0, 5) : t;
+        });
+        setAvailableSlotsForDate(slots);
+      } catch {
+        if (!cancelled) setAvailableSlotsForDate([]);
+      } finally {
+        if (!cancelled) setLoadingSlotsForDate(false);
       }
+    })();
+    return () => { cancelled = true; };
+  }, [businessId, reservationDate, effectiveDuration]);
+
+  useEffect(() => {
+    if (!reservationDate) return;
+    const times = availableSlotsForDate !== null && availableSlotsForDate.length > 0
+      ? availableSlotsForDate
+      : availableTimes;
+    if (times.length > 0) {
+      if (!reservationTime || !times.includes(reservationTime)) {
+        setReservationTime(times[0]);
+      }
+    } else if (availableSlotsForDate?.length === 0) {
+      setReservationTime('');
     }
-  }, [availableTimes, reservationDate]);
+  }, [availableTimes, reservationDate, availableSlotsForDate]);
 
   useEffect(() => {
     if (!tableId || tables.length === 0) return;
@@ -452,25 +487,31 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
           )}
 
           <Text style={styles.label}>Saat *</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateScroll} contentContainerStyle={styles.chipRowScroll}>
-            {availableTimes.map((t) => (
-              <TouchableOpacity
-                key={t}
-                style={[styles.dateChip, reservationTime === t && styles.chipActive]}
-                onPress={() => setReservationTime(t)}
-              >
-                <Text style={[styles.dateChipText, reservationTime === t && styles.chipTextActive]}>{t}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          {reservationDate && loadingSlotsForDate ? (
+            <ActivityIndicator size="small" color="#15803d" style={styles.loader} />
+          ) : reservationDate && availableSlotsForDate !== null && availableSlotsForDate.length === 0 ? (
+            <Text style={styles.noSlotsMessage}>Bu günde uygun masa bulunamadı.</Text>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateScroll} contentContainerStyle={styles.chipRowScroll}>
+              {(availableSlotsForDate && availableSlotsForDate.length > 0 ? availableSlotsForDate : availableTimes).map((t) => (
+                <TouchableOpacity
+                  key={t}
+                  style={[styles.dateChip, reservationTime === t && styles.chipActive]}
+                  onPress={() => setReservationTime(t)}
+                >
+                  <Text style={[styles.dateChipText, reservationTime === t && styles.chipTextActive]}>{t}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
 
           <TouchableOpacity
-            style={[styles.secondaryButton, (loadingTables || !reservationDate || !reservationTime) && styles.buttonDisabled]}
+            style={[styles.secondaryButton, (loadingTables || !reservationDate || !reservationTime || (availableSlotsForDate !== null && availableSlotsForDate.length === 0)) && styles.buttonDisabled]}
             onPress={loadAvailableTables}
-            disabled={loadingTables || !reservationDate || !reservationTime}
+            disabled={loadingTables || !reservationDate || !reservationTime || (availableSlotsForDate !== null && availableSlotsForDate.length === 0)}
           >
             <Text style={styles.secondaryButtonText}>
-              {loadingTables ? 'Yükleniyor...' : 'Masaları getir'}
+              {loadingTables ? 'Yükleniyor...' : 'Uygunluk durumunu kontrol et'}
             </Text>
           </TouchableOpacity>
           {tablesLoadAttempted && tablesError ? <Text style={styles.errorText}>{tablesError}</Text> : null}
@@ -484,16 +525,16 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
                   <Text style={[styles.chipText, tableId === null && styles.chipTextActive]}>İşletme belirlesin</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.chip, tableViewMode === 'list' && styles.chipActive]}
-                  onPress={() => setTableViewMode('list')}
-                >
-                  <Text style={[styles.chipText, tableViewMode === 'list' && styles.chipTextActive]}>Liste</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
                   style={[styles.chip, tableViewMode === 'map' && styles.chipActive]}
                   onPress={() => setTableViewMode('map')}
                 >
                   <Text style={[styles.chipText, tableViewMode === 'map' && styles.chipTextActive]}>Harita</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.chip, tableViewMode === 'list' && styles.chipActive]}
+                  onPress={() => setTableViewMode('list')}
+                >
+                  <Text style={[styles.chipText, tableViewMode === 'list' && styles.chipTextActive]}>Liste</Text>
                 </TouchableOpacity>
               </View>
               {tableViewMode === 'list' ? (
@@ -623,20 +664,20 @@ const styles = StyleSheet.create({
   noSlotsError: { fontSize: 14, color: '#dc2626', marginTop: 4, fontWeight: '500' },
   secondaryButton: {
     marginTop: 12,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#15803d',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderWidth: 0,
   },
   buttonDisabled: { opacity: 0.6 },
-  secondaryButtonText: { fontSize: 14, color: '#15803d', fontWeight: '600' },
+  secondaryButtonText: { fontSize: 16, color: '#fff', fontWeight: '600' },
   loader: { marginVertical: 8 },
   submitButton: { marginTop: 24, backgroundColor: '#15803d', borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
   submitDisabled: { opacity: 0.7 },
   submitButtonText: { fontSize: 16, fontWeight: '600', color: '#fff' },
   errorText: { fontSize: 14, color: '#dc2626', marginBottom: 8 },
+  noSlotsMessage: { fontSize: 14, color: '#64748b', marginVertical: 8, fontStyle: 'italic' },
   mapContainer: { marginTop: 8 },
   mapCanvas: {
     backgroundColor: '#f1f5f9',

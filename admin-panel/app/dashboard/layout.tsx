@@ -34,8 +34,10 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen flex bg-zinc-50">
       <aside className="w-56 bg-zinc-900 text-white flex flex-col">
-        <div className="p-4 border-b border-zinc-700">
-          <h1 className="font-semibold text-green-400">Rezervasyon Admin</h1>
+        <div className="p-4 border-b border-zinc-700 flex items-center gap-2">
+          {/* Logo: admin-panel/public/logo.png dosyasını ekleyin */}
+          <img src="/logo.png" alt="Rezvio" className="h-8 w-8 object-contain" />
+          <span className="font-semibold text-green-400">Rezvio</span>
         </div>
         <nav className="flex-1 p-2 space-y-1">
           {nav.map(({ href, label }) => {
@@ -66,7 +68,7 @@ export default function DashboardLayout({
       </aside>
       <main className="flex-1 overflow-auto">
         <header className="h-14 border-b border-zinc-200 bg-white flex items-center px-6">
-          <span className="text-zinc-600 text-sm">Admin Panel</span>
+          <span className="text-zinc-600 text-sm">Rezvio Admin</span>
         </header>
         <div className="p-6">{children}</div>
       </main>

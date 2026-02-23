@@ -9,6 +9,7 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -41,8 +42,11 @@ export default function LoginScreen({ navigation }: Props) {
       style={styles.container}
     >
       <View style={styles.card}>
+        <View style={styles.logoWrap}>
+          <Image source={require('../../assets/icon.png')} style={styles.logo} resizeMode="contain" />
+        </View>
         <Text style={styles.title}>Giriş Yap</Text>
-        <Text style={styles.subtitle}>Rezervasyon yapmak için giriş yapın</Text>
+        <Text style={styles.subtitle}>Rezvio ile giriş yapın</Text>
 
         <TextInput
           style={styles.input}
@@ -113,6 +117,8 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
+  logoWrap: { alignItems: 'center', marginBottom: 16 },
+  logo: { width: 72, height: 72 },
   title: {
     fontSize: 24,
     fontWeight: '700',
