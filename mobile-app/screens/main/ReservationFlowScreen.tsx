@@ -511,7 +511,7 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
             disabled={loadingTables || !reservationDate || !reservationTime || (availableSlotsForDate !== null && availableSlotsForDate.length === 0)}
           >
             <Text style={styles.secondaryButtonText}>
-              {loadingTables ? 'Yükleniyor...' : 'Uygunluk durumunu kontrol et'}
+              {loadingTables ? 'Yükleniyor...' : 'Uygunluk kontrol et'}
             </Text>
           </TouchableOpacity>
           {tablesLoadAttempted && tablesError ? <Text style={styles.errorText}>{tablesError}</Text> : null}
