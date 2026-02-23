@@ -78,6 +78,8 @@ function ReservationsContent() {
           setLoading(false);
           return;
         }
+        await supabase.rpc('close_past_reservations_for_owner');
+        if (cancelled) return;
         const baseSelect = `
           id,
           business_id,

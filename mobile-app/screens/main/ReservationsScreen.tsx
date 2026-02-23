@@ -65,6 +65,7 @@ export default function ReservationsScreen({ popToRootRef }: ReservationsScreenP
       return;
     }
     setError(null);
+    await supabase.rpc('close_my_past_reservations');
     const { data, err } = await supabase
       .from('reservations')
       .select('id, reservation_date, reservation_time, party_size, status, special_requests, businesses ( name )')
