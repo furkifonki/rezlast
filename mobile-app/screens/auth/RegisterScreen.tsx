@@ -42,6 +42,11 @@ export default function RegisterScreen({ navigation }: Props) {
   const handleRegister = async () => {
     const e = email.trim();
     const p = password;
+    const name = fullName.trim();
+    if (!name) {
+      Alert.alert('Hata', 'Ad soyad girin.');
+      return;
+    }
     if (!e || !p) {
       Alert.alert('Hata', 'E-posta ve şifre girin.');
       return;
@@ -55,25 +60,35 @@ export default function RegisterScreen({ navigation }: Props) {
       return;
     }
     setLoading(true);
-    const { error } = await signUp(e, p, fullName.trim() || undefined);
+    const { error } = await signUp(e, p, name);
     if (error) {
       setLoading(false);
       Alert.alert('Kayıt hatası', error.message);
       return;
     }
+    const parts = name.split(/\s+/).filter(Boolean);
+    const firstName = parts[0] ?? '';
+    const lastName = parts.slice(1).join(' ') ?? '';
+    const payload: Record<string, unknown> = {
+      kvkk_accepted_at: new Date().toISOString(),
+      first_name: firstName,
+      last_name: lastName,
+    };
+    if (emailConsent || smsConsent) {
+      payload.etk_accepted_at = new Date().toISOString();
+      payload.email_marketing_consent = emailConsent;
+      payload.sms_marketing_consent = smsConsent;
+      payload.marketing_consent_at = new Date().toISOString();
+    }
+    await new Promise((r) => setTimeout(r, 450));
     const { data: { session } } = await supabase.auth.getSession();
     const userId = session?.user?.id;
     if (userId && supabase) {
-      const payload: Record<string, unknown> = {
-        kvkk_accepted_at: new Date().toISOString(),
-      };
-      if (emailConsent || smsConsent) {
-        payload.etk_accepted_at = new Date().toISOString();
-        payload.email_marketing_consent = emailConsent;
-        payload.sms_marketing_consent = smsConsent;
-        payload.marketing_consent_at = new Date().toISOString();
+      const { error: updateErr } = await supabase.from('users').update(payload).eq('id', userId);
+      if (updateErr) {
+        await new Promise((r) => setTimeout(r, 400));
+        await supabase.from('users').update(payload).eq('id', userId);
       }
-      await supabase.from('users').update(payload).eq('id', userId);
     }
     setLoading(false);
     Alert.alert(
@@ -103,7 +118,7 @@ export default function RegisterScreen({ navigation }: Props) {
 
           <TextInput
             style={styles.input}
-            placeholder="Ad Soyad (opsiyonel)"
+            placeholder="Ad Soyad *"
             placeholderTextColor="#94a3b8"
             value={fullName}
             onChangeText={setFullName}

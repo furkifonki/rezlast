@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase';
 
 type Business = { id: string; name: string };
-type Customer = { user_id: string; customer_email: string | null; customer_name: string | null };
+type Customer = { user_id: string; customer_email: string | null; customer_name: string | null; total_points: number };
 
 export default function LoyaltyPage() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -47,22 +47,11 @@ export default function LoyaltyPage() {
     }
     const supabase = createClient();
     (async () => {
-      const { data } = await supabase
-        .from('reservations')
-        .select('user_id, customer_email, customer_name')
-        .eq('business_id', selectedBusinessId);
-      const rows = (data ?? []) as Customer[];
-      const byUser = new Map<string, Customer>();
-      rows.forEach((r) => {
-        if (r.user_id && !byUser.has(r.user_id)) {
-          byUser.set(r.user_id, {
-            user_id: r.user_id,
-            customer_email: r.customer_email ?? null,
-            customer_name: r.customer_name ?? null,
-          });
-        }
+      const { data } = await supabase.rpc('get_business_customers_with_points', {
+        p_business_id: selectedBusinessId,
       });
-      setCustomers(Array.from(byUser.values()));
+      const rows = (data ?? []) as Customer[];
+      setCustomers(rows);
       setSelectedUserId('');
     })();
   }, [selectedBusinessId]);
@@ -113,7 +102,16 @@ export default function LoyaltyPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-zinc-900">Puan İşlemleri</h1>
-        <p className="text-zinc-600 text-sm mt-1">Müşterilere manuel puan ekleyebilir veya düşebilirsiniz.</p>
+        <p className="text-zinc-600 text-sm mt-1">Müşterilerin puan bakiyesini görün; manuel puan ekleyebilir veya düşebilirsiniz (indirimde kullandığında negatif girin).</p>
+      </div>
+
+      <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <p className="font-medium mb-1">Nasıl kullanılır?</p>
+        <ul className="list-disc list-inside space-y-0.5 text-amber-800">
+          <li>İşletme ve müşteri seçin; müşterinin güncel puan bakiyesi yanında gösterilir.</li>
+          <li>Puan eklemek: Pozitif sayı girin (örn. kampanya bonusu).</li>
+          <li>Puan düşmek: Negatif sayı girin (müşteri indirimde puan harcadığında).</li>
+        </ul>
       </div>
 
       {businesses.length === 0 ? (
@@ -139,7 +137,7 @@ export default function LoyaltyPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1">Müşteri</label>
+            <label className="block text-sm font-medium text-zinc-700 mb-1">Müşteri (bakiyesi yanında)</label>
             <select
               value={selectedUserId}
               onChange={(e) => setSelectedUserId(e.target.value)}
@@ -149,10 +147,18 @@ export default function LoyaltyPage() {
               <option value="">Seçin</option>
               {customers.map((c) => (
                 <option key={c.user_id} value={c.user_id}>
-                  {c.customer_name || c.customer_email || c.user_id}
+                  {[c.customer_name || c.customer_email || c.user_id, '—', c.total_points, 'puan'].filter(Boolean).join(' ')}
                 </option>
               ))}
             </select>
+            {selectedUserId && (() => {
+              const c = customers.find((x) => x.user_id === selectedUserId);
+              return c ? (
+                <p className="mt-1 text-xs text-zinc-600">
+                  Güncel bakiye: <strong>{c.total_points} puan</strong>
+                </p>
+              ) : null;
+            })()}
             {customers.length === 0 && selectedBusinessId && (
               <p className="mt-1 text-xs text-zinc-500">Bu işletmede henüz rezervasyon yapan müşteri yok.</p>
             )}

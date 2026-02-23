@@ -565,7 +565,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    padding: 4,
+    padding: 6,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 20,
+    minWidth: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   favIcon: {
     fontSize: 22,
