@@ -11,10 +11,9 @@ import {
   Modal,
   ScrollView,
 } from 'react-native';
+import { useSimpleStack } from '../../navigation/SimpleStackContext';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import BusinessDetailScreen from './BusinessDetailScreen';
-import ReservationFlowScreen from './ReservationFlowScreen';
 
 type Category = { id: string; name: string; slug: string };
 type Business = {
@@ -47,6 +46,7 @@ type ExploreScreenProps = {
 };
 
 export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
+  const { navigate, popToTop } = useSimpleStack();
   const { session } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -59,22 +59,17 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
-  const [reservationBusinessId, setReservationBusinessId] = useState<string | null>(null);
-  const [reservationBusinessName, setReservationBusinessName] = useState<string>('');
 
   useEffect(() => {
     if (!popToRootRef) return;
     popToRootRef.current = () => {
-      setSelectedBusinessId(null);
-      setReservationBusinessId(null);
-      setReservationBusinessName('');
+      popToTop();
       setShowAllFeatured(false);
     };
     return () => {
       popToRootRef.current = null;
     };
-  }, [popToRootRef]);
+  }, [popToRootRef, popToTop]);
 
   const loadFavorites = useCallback(async () => {
     if (!supabase || !session?.user?.id) {
@@ -213,36 +208,6 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
     loadBusinesses();
   };
 
-  if (reservationBusinessId) {
-    return (
-      <ReservationFlowScreen
-        businessId={reservationBusinessId}
-        businessName={reservationBusinessName}
-        onBack={() => {
-          setReservationBusinessId(null);
-          setReservationBusinessName('');
-        }}
-        onDone={() => {
-          setReservationBusinessId(null);
-          setReservationBusinessName('');
-        }}
-      />
-    );
-  }
-
-  if (selectedBusinessId) {
-    return (
-      <BusinessDetailScreen
-        businessId={selectedBusinessId}
-        onBack={() => setSelectedBusinessId(null)}
-        onReservationPress={(id, name) => {
-          setReservationBusinessId(id);
-          setReservationBusinessName(name);
-        }}
-      />
-    );
-  }
-
   const renderBusinessCard = (item: Business, isFeatured?: boolean, cardWidth?: number) => {
     const photoUrl = photoMap[item.id];
     const isFav = favorites.has(item.id);
@@ -251,7 +216,7 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
     return (
       <TouchableOpacity
         style={[styles.card, isFeatured && styles.cardFeatured, cardWidth ? { width: cardWidth } : undefined]}
-        onPress={() => setSelectedBusinessId(item.id)}
+        onPress={() => navigate('BusinessDetail', { businessId: item.id })}
         activeOpacity={0.7}
       >
         <View style={styles.cardImageWrap}>
@@ -323,6 +288,14 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
         </View>
       ) : null}
       <View style={styles.filterSection}>
+        <TouchableOpacity
+          style={styles.mapButton}
+          onPress={() => navigate('ExploreMap')}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.mapButtonIcon}>🗺️</Text>
+          <Text style={styles.mapButtonText}>Harita görünümü</Text>
+        </TouchableOpacity>
         <Text style={styles.filterLabel}>Kategori</Text>
         <ScrollView
           horizontal
@@ -422,6 +395,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
+  mapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#f0fdf4',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  mapButtonIcon: { fontSize: 18, marginRight: 8 },
+  mapButtonText: { fontSize: 14, fontWeight: '600', color: '#15803d' },
   filterLabel: {
     fontSize: 11,
     fontWeight: '600',

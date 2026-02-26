@@ -22,8 +22,11 @@ BEGIN
   RETURN QUERY
   SELECT DISTINCT ON (r.user_id)
     r.user_id,
-    TRIM(COALESCE(r.customer_name, NULLIF(TRIM(u.first_name || ' ' || COALESCE(u.last_name, '')), ''))) AS customer_name,
-    COALESCE(r.customer_email, u.email) AS customer_email,
+    TRIM(COALESCE(
+      NULLIF(TRIM(r.customer_name), ''),
+      NULLIF(TRIM(u.first_name || ' ' || COALESCE(u.last_name, '')), '')
+    )) AS customer_name,
+    COALESCE(NULLIF(TRIM(r.customer_email), ''), NULLIF(TRIM(u.email), '')) AS customer_email,
     COALESCE(u.total_points, 0)::INTEGER AS total_points
   FROM reservations r
   JOIN users u ON u.id = r.user_id

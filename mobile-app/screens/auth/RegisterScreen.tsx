@@ -43,8 +43,8 @@ export default function RegisterScreen({ navigation }: Props) {
     const e = email.trim();
     const p = password;
     const name = fullName.trim();
-    if (!name) {
-      Alert.alert('Hata', 'Ad soyad girin.');
+    if (!name || !name.trim()) {
+      Alert.alert('Zorunlu alan', 'Ad ve soyad zorunludur. Lütfen ad soyad girin.');
       return;
     }
     if (!e || !p) {

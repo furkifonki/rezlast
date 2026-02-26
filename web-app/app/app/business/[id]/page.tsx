@@ -37,7 +37,6 @@ export default function BusinessDetailPage() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [hours, setHours] = useState<Hour[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!supabase || !id) {
@@ -46,16 +45,13 @@ export default function BusinessDetailPage() {
     }
     (async () => {
       setLoading(true);
-      setError(null);
       const [bRes, pRes, hRes] = await Promise.all([
         supabase.from('businesses').select('id, name, address, city, district, phone, email, website, description, rating, categories ( name ), latitude, longitude').eq('id', id).eq('is_active', true).single(),
         supabase.from('business_photos').select('id, photo_url, photo_order, is_primary').eq('business_id', id).order('photo_order'),
         supabase.from('business_hours').select('day_of_week, open_time, close_time, is_closed').eq('business_id', id).order('day_of_week'),
       ]);
-      if (bRes.error) {
-        setError(bRes.error.message);
-        setBusiness(null);
-      } else setBusiness(bRes.data as unknown as Business);
+      if (bRes.error) setBusiness(null);
+      else setBusiness(bRes.data as unknown as Business);
       setPhotos((pRes.data ?? []) as unknown as Photo[]);
       setHours((hRes.data ?? []) as unknown as Hour[]);
       setLoading(false);
@@ -71,11 +67,12 @@ export default function BusinessDetailPage() {
     );
   }
 
-  if (error || !business) {
+  if (!business) {
     return (
-      <div className="p-4">
-        <p className="text-sm text-[#dc2626] text-center">{error ?? 'İşletme bulunamadı.'}</p>
-        <Link href="/app" className="block mt-4 text-center text-[#15803d] font-semibold">← Keşfet&apos;e dön</Link>
+      <div className="p-6 md:max-w-md md:mx-auto text-center">
+        <p className="text-base text-[#475569] mb-2">Bu işletme şu anda hizmet veremiyor veya mevcut değil.</p>
+        <p className="text-sm text-[#64748b] mb-6">Lütfen Keşfet sayfasından başka bir işletme seçin.</p>
+        <Link href="/app" className="inline-block bg-[#15803d] text-white font-semibold px-5 py-2.5 rounded-xl">← Keşfet&apos;e dön</Link>
       </div>
     );
   }

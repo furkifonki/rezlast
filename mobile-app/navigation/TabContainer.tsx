@@ -4,9 +4,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ExploreScreen from '../screens/main/ExploreScreen';
 import FavoritesScreen from '../screens/main/FavoritesScreen';
 import ReservationsScreen from '../screens/main/ReservationsScreen';
-import ProfileScreen from '../screens/main/ProfileScreen';
+import ProfileHomeScreen from '../screens/main/ProfileHomeScreen';
 
-type TabName = 'Explore' | 'Favorites' | 'Reservations' | 'Profile';
+export type TabName = 'Explore' | 'Favorites' | 'Reservations' | 'Profile';
 
 const TABS: { key: TabName; label: string }[] = [
   { key: 'Explore', label: 'Keşfet' },
@@ -15,20 +15,28 @@ const TABS: { key: TabName; label: string }[] = [
   { key: 'Profile', label: 'Profil' },
 ];
 
-export function TabContainer() {
-  const [tab, setTab] = useState<TabName>('Explore');
+type TabContainerProps = {
+  initialTab?: TabName;
+  onTabChange?: (tab: TabName) => void;
+};
+
+export function TabContainer({ initialTab = 'Explore', onTabChange }: TabContainerProps) {
+  const [tab, setTab] = useState<TabName>(initialTab);
   const insets = useSafeAreaInsets();
   const explorePopToRoot = useRef<(() => void) | null>(null);
   const favoritesPopToRoot = useRef<(() => void) | null>(null);
   const reservationsPopToRoot = useRef<(() => void) | null>(null);
+  const profilePopToRoot = useRef<(() => void) | null>(null);
 
   const handleTabPress = (key: TabName) => {
     if (key === tab) {
       if (key === 'Explore') explorePopToRoot.current?.();
       else if (key === 'Favorites') favoritesPopToRoot.current?.();
       else if (key === 'Reservations') reservationsPopToRoot.current?.();
+      else if (key === 'Profile') profilePopToRoot.current?.();
     } else {
       setTab(key);
+      onTabChange?.(key);
     }
   };
 
@@ -44,7 +52,7 @@ export function TabContainer() {
         {tab === 'Explore' && <ExploreScreen popToRootRef={explorePopToRoot} />}
         {tab === 'Favorites' && <FavoritesScreen popToRootRef={favoritesPopToRoot} />}
         {tab === 'Reservations' && <ReservationsScreen popToRootRef={reservationsPopToRoot} />}
-        {tab === 'Profile' && <ProfileScreen />}
+        {tab === 'Profile' && <ProfileHomeScreen popToRootRef={profilePopToRoot} />}
       </View>
       <View style={[styles.tabBar, { paddingBottom: insets.bottom + 8 }]}>
         {TABS.map((t) => (

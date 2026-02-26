@@ -2,7 +2,6 @@ import React, { Component, type ReactNode } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer } from '@react-navigation/native';
 import { AuthProvider } from './contexts/AuthContext';
 import { RootNavigator } from './navigation/RootNavigator';
 
@@ -36,10 +35,8 @@ class ErrorBoundary extends Component<
 function AppContent() {
   return (
     <SafeAreaProvider>
-      <NavigationContainer>
-        <RootNavigator />
-        <StatusBar style="auto" />
-      </NavigationContainer>
+      <RootNavigator />
+      <StatusBar style="auto" />
     </SafeAreaProvider>
   );
 }

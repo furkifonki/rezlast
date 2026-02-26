@@ -9,10 +9,9 @@ import {
   RefreshControl,
   Image,
 } from 'react-native';
+import { useSimpleStack } from '../../navigation/SimpleStackContext';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import BusinessDetailScreen from './BusinessDetailScreen';
-import ReservationFlowScreen from './ReservationFlowScreen';
 
 type Business = {
   id: string;
@@ -36,27 +35,21 @@ type FavoritesScreenProps = {
 };
 
 export default function FavoritesScreen({ popToRootRef }: FavoritesScreenProps) {
+  const { navigate, popToTop } = useSimpleStack();
   const { session } = useAuth();
   const [list, setList] = useState<FavoriteRow[]>([]);
   const [photoMap, setPhotoMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
-  const [reservationBusinessId, setReservationBusinessId] = useState<string | null>(null);
-  const [reservationBusinessName, setReservationBusinessName] = useState<string>('');
 
   useEffect(() => {
     if (!popToRootRef) return;
-    popToRootRef.current = () => {
-      setSelectedBusinessId(null);
-      setReservationBusinessId(null);
-      setReservationBusinessName('');
-    };
+    popToRootRef.current = () => popToTop();
     return () => {
       popToRootRef.current = null;
     };
-  }, [popToRootRef]);
+  }, [popToRootRef, popToTop]);
 
   const loadFavorites = useCallback(async () => {
     if (!supabase || !session?.user?.id) {
@@ -117,36 +110,6 @@ export default function FavoritesScreen({ popToRootRef }: FavoritesScreenProps) 
     setList((prev) => prev.filter((r) => r.business_id !== businessId));
   };
 
-  if (reservationBusinessId) {
-    return (
-      <ReservationFlowScreen
-        businessId={reservationBusinessId}
-        businessName={reservationBusinessName}
-        onBack={() => {
-          setReservationBusinessId(null);
-          setReservationBusinessName('');
-        }}
-        onDone={() => {
-          setReservationBusinessId(null);
-          setReservationBusinessName('');
-        }}
-      />
-    );
-  }
-
-  if (selectedBusinessId) {
-    return (
-      <BusinessDetailScreen
-        businessId={selectedBusinessId}
-        onBack={() => setSelectedBusinessId(null)}
-        onReservationPress={(id, name) => {
-          setReservationBusinessId(id);
-          setReservationBusinessName(name);
-        }}
-      />
-    );
-  }
-
   if (!session) {
     return (
       <View style={styles.centered}>
@@ -206,7 +169,7 @@ export default function FavoritesScreen({ popToRootRef }: FavoritesScreenProps) 
           return (
             <TouchableOpacity
               style={styles.card}
-              onPress={() => setSelectedBusinessId(item.id)}
+              onPress={() => navigate('BusinessDetail', { businessId: item.id })}
               activeOpacity={0.7}
             >
               <View style={styles.cardImageWrap}>

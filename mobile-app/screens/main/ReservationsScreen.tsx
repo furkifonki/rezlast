@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { StackScreenWrapper } from '../../navigation/StackScreenWrapper';
 import ReservationDetailScreen from './ReservationDetailScreen';
 
 type Reservation = {
@@ -121,14 +122,16 @@ export default function ReservationsScreen({ popToRootRef }: ReservationsScreenP
 
   if (selectedReservationId) {
     return (
-      <ReservationDetailScreen
-        reservationId={selectedReservationId}
-        onBack={() => setSelectedReservationId(null)}
-        onUpdated={() => {
-          setSelectedReservationId(null);
-          load();
-        }}
-      />
+      <StackScreenWrapper onGoBack={() => setSelectedReservationId(null)}>
+        <ReservationDetailScreen
+          reservationId={selectedReservationId}
+          onBack={() => setSelectedReservationId(null)}
+          onUpdated={() => {
+            setSelectedReservationId(null);
+            load();
+          }}
+        />
+      </StackScreenWrapper>
     );
   }
 

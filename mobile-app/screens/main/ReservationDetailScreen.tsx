@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSimpleStack } from '../../navigation/SimpleStackContext';
+import { getOrCreateConversation } from '../../lib/messaging';
 
 type PaymentMethod = { id: string; name: string };
 type ReservationDetail = {
@@ -49,7 +51,9 @@ type Props = {
 
 export default function ReservationDetailScreen({ reservationId, onBack, onUpdated }: Props) {
   const { session } = useAuth();
+  const { navigate } = useSimpleStack();
   const [reservation, setReservation] = useState<ReservationDetail | null>(null);
+  const [messageLoading, setMessageLoading] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -115,6 +119,21 @@ export default function ReservationDetailScreen({ reservationId, onBack, onUpdat
   }, [reservationId, session?.user?.id]);
 
   const canEdit = reservation && (reservation.status === 'pending' || reservation.status === 'confirmed');
+  const canMessage = canEdit;
+
+  const handleMessagePress = async () => {
+    if (!reservationId || !canMessage || messageLoading) return;
+    setMessageLoading(true);
+    try {
+      const conversationId = await getOrCreateConversation(reservationId);
+      const businessName = (reservation?.businesses as { name: string } | null)?.name ?? undefined;
+      navigate('Chat', { conversationId, businessName, messagingDisabled: false });
+    } catch (e) {
+      Alert.alert('Hata', e instanceof Error ? e.message : 'Sohbet açılamadı.');
+    } finally {
+      setMessageLoading(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!supabase || !reservationId || !reservation) return;
@@ -264,6 +283,27 @@ export default function ReservationDetailScreen({ reservationId, onBack, onUpdat
         </TouchableOpacity>
       )}
 
+      <View style={styles.card}>
+        {canMessage ? (
+          <TouchableOpacity
+            style={[styles.messageButton, messageLoading && styles.buttonDisabled]}
+            onPress={handleMessagePress}
+            disabled={messageLoading}
+          >
+            <Text style={styles.messageButtonText}>
+              {messageLoading ? 'Açılıyor...' : 'Restoranla Mesajlaş'}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <>
+            <TouchableOpacity style={styles.messageButtonDisabled} disabled>
+              <Text style={styles.messageButtonTextDisabled}>Restoranla Mesajlaş</Text>
+            </TouchableOpacity>
+            <Text style={styles.messageHint}>Bu rezervasyon için mesajlaşma kapalı.</Text>
+          </>
+        )}
+      </View>
+
       {!canEdit && reservation.special_requests ? (
         <View style={styles.card}>
           <Text style={styles.sectionLabel}>Not</Text>
@@ -327,6 +367,11 @@ const styles = StyleSheet.create({
   saveButtonText: { fontSize: 16, fontWeight: '600', color: '#fff' },
   cancelButton: { backgroundColor: '#fff', borderRadius: 12, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: '#dc2626', marginTop: 8 },
   cancelButtonText: { fontSize: 16, fontWeight: '600', color: '#dc2626' },
+  messageButton: { backgroundColor: '#0ea5e9', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  messageButtonText: { fontSize: 16, fontWeight: '600', color: '#fff' },
+  messageButtonDisabled: { backgroundColor: '#e2e8f0', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  messageButtonTextDisabled: { fontSize: 16, fontWeight: '600', color: '#94a3b8' },
+  messageHint: { fontSize: 13, color: '#64748b', marginTop: 8, textAlign: 'center' },
   buttonDisabled: { opacity: 0.6 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   loadingText: { marginTop: 12, fontSize: 14, color: '#64748b' },

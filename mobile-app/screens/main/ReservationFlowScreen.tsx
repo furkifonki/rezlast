@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { validateReservationTime, isSlotDisabled } from '../../lib/reservationTimeValidation';
 
 type Service = { id: string; name: string; duration_minutes: number; duration_display: string | null; price: number | null };
 type TableRow = { id: string; table_number: string; capacity: number; table_type: string | null; position_x: number | null; position_y: number | null };
@@ -319,8 +320,10 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
       ? availableSlotsForDate
       : availableTimes;
     if (times.length > 0) {
-      if (!reservationTime || !times.includes(reservationTime)) {
-        setReservationTime(times[0]);
+      const validTimes = times.filter((t) => !isSlotDisabled(reservationDate, t));
+      const preferred = validTimes.length > 0 ? validTimes[0] : times[0];
+      if (typeof preferred === 'string' && preferred && (!reservationTime || !times.includes(reservationTime) || isSlotDisabled(reservationDate, reservationTime))) {
+        setReservationTime(preferred);
       }
     } else if (availableSlotsForDate?.length === 0) {
       setReservationTime('');
@@ -393,6 +396,11 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
       Alert.alert('Hata', 'Tarih ve saat seçin.');
       return;
     }
+    const timeValidation = validateReservationTime(reservationDate, reservationTime);
+    if (!timeValidation.valid) {
+      Alert.alert('Hata', timeValidation.error);
+      return;
+    }
     if (maxTableCapacity != null && partySize > maxTableCapacity) {
       Alert.alert('Hata', `Bu işletmede masa kapasitesi en fazla ${maxTableCapacity} kişiliktir. Kişi sayısını ${maxTableCapacity} veya altına düşürün.`);
       return;
@@ -407,7 +415,7 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
       business_id: businessId,
       user_id: session.user.id,
       reservation_date: reservationDate,
-      reservation_time: reservationTime.slice(0, 5),
+      reservation_time: (reservationTime ?? '').slice(0, 5),
       duration_minutes: effectiveDuration,
       party_size: partySize,
       service_id: serviceId || null,
@@ -421,9 +429,11 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
       Alert.alert('Hata', err.message);
       return;
     }
-    Alert.alert('Başarılı', 'Rezervasyonunuz alındı. İşletme onayı bekleniyor.', [
-      { text: 'Tamam', onPress: onDone },
-    ]);
+    Alert.alert(
+      'Başarılı',
+      'Rezervasyonunuz restorana onaya gönderildi. En kısa sürede bilgilendirileceksiniz.',
+      [{ text: 'Tamam', onPress: onDone }]
+    );
   };
 
   return (
@@ -493,15 +503,32 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
             <Text style={styles.noSlotsMessage}>Bu günde uygunluk bulunamadı.</Text>
           ) : (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateScroll} contentContainerStyle={styles.chipRowScroll}>
-              {(availableSlotsForDate && availableSlotsForDate.length > 0 ? availableSlotsForDate : availableTimes).map((t) => (
-                <TouchableOpacity
-                  key={t}
-                  style={[styles.dateChip, reservationTime === t && styles.chipActive]}
-                  onPress={() => setReservationTime(t)}
-                >
-                  <Text style={[styles.dateChipText, reservationTime === t && styles.chipTextActive]}>{t}</Text>
-                </TouchableOpacity>
-              ))}
+              {(availableSlotsForDate && availableSlotsForDate.length > 0 ? availableSlotsForDate : availableTimes).map((t) => {
+                const disabled = isSlotDisabled(reservationDate, t);
+                return (
+                  <TouchableOpacity
+                    key={t}
+                    style={[
+                      styles.dateChip,
+                      reservationTime === t && styles.chipActive,
+                      disabled && styles.dateChipDisabled,
+                    ]}
+                    onPress={() => !disabled && setReservationTime(t)}
+                    disabled={disabled}
+                    activeOpacity={disabled ? 1 : 0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.dateChipText,
+                        reservationTime === t && styles.chipTextActive,
+                        disabled && styles.dateChipTextDisabled,
+                      ]}
+                    >
+                      {t}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           )}
 
@@ -660,6 +687,8 @@ const styles = StyleSheet.create({
   chipRowScroll: { flexDirection: 'row', paddingBottom: 4 },
   dateChip: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, backgroundColor: '#f1f5f9', marginRight: 8, minWidth: 80, alignItems: 'center' },
   dateChipText: { fontSize: 14, color: '#64748b' },
+  dateChipDisabled: { backgroundColor: '#e2e8f0', opacity: 0.8 },
+  dateChipTextDisabled: { color: '#94a3b8' },
   hint: { fontSize: 13, color: '#64748b', marginTop: 4 },
   noSlotsError: { fontSize: 14, color: '#dc2626', marginTop: 4, fontWeight: '500' },
   secondaryButton: {

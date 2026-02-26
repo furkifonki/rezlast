@@ -137,7 +137,7 @@ export default function LoyaltyPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1">Müşteri (bakiyesi yanında)</label>
+            <label className="block text-sm font-medium text-zinc-700 mb-1">Müşteri (Ad Soyad · E-posta)</label>
             <select
               value={selectedUserId}
               onChange={(e) => setSelectedUserId(e.target.value)}
@@ -145,11 +145,16 @@ export default function LoyaltyPage() {
               required
             >
               <option value="">Seçin</option>
-              {customers.map((c) => (
-                <option key={c.user_id} value={c.user_id}>
-                  {[c.customer_name || c.customer_email || c.user_id, '—', c.total_points, 'puan'].filter(Boolean).join(' ')}
-                </option>
-              ))}
+              {customers.map((c) => {
+                const name = (c.customer_name || '').trim() || '—';
+                const email = (c.customer_email || '').trim() || '—';
+                const label = `${name} · ${email} — ${c.total_points} puan`;
+                return (
+                  <option key={c.user_id} value={c.user_id}>
+                    {label}
+                  </option>
+                );
+              })}
             </select>
             {selectedUserId && (() => {
               const c = customers.find((x) => x.user_id === selectedUserId);

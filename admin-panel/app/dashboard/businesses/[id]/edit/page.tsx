@@ -14,6 +14,8 @@ type Business = {
   address: string;
   city: string;
   district: string | null;
+  latitude: number | null;
+  longitude: number | null;
   phone: string | null;
   email: string | null;
   website: string | null;
@@ -148,6 +150,9 @@ function EditBusinessContent() {
     clearFeedback();
     setSaving(true);
     const supabase = createClient();
+    const latNum = typeof form.latitude === 'number' && !Number.isNaN(form.latitude) ? form.latitude : null;
+    const lngNum = typeof form.longitude === 'number' && !Number.isNaN(form.longitude) ? form.longitude : null;
+
     const { error: err } = await supabase
       .from('businesses')
       .update({
@@ -155,6 +160,8 @@ function EditBusinessContent() {
         address: form.address.trim(),
         city: form.city.trim() || 'Istanbul',
         district: form.district?.trim() || null,
+        latitude: latNum,
+        longitude: lngNum,
         phone: form.phone?.trim() || null,
         email: form.email?.trim() || null,
         website: form.website?.trim() || null,
@@ -394,6 +401,42 @@ function EditBusinessContent() {
             <div>
               <label className="block text-sm font-medium text-zinc-700 mb-1">İlçe</label>
               <input type="text" value={form.district ?? ''} onChange={(e) => setForm((f) => (f ? { ...f, district: e.target.value || null } : f))} className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900 focus:border-green-600 focus:outline-none focus:ring-1 focus:ring-green-600" />
+            </div>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-zinc-700 mb-1">Harita konumu (uygulama harita görünümü için)</p>
+            <p className="text-xs text-zinc-500 mb-2">Google Maps’te işletmeyi bulup sağ tık → koordinatları kopyalayabilirsiniz. Örn: 41.0082, 28.9784</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-zinc-600 mb-1">Enlem (latitude)</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="41.0082"
+                  value={form.latitude != null ? String(form.latitude) : ''}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(',', '.').trim();
+                    if (v === '') setForm((f) => (f ? { ...f, latitude: null } : f));
+                    else { const n = parseFloat(v); if (!Number.isNaN(n)) setForm((f) => (f ? { ...f, latitude: n } : f)); }
+                  }}
+                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900 focus:border-green-600 focus:outline-none focus:ring-1 focus:ring-green-600"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-600 mb-1">Boylam (longitude)</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="28.9784"
+                  value={form.longitude != null ? String(form.longitude) : ''}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(',', '.').trim();
+                    if (v === '') setForm((f) => (f ? { ...f, longitude: null } : f));
+                    else { const n = parseFloat(v); if (!Number.isNaN(n)) setForm((f) => (f ? { ...f, longitude: n } : f)); }
+                  }}
+                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900 focus:border-green-600 focus:outline-none focus:ring-1 focus:ring-green-600"
+                />
+              </div>
             </div>
           </div>
           <div>

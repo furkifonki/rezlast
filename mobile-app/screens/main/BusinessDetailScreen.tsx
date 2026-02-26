@@ -105,7 +105,7 @@ export default function BusinessDetailScreen({ businessId, onBack, onReservation
           .order('day_of_week'),
       ]);
       if (bRes.error) {
-        setError(bRes.error.message);
+        setError('Bu işletme şu anda hizmet veremiyor. Lütfen başka bir işletme seçin.');
         setBusiness(null);
       } else {
         setBusiness(bRes.data as Business);
@@ -185,7 +185,8 @@ export default function BusinessDetailScreen({ businessId, onBack, onReservation
   if (error || !business) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.errorText}>{error ?? 'İşletme bulunamadı.'}</Text>
+        <Text style={styles.errorTitle}>Bu işletme uygun değil</Text>
+        <Text style={styles.errorText}>{error ?? 'Bu işletme şu anda hizmet veremiyor. Lütfen başka bir işletme seçin.'}</Text>
         <TouchableOpacity style={styles.backButtonRound} onPress={onBack} activeOpacity={0.7}>
           <Text style={styles.backButtonIcon}>←</Text>
         </TouchableOpacity>
@@ -630,9 +631,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748b',
   },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#0f172a',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
   errorText: {
     fontSize: 14,
-    color: '#dc2626',
+    color: '#475569',
     textAlign: 'center',
+    paddingHorizontal: 16,
   },
 });

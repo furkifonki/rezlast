@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { AuthContainer } from './AuthContainer';
-import { TabContainer } from './TabContainer';
+import { MainStack } from './MainStack';
 
 export function RootNavigator() {
   const auth = useAuth();
-  const isLoading = auth.loading === true;
-  const hasSession = auth.session != null;
+  const isLoading = Boolean(auth?.loading === true);
+  const hasSession = Boolean(auth?.session != null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -23,7 +23,7 @@ export function RootNavigator() {
     );
   }
 
-  return hasSession ? <TabContainer /> : <AuthContainer />;
+  return hasSession ? <MainStack /> : <AuthContainer />;
 }
 
 const styles = StyleSheet.create({
