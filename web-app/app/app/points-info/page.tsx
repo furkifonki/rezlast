@@ -30,19 +30,24 @@ export default function PointsInfoPage() {
       setLoading(false);
       return;
     }
-    supabase
-      .from('loyalty_tiers')
-      .select('id, min_points, display_name, description, sort_order')
-      .order('sort_order')
-      .then(({ data }) => {
-        if (data && data.length > 0) setTiers(data as unknown as Tier[]);
-        else setTiers(FALLBACK_TIERS);
-        setLoading(false);
-      })
-      .catch(() => {
-        setTiers(FALLBACK_TIERS);
-        setLoading(false);
-      });
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('loyalty_tiers')
+          .select('id, min_points, display_name, description, sort_order')
+          .order('sort_order');
+        if (!cancelled) {
+          if (data && data.length > 0) setTiers(data as unknown as Tier[]);
+          else setTiers(FALLBACK_TIERS);
+        }
+      } catch {
+        if (!cancelled) setTiers(FALLBACK_TIERS);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   return (

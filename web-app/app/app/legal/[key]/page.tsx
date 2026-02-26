@@ -18,16 +18,20 @@ export default function LegalPage() {
       setLoading(false);
       return;
     }
-    supabase
-      .from('app_legal_texts')
-      .select('key, title, body')
-      .eq('key', key)
-      .single()
-      .then(({ data }) => {
-        setItem(data as LegalRow | null);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('app_legal_texts')
+          .select('key, title, body')
+          .eq('key', key)
+          .single();
+        if (!cancelled) setItem(data as LegalRow | null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [key]);
 
   const title = key === 'kvkk' ? 'KVKK Aydınlatma Metni' : 'ETK (E-posta / SMS Ticari İleti)';

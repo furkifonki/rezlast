@@ -60,8 +60,9 @@ export default function ChatPage() {
   }, [load]);
 
   useEffect(() => {
-    if (!conversationId || !supabase) return;
-    const channel = supabase
+    const client = supabase;
+    if (!conversationId || !client) return;
+    const channel = client
       .channel(`messages:${conversationId}`)
       .on(
         'postgres_changes',
@@ -70,7 +71,7 @@ export default function ChatPage() {
       )
       .subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      client?.removeChannel(channel);
     };
   }, [conversationId]);
 

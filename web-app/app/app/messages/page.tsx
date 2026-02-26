@@ -36,9 +36,12 @@ const CONV_SELECT = `
   )
 `;
 
-function getBusinessName(r: Conversation['reservations']): string {
-  if (!r?.businesses || typeof r.businesses !== 'object') return '—';
-  return (r.businesses as { name: string }).name ?? '—';
+function getBusinessName(r: unknown): string {
+  const res = Array.isArray(r) ? r[0] : r;
+  if (!res || typeof res !== 'object' || !('businesses' in res)) return '—';
+  const b = (res as { businesses?: { name?: string } | null }).businesses;
+  if (!b || typeof b !== 'object' || !('name' in b)) return '—';
+  return (b as { name: string }).name ?? '—';
 }
 
 export default function MessagesPage() {
@@ -65,7 +68,7 @@ export default function MessagesPage() {
       setLoading(false);
       return;
     }
-    const list = (convData ?? []) as Conversation[];
+    const list = (convData ?? []) as unknown as Conversation[];
     const convIds = list.map((c) => c.id);
     if (convIds.length === 0) {
       setConversations([]);
@@ -97,9 +100,10 @@ export default function MessagesPage() {
 
     let total = 0;
     const withMeta = list.map((c) => {
-      const res = c.reservations;
-      const date = res?.reservation_date ?? '';
-      const time = res?.reservation_time ?? '';
+      const raw = c.reservations;
+      const res = Array.isArray(raw) ? raw[0] ?? null : raw;
+      const date = (res as { reservation_date?: string } | null)?.reservation_date ?? '';
+      const time = (res as { reservation_time?: string } | null)?.reservation_time ?? '';
       const reservationLabel = [date, typeof time === 'string' ? time.slice(0, 5) : ''].filter(Boolean).join(' · ') || '—';
       const unread = unreadByConv[c.id] ?? 0;
       total += unread;
