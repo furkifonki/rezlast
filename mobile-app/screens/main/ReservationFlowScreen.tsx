@@ -489,8 +489,8 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
           <Text style={styles.label}>Saat *</Text>
           {reservationDate && loadingSlotsForDate ? (
             <ActivityIndicator size="small" color="#15803d" style={styles.loader} />
-          ) : reservationDate && availableSlotsForDate !== null && availableSlotsForDate.length === 0 ? (
-            <Text style={styles.noSlotsMessage}>Bu günde uygun masa bulunamadı.</Text>
+          ) : reservationDate && availableSlotsForDate !== null && availableSlotsForDate.length === 0 && availableTimes.length === 0 ? (
+            <Text style={styles.noSlotsMessage}>Bu günde uygunluk bulunamadı.</Text>
           ) : (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateScroll} contentContainerStyle={styles.chipRowScroll}>
               {(availableSlotsForDate && availableSlotsForDate.length > 0 ? availableSlotsForDate : availableTimes).map((t) => (
@@ -506,9 +506,9 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
           )}
 
           <TouchableOpacity
-            style={[styles.secondaryButton, (loadingTables || !reservationDate || !reservationTime || (availableSlotsForDate !== null && availableSlotsForDate.length === 0)) && styles.buttonDisabled]}
+            style={[styles.secondaryButton, (loadingTables || !reservationDate || !reservationTime || (availableSlotsForDate !== null && availableSlotsForDate.length === 0 && availableTimes.length === 0)) && styles.buttonDisabled]}
             onPress={loadAvailableTables}
-            disabled={loadingTables || !reservationDate || !reservationTime || (availableSlotsForDate !== null && availableSlotsForDate.length === 0)}
+            disabled={loadingTables || !reservationDate || !reservationTime || (availableSlotsForDate !== null && availableSlotsForDate.length === 0 && availableTimes.length === 0)}
           >
             <Text style={styles.secondaryButtonText}>
               {loadingTables ? 'Yükleniyor...' : 'Uygunluk kontrol et'}

@@ -78,9 +78,27 @@ export default function TablesPage() {
     if (!confirm('Bu masayı silmek istediğinize emin misiniz?')) return;
     setError(null);
     const supabase = createClient();
+    // Bu masaya bağlı rezervasyon var mı kontrol et
+    const { data: reservations } = await supabase
+      .from('reservations')
+      .select('id')
+      .eq('table_id', id)
+      .limit(1);
+    if (reservations && reservations.length > 0) {
+      setError('Bu masa silinemez: Bu masaya ait rezervasyonlar var. Önce ilgili rezervasyonları iptal edin veya başka masaya taşıyın.');
+      return;
+    }
     const { error: err } = await supabase.from('tables').delete().eq('id', id);
-    if (err) setError(err.message);
-    else setTables((prev) => prev.filter((t) => t.id !== id));
+    if (err) {
+      const msg = err.message || '';
+      if (msg.includes('foreign key') || msg.includes('reservations_table_id_fkey')) {
+        setError('Bu masa silinemez: Bu masaya ait rezervasyonlar var. Önce ilgili rezervasyonları iptal edin veya başka masaya taşıyın.');
+      } else {
+        setError('Masa silinirken bir hata oluştu. Lütfen tekrar deneyin.');
+      }
+    } else {
+      setTables((prev) => prev.filter((t) => t.id !== id));
+    }
   };
 
   const handleCapacityChange = async (id: string, newCapacity: number) => {

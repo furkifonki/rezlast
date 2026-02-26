@@ -1,0 +1,131 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+
+type Reservation = {
+  id: string;
+  reservation_date: string;
+  reservation_time: string;
+  party_size: number;
+  status: string;
+  special_requests: string | null;
+  businesses: { name: string } | null;
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'Beklemede',
+  confirmed: 'Onaylandı',
+  cancelled: 'İptal',
+  completed: 'Tamamlandı',
+  no_show: 'Gelmedi',
+};
+const STATUS_COLOR: Record<string, string> = {
+  pending: '#f59e0b',
+  confirmed: '#15803d',
+  cancelled: '#64748b',
+  completed: '#0ea5e9',
+  no_show: '#dc2626',
+};
+
+export default function ReservationsPage() {
+  const { session } = useAuth();
+  const [list, setList] = useState<Reservation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    if (!supabase || !session?.user?.id) {
+      setList([]);
+      setLoading(false);
+      return;
+    }
+    setError(null);
+    await supabase.rpc('close_my_past_reservations');
+    const { data, error: fetchErr } = await supabase
+      .from('reservations')
+      .select('id, reservation_date, reservation_time, party_size, status, special_requests, businesses ( name )')
+      .eq('user_id', session.user.id)
+      .order('reservation_date', { ascending: false })
+      .order('reservation_time', { ascending: false });
+    if (fetchErr) {
+      setError(fetchErr.message);
+      setList([]);
+    } else setList((data ?? []) as unknown as Reservation[]);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    load();
+  }, [session?.user?.id]);
+
+  if (!session) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-6">
+        <p className="text-sm text-[#64748b]">Giriş yapın, rezervasyonlarınız burada listelenecek.</p>
+      </div>
+    );
+  }
+
+  if (loading && list.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <div className="w-8 h-8 border-2 border-[#15803d] border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm text-[#64748b] mt-3">Yükleniyor...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-6">
+        <p className="text-sm text-[#dc2626] text-center mb-4">{error}</p>
+        <button type="button" onClick={() => { setLoading(true); load(); }} className="px-4 py-2 bg-[#15803d] text-white rounded-xl font-semibold text-sm">
+          Tekrar dene
+        </button>
+      </div>
+    );
+  }
+
+  if (list.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-6 md:py-16 md:rounded-xl md:bg-white md:border md:border-[#e2e8f0]">
+        <h2 className="text-xl font-semibold text-[#0f172a] mb-2">Rezervasyonlarım</h2>
+        <p className="text-sm text-[#64748b] text-center mb-2">Henüz rezervasyonunuz yok.</p>
+        <p className="text-xs text-[#94a3b8] text-center mb-4">Keşfet sekmesinden bir işletme seçip &quot;Rezervasyon Yap&quot; ile ekleyebilirsiniz.</p>
+        <Link href="/app" className="text-[#15803d] font-semibold">Keşfet&apos;e git</Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 md:p-0 space-y-3 md:max-w-3xl md:space-y-4">
+      {list.map((item) => (
+        <Link
+          key={item.id}
+          href={`/app/reservation/${item.id}`}
+          className="block bg-white rounded-xl p-4 border border-[#e2e8f0] hover:shadow-md hover:border-[#cbd5e1] transition-all"
+        >
+          <div className="flex justify-between items-start mb-1.5">
+            <h3 className="font-semibold text-[#0f172a] flex-1">
+              {(item.businesses as { name: string } | null)?.name ?? '—'}
+            </h3>
+            <span
+              className="text-xs font-semibold px-2.5 py-1 rounded-xl"
+              style={{ backgroundColor: `${STATUS_COLOR[item.status] ?? '#64748b'}20`, color: STATUS_COLOR[item.status] ?? '#64748b' }}
+            >
+              {STATUS_LABELS[item.status] ?? item.status}
+            </span>
+          </div>
+          <p className="text-sm text-[#64748b]">{item.reservation_date} · {String(item.reservation_time).slice(0, 5)}</p>
+          <p className="text-xs text-[#94a3b8]">{item.party_size} kişi</p>
+          {item.special_requests && (
+            <p className="text-xs text-[#64748b] italic mt-2 line-clamp-2">{item.special_requests}</p>
+          )}
+        </Link>
+      ))}
+    </div>
+  );
+}

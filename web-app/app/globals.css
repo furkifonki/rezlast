@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+/* Rezvio mobile ile aynı tasarım token'ları */
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --border: #e2e8f0;
+  --muted: #64748b;
+  --primary: #15803d;
+  --primary-foreground: #ffffff;
+  --destructive: #dc2626;
+  --input-placeholder: #94a3b8;
+  --featured-bg: #f0fdf4;
+  --featured-border: #bbf7d0;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}

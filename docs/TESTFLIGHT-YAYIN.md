@@ -149,11 +149,44 @@ eas submit --platform ios --latest --profile production
 
 ---
 
+## 6. Supabase yapılandırması (TestFlight'ta "Supabase yapılandırılmamış" hatası)
+
+Uygulama Supabase URL ve anon key'i `EXPO_PUBLIC_SUPABASE_URL` ve `EXPO_PUBLIC_SUPABASE_ANON_KEY` ile alır. EAS build sunucusunda bu değişkenler yoksa build'de boş kalır; TestFlight'ta "Supabase yapılandırılmamış" hatası alırsınız.
+
+**Çözüm: EAS Environment Variables ile değerleri build'e vermek**
+
+1. **Supabase Dashboard:** [supabase.com](https://supabase.com) → Projeniz → **Settings** → **API** → **Project URL** ve **anon public** key'i kopyalayın.
+
+2. **Değişkenler zaten varsa:** [expo.dev](https://expo.dev) → Projeniz → **Environment variables** (veya **Secrets**). `EXPO_PUBLIC_SUPABASE_URL` ve `EXPO_PUBLIC_SUPABASE_ANON_KEY` değerlerini kontrol edin; yanlışsa veya boşsa **production** ortamı için düzenleyin.
+
+3. **Değişkenler yoksa:** `mobile-app` klasöründen `eas env:create` ile ekleyin (yeni yöntem; `eas secret:create` artık deprecated):
+
+```bash
+cd mobile-app
+eas env:create --name EXPO_PUBLIC_SUPABASE_URL --value "https://XXXXXXXX.supabase.co" --environment production --visibility plaintext
+eas env:create --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value "eyJhbGci..." --environment production --visibility plaintext
+```
+
+"Hata: This project already has an environment variable named ..." alırsanız değişken zaten var; Expo dashboard'dan değeri düzenleyin, yeniden oluşturmayın.
+
+4. **Yeniden build alıp TestFlight'a gönderin:**
+
+```bash
+eas build --platform ios --profile production
+# Build bittikten sonra:
+eas submit --platform ios --latest --profile production
+```
+
+Bundan sonra build içinde Supabase değerleri gömülü olur; TestFlight'ta hata kaybolur.
+
+---
+
 ## Sık karşılaşılan noktalar
 
 - **Bundle ID uyuşmazlığı:** `app.json`’daki `ios.bundleIdentifier` ile Apple’da oluşturduğunuz App ID birebir aynı olmalı.
 - **App-Specific Password:** İki adımlı doğrulama açıksa EAS/Transporter için [appleid.apple.com](https://appleid.apple.com) → Sign-In and Security → App-Specific Passwords ile şifre oluşturun.
 - **İkon / splash:** `app.json`’da `icon` ve `splash` yolları doğru olmalı; eksikse build uyarı verebilir veya varsayılan kullanılır.
 - **Sürüm / build numarası:** `eas.json`’da `production.autoIncrement: true` var; her production build’de build numarası otomatik artar.
+- **Supabase yapılandırılmamış:** TestFlight'ta bu hata varsa `EXPO_PUBLIC_SUPABASE_URL` ve `EXPO_PUBLIC_SUPABASE_ANON_KEY` değerlerini EAS Secrets ile ekleyip yeniden build alın (bölüm 6).
 
 Bu rehberi takip ederek uygulamanızı TestFlight’ta yayınlayabilirsiniz. Belirli bir adımda hata alırsanız hata çıktısı veya ekran görüntüsü paylaşırsanız bir sonraki adımı birlikte netleştirebiliriz.
