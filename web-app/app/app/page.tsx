@@ -230,6 +230,12 @@ export default function ExplorePage() {
         </div>
       )}
       <div className="bg-white py-3.5 px-4 border-b border-[#e2e8f0] md:rounded-xl md:border md:mb-6 md:border-[#e2e8f0]">
+        <Link
+          href="/app/map"
+          className="inline-flex items-center gap-2 bg-[#f0fdf4] border border-[#bbf7d0] text-[#15803d] font-semibold text-sm px-4 py-2.5 rounded-xl mb-3 hover:bg-[#dcfce7]"
+        >
+          <span>🗺️</span> Harita görünümü
+        </Link>
         <p className="text-[11px] font-semibold text-[#94a3b8] uppercase tracking-wide mb-2.5 md:mb-3">Kategori</p>
         <div className="flex gap-2.5 overflow-x-auto scrollbar-hide md:flex-wrap md:overflow-visible">
           <button

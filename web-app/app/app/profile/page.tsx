@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -149,6 +150,15 @@ export default function ProfilePage() {
           <span className="text-xl font-bold text-[#15803d]">{points}</span>
         </div>
         <span className="inline-block bg-[#fef3c7] text-[#92400e] text-xs font-semibold px-2.5 py-1 rounded-lg">{levelLabel}</span>
+      </div>
+
+      <div className="bg-white rounded-2xl p-5 border border-[#e2e8f0] space-y-2">
+        <h2 className="text-lg font-semibold text-[#0f172a] mb-2">Hızlı erişim</h2>
+        <Link href="/app/favorites" className="block py-2.5 text-[#15803d] font-medium hover:underline">❤️ Favoriler</Link>
+        <Link href="/app/messages" className="block py-2.5 text-[#15803d] font-medium hover:underline">💬 Mesajlar</Link>
+        <Link href="/app/points-info" className="block py-2.5 text-[#15803d] font-medium hover:underline">⭐ Puanlarımı nasıl kullanırım?</Link>
+        <Link href="/app/legal/kvkk" className="block py-2.5 text-[#15803d] font-medium hover:underline">KVKK Aydınlatma Metni</Link>
+        <Link href="/app/legal/etk" className="block py-2.5 text-[#15803d] font-medium hover:underline">ETK (E-posta / SMS)</Link>
       </div>
 
       <div className="bg-white rounded-2xl p-5 border border-[#e2e8f0]">

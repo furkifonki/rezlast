@@ -9,6 +9,7 @@ const TABS = [
   { key: 'explore', label: 'Keşfet', href: '/app' },
   { key: 'favorites', label: 'Favoriler', href: '/app/favorites' },
   { key: 'reservations', label: 'Rezervasyonlarım', href: '/app/reservations' },
+  { key: 'messages', label: 'Mesajlar', href: '/app/messages' },
   { key: 'profile', label: 'Profil', href: '/app/profile' },
 ];
 
@@ -40,9 +41,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         ? 'favorites'
         : pathname.startsWith('/app/reservations')
           ? 'reservations'
-          : pathname.startsWith('/app/profile')
-            ? 'profile'
-            : 'explore';
+          : pathname.startsWith('/app/messages')
+            ? 'messages'
+            : pathname.startsWith('/app/profile')
+              ? 'profile'
+              : 'explore';
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[#f8fafc]">

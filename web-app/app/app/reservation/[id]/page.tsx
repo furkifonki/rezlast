@@ -40,6 +40,8 @@ export default function ReservationDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [messageLoading, setMessageLoading] = useState(false);
+  const [messageError, setMessageError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!supabase || !session?.user?.id || !id) return;
@@ -66,6 +68,21 @@ export default function ReservationDetailPage() {
   }, [id, session?.user?.id]);
 
   const canCancel = reservation && (reservation.status === 'pending' || reservation.status === 'confirmed');
+  const canMessage = reservation && (reservation.status === 'pending' || reservation.status === 'confirmed');
+
+  const handleMessage = async () => {
+    if (!id || !canMessage || !supabase || !session?.user?.id) return;
+    setMessageError(null);
+    setMessageLoading(true);
+    const { data, error: rpcErr } = await supabase.rpc('get_or_create_conversation', { p_reservation_id: id });
+    setMessageLoading(false);
+    if (rpcErr) {
+      setMessageError(rpcErr.message);
+      return;
+    }
+    const convId = typeof data === 'string' ? data : null;
+    if (convId) router.push(`/app/messages/${convId}`);
+  };
 
   const handleCancel = async () => {
     if (!supabase || !id || !canCancel) return;
@@ -119,6 +136,22 @@ export default function ReservationDetailPage() {
             <p className="text-sm text-[#64748b] mt-2 italic">{reservation.special_requests}</p>
           )}
         </div>
+        {canMessage ? (
+          <button
+            type="button"
+            onClick={handleMessage}
+            disabled={messageLoading}
+            className="w-full bg-[#0ea5e9] text-white font-semibold py-3.5 rounded-xl disabled:opacity-70"
+          >
+            {messageLoading ? 'Açılıyor...' : 'Restoranla Mesajlaş'}
+          </button>
+        ) : (
+          <div className="rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-3 text-center">
+            <p className="text-sm text-[#64748b]">Restoranla Mesajlaş</p>
+            <p className="text-xs text-[#94a3b8] mt-1">Bu rezervasyon için mesajlaşma kapalı.</p>
+          </div>
+        )}
+        {messageError && <p className="text-sm text-[#dc2626]">{messageError}</p>}
         {canCancel && (
           <button
             type="button"

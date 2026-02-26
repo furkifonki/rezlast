@@ -89,7 +89,7 @@ export default function MessagesPage() {
       setConversations([]);
       return;
     }
-    const list = (convData ?? []) as Conversation[];
+    const list = (convData ?? []) as unknown as Conversation[];
     const convIds = list.map((c) => c.id);
 
     const { data: unreadData } = await supabase
@@ -119,10 +119,11 @@ export default function MessagesPage() {
 
     let total = 0;
     const withMeta: ConversationWithMeta[] = list.map((c) => {
-      const res = c.reservations;
-      const customerName = res?.customer_name?.trim() || 'Müşteri';
-      const date = res?.reservation_date ?? '';
-      const time = res?.reservation_time ?? '';
+      const raw = c.reservations;
+      const res = Array.isArray(raw) ? raw[0] ?? null : raw;
+      const customerName = (res as { customer_name?: string | null } | null)?.customer_name?.trim() || 'Müşteri';
+      const date = (res as { reservation_date?: string } | null)?.reservation_date ?? '';
+      const time = (res as { reservation_time?: string } | null)?.reservation_time ?? '';
       const reservationLabel = [date, typeof time === 'string' ? time.slice(0, 5) : ''].filter(Boolean).join(' · ') || '—';
       const unread = unreadByConv[c.id] ?? 0;
       total += unread;
@@ -220,8 +221,10 @@ export default function MessagesPage() {
   };
 
   const selected = conversations.find((c) => c.id === selectedId);
-  const canMessage = selected?.reservations?.status
-    ? ['pending', 'confirmed'].includes(selected.reservations.status)
+  const selectedRes = selected?.reservations;
+  const selectedResNorm = Array.isArray(selectedRes) ? selectedRes[0] : selectedRes;
+  const canMessage = selectedResNorm && typeof selectedResNorm === 'object' && 'status' in selectedResNorm
+    ? ['pending', 'confirmed'].includes((selectedResNorm as { status: string }).status)
     : false;
 
   return (
