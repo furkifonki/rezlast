@@ -44,43 +44,43 @@ export default function ProfileHomeScreen({ popToRootRef }: ProfileHomeScreenPro
         icon="👤"
         title="Hesap"
         description="Ad soyad, telefon, e-posta, şifre değiştir"
-        onPress={() => navigate('ProfileAccount')}
+        onPress={() => navigate('ProfileAccount', undefined)}
       />
       <ProfileMenuCard
         icon="⭐"
         title="Puanlar"
         description="Puan bakiyesi, seviyeler, kazanım geçmişi"
-        onPress={() => navigate('ProfilePoints')}
+        onPress={() => navigate('ProfilePoints', undefined)}
       />
       <ProfileMenuCard
         icon="💬"
         title="Mesajlar"
         description="Restoranlarla sohbet"
-        onPress={() => navigate('MessagesList')}
+        onPress={() => navigate('MessagesList', undefined)}
       />
       <ProfileMenuCard
         icon="📅"
         title="Randevu Geçmişi"
         description="Geçmiş ve yaklaşan randevular"
-        onPress={() => navigate('ProfileAppointments')}
+        onPress={() => navigate('ProfileAppointments', undefined)}
       />
       <ProfileMenuCard
         icon="❤️"
         title="Favoriler"
         description="Favori mekanlar"
-        onPress={() => navigate('ProfileFavorites')}
+        onPress={() => navigate('ProfileFavorites', undefined)}
       />
       <ProfileMenuCard
         icon="💳"
         title="Ödeme Yöntemleri"
         description="Kayıtlı kartlar ve ödeme seçenekleri"
-        onPress={() => navigate('ProfilePayments')}
+        onPress={() => navigate('ProfilePayments', undefined)}
       />
       <ProfileMenuCard
         icon="⚙️"
         title="Ayarlar"
         description="Bildirimler, dil, gizlilik"
-        onPress={() => navigate('ProfileSettings')}
+        onPress={() => navigate('ProfileSettings', undefined)}
       />
 
       <ProfileMenuCard

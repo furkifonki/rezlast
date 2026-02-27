@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,6 @@ import {
   Alert,
   Image,
   Modal,
-  TextInput,
 } from 'react-native';
 import Constants from 'expo-constants';
 import { supabase } from '../../lib/supabase';
@@ -516,7 +515,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#e2e8f0',
   },
-  reserveButton: {
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 360 },
   modalTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a', marginBottom: 16 },
   starRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 16 },

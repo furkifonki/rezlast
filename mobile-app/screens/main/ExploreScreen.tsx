@@ -251,7 +251,7 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
       <View style={styles.filterSection}>
         <TouchableOpacity
           style={styles.mapButton}
-          onPress={() => navigate('ExploreMap')}
+          onPress={() => navigate('ExploreMap', undefined)}
           activeOpacity={0.8}
         >
           <Text style={styles.mapButtonIcon}>🗺️</Text>
@@ -347,6 +347,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  listContent: {
+    paddingBottom: 24,
   },
   filterSection: {
     backgroundColor: '#fff',

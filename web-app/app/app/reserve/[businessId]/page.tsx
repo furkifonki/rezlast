@@ -113,13 +113,17 @@ export default function ReservePage() {
       setError('Giriş yapmanız gerekiyor.');
       return;
     }
+    if (!supabase) {
+      setError('Bağlantı yapılandırması eksik. Lütfen sayfayı yenileyin veya daha sonra tekrar deneyin.');
+      return;
+    }
     if (!reservationDate || !reservationTime) {
       setError('Tarih ve saat seçin.');
       return;
     }
     setError(null);
     setSaving(true);
-    const { error: err } = await supabase!.from('reservations').insert({
+    const { error: err } = await supabase.from('reservations').insert({
       business_id: businessId,
       user_id: session.user.id,
       reservation_date: reservationDate,
