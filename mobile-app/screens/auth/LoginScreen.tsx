@@ -8,10 +8,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Alert,
   Image,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/NotificationContext';
+import { PasswordInput } from '../../components/PasswordInput';
 
 type Props = {
   navigation: { navigate: (name: string) => void };
@@ -19,6 +20,7 @@ type Props = {
 
 export default function LoginScreen({ navigation }: Props) {
   const { signIn } = useAuth();
+  const toast = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,13 +29,13 @@ export default function LoginScreen({ navigation }: Props) {
     const e = email.trim();
     const p = password;
     if (!e || !p) {
-      Alert.alert('Hata', 'E-posta ve şifre girin.');
+      toast.error('E-posta ve şifre girin.');
       return;
     }
     setLoading(true);
     const { error } = await signIn(e, p);
     setLoading(false);
-    if (error) Alert.alert('Giriş hatası', error.message);
+    if (error) toast.error(error.message, 'Giriş hatası');
   };
 
   return (
@@ -58,14 +60,12 @@ export default function LoginScreen({ navigation }: Props) {
           keyboardType="email-address"
           editable={Boolean(!loading)}
         />
-        <TextInput
-          style={styles.input}
-          placeholder="Şifre"
-          placeholderTextColor="#94a3b8"
+        <PasswordInput
           value={password}
           onChangeText={setPassword}
-          secureTextEntry={true}
-          editable={Boolean(!loading)}
+          placeholder="Şifre"
+          editable={!loading}
+          accessibilityLabel="Şifre"
         />
 
         <TouchableOpacity

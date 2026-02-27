@@ -155,6 +155,7 @@ export default function ProfilePage() {
       <div className="bg-white rounded-2xl p-5 border border-[#e2e8f0] space-y-2">
         <h2 className="text-lg font-semibold text-[#0f172a] mb-2">Hızlı erişim</h2>
         <Link href="/app/favorites" className="block py-2.5 text-[#15803d] font-medium hover:underline">❤️ Favoriler</Link>
+        <Link href="/app/map" className="block py-2.5 text-[#15803d] font-medium hover:underline">🗺️ Harita görünümü</Link>
         <Link href="/app/messages" className="block py-2.5 text-[#15803d] font-medium hover:underline">💬 Mesajlar</Link>
         <Link href="/app/points-info" className="block py-2.5 text-[#15803d] font-medium hover:underline">⭐ Puanlarımı nasıl kullanırım?</Link>
         <Link href="/app/legal/kvkk" className="block py-2.5 text-[#15803d] font-medium hover:underline">KVKK Aydınlatma Metni</Link>

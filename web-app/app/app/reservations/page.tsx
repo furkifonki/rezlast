@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,6 +14,22 @@ type Reservation = {
   special_requests: string | null;
   businesses: { name: string } | null;
 };
+
+const TZ = 'Europe/Istanbul';
+function isUpcoming(reservation_date: string, reservation_time: string): boolean {
+  try {
+    const d = new Date();
+    const todayIstanbul = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+    const nowTimeIstanbul = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+    const resDate = reservation_date.slice(0, 10);
+    const resTime = String(reservation_time).slice(0, 5);
+    if (resDate > todayIstanbul) return true;
+    if (resDate < todayIstanbul) return false;
+    return resTime >= nowTimeIstanbul;
+  } catch {
+    return reservation_date >= new Date().toISOString().slice(0, 10);
+  }
+}
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Beklemede',
@@ -35,6 +51,20 @@ export default function ReservationsPage() {
   const [list, setList] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  type TabKey = 'upcoming' | 'past';
+  const [tab, setTab] = useState<TabKey>('upcoming');
+
+  const { upcoming, past } = useMemo(() => {
+    const up: Reservation[] = [];
+    const pa: Reservation[] = [];
+    for (const r of list) {
+      if (isUpcoming(r.reservation_date, r.reservation_time)) up.push(r);
+      else pa.push(r);
+    }
+    return { upcoming: up, past: pa };
+  }, [list]);
+
+  const displayedList = tab === 'upcoming' ? upcoming : past;
 
   const load = async () => {
     if (!supabase || !session?.user?.id) {
@@ -102,7 +132,29 @@ export default function ReservationsPage() {
 
   return (
     <div className="p-4 md:p-0 space-y-3 md:max-w-3xl md:space-y-4">
-      {list.map((item) => (
+      <div className="flex gap-2 border-b border-[#e2e8f0] pb-3">
+        <button
+          type="button"
+          onClick={() => setTab('upcoming')}
+          className={`px-4 py-2.5 rounded-xl text-sm font-semibold ${tab === 'upcoming' ? 'bg-[#15803d] text-white' : 'bg-[#e2e8f0] text-[#64748b]'}`}
+        >
+          Gelecek {upcoming.length > 0 && `(${upcoming.length})`}
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('past')}
+          className={`px-4 py-2.5 rounded-xl text-sm font-semibold ${tab === 'past' ? 'bg-[#15803d] text-white' : 'bg-[#e2e8f0] text-[#64748b]'}`}
+        >
+          Geçmiş {past.length > 0 && `(${past.length})`}
+        </button>
+      </div>
+      {displayedList.length === 0 ? (
+        <p className="text-sm text-[#64748b] py-8 text-center">
+          {tab === 'upcoming' ? 'Gelecek rezervasyonunuz yok.' : 'Geçmiş rezervasyonunuz yok.'}
+        </p>
+      ) : (
+      <>
+      {displayedList.map((item) => (
         <Link
           key={item.id}
           href={`/app/reservation/${item.id}`}
@@ -126,6 +178,8 @@ export default function ReservationsPage() {
           )}
         </Link>
       ))}
+      </>
+      )}
     </div>
   );
 }

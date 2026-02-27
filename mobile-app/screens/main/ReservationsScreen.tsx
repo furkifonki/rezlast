@@ -10,8 +10,7 @@ import {
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { StackScreenWrapper } from '../../navigation/StackScreenWrapper';
-import ReservationDetailScreen from './ReservationDetailScreen';
+import { useSimpleStack } from '../../navigation/SimpleStackContext';
 
 type Reservation = {
   id: string;
@@ -39,21 +38,51 @@ const STATUS_COLOR: Record<string, string> = {
   no_show: '#dc2626',
 };
 
+const TZ = 'Europe/Istanbul';
+function isUpcoming(reservation_date: string, reservation_time: string): boolean {
+  try {
+    const d = new Date();
+    const todayIstanbul = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+    const nowTimeIstanbul = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+    const resDate = reservation_date.slice(0, 10);
+    const resTime = String(reservation_time).slice(0, 5);
+    if (resDate > todayIstanbul) return true;
+    if (resDate < todayIstanbul) return false;
+    return resTime >= nowTimeIstanbul;
+  } catch {
+    return reservation_date >= new Date().toISOString().slice(0, 10);
+  }
+}
+
 type ReservationsScreenProps = {
   popToRootRef?: React.MutableRefObject<(() => void) | null>;
 };
 
 export default function ReservationsScreen({ popToRootRef }: ReservationsScreenProps) {
   const { session } = useAuth();
+  const { navigate } = useSimpleStack();
   const [list, setList] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedReservationId, setSelectedReservationId] = useState<string | null>(null);
+  type TabKey = 'upcoming' | 'past';
+  const [tab, setTab] = useState<TabKey>('upcoming');
+
+  const { upcoming, past } = React.useMemo(() => {
+    const up: Reservation[] = [];
+    const pa: Reservation[] = [];
+    for (const r of list) {
+      if (isUpcoming(r.reservation_date, r.reservation_time)) up.push(r);
+      else pa.push(r);
+    }
+    return { upcoming: up, past: pa };
+  }, [list]);
+
+  const displayedList = tab === 'upcoming' ? upcoming : past;
 
   useEffect(() => {
     if (!popToRootRef) return;
-    popToRootRef.current = () => setSelectedReservationId(null);
+    popToRootRef.current = () => {};
     return () => {
       popToRootRef.current = null;
     };
@@ -120,21 +149,6 @@ export default function ReservationsScreen({ popToRootRef }: ReservationsScreenP
     );
   }
 
-  if (selectedReservationId) {
-    return (
-      <StackScreenWrapper onGoBack={() => setSelectedReservationId(null)}>
-        <ReservationDetailScreen
-          reservationId={selectedReservationId}
-          onBack={() => setSelectedReservationId(null)}
-          onUpdated={() => {
-            setSelectedReservationId(null);
-            load();
-          }}
-        />
-      </StackScreenWrapper>
-    );
-  }
-
   if (list.length === 0) {
     return (
       <View style={styles.centered}>
@@ -147,17 +161,48 @@ export default function ReservationsScreen({ popToRootRef }: ReservationsScreenP
 
   return (
     <View style={styles.container}>
+      <View style={styles.tabRow}>
+        <TouchableOpacity
+          style={[styles.tabChip, tab === 'upcoming' && styles.tabChipActive]}
+          onPress={() => setTab('upcoming')}
+        >
+          <Text style={[styles.tabChipText, tab === 'upcoming' && styles.tabChipTextActive]}>Gelecek</Text>
+          {upcoming.length > 0 && (
+            <View style={styles.tabBadge}>
+              <Text style={styles.tabBadgeText}>{upcoming.length}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabChip, tab === 'past' && styles.tabChipActive]}
+          onPress={() => setTab('past')}
+        >
+          <Text style={[styles.tabChipText, tab === 'past' && styles.tabChipTextActive]}>Geçmiş</Text>
+          {past.length > 0 && (
+            <View style={styles.tabBadge}>
+              <Text style={styles.tabBadgeText}>{past.length}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
       <FlatList
-        data={list}
+        data={displayedList}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, displayedList.length === 0 && { flex: 1 }]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#15803d']} />
+        }
+        ListEmptyComponent={
+          displayedList.length === 0 ? (
+            <View style={styles.emptyTab}>
+              <Text style={styles.emptyTabText}>{tab === 'upcoming' ? 'Gelecek rezervasyonunuz yok.' : 'Geçmiş rezervasyonunuz yok.'}</Text>
+            </View>
+          ) : null
         }
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.card}
-            onPress={() => setSelectedReservationId(item.id)}
+            onPress={() => navigate('ReservationDetail', { reservationId: item.id })}
             activeOpacity={0.7}
           >
             <View style={styles.cardRow}>
@@ -222,4 +267,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#15803d',
   },
   retryButtonText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+  tabRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  tabChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: '#e2e8f0' },
+  tabChipActive: { backgroundColor: '#15803d' },
+  tabChipText: { fontSize: 14, fontWeight: '600', color: '#64748b' },
+  tabChipTextActive: { color: '#fff' },
+  tabBadge: { backgroundColor: 'rgba(0,0,0,0.15)', borderRadius: 10, minWidth: 20, alignItems: 'center', paddingHorizontal: 6 },
+  tabBadgeText: { fontSize: 12, fontWeight: '700', color: '#fff' },
+  emptyTab: { flex: 1, justifyContent: 'center', paddingVertical: 48, alignItems: 'center' },
+  emptyTabText: { fontSize: 15, color: '#64748b' },
 });

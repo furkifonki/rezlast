@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import { RootNavigator } from './navigation/RootNavigator';
 
 class ErrorBoundary extends Component<
@@ -34,19 +35,23 @@ class ErrorBoundary extends Component<
 
 function AppContent() {
   return (
-    <SafeAreaProvider>
+    <>
       <RootNavigator />
       <StatusBar style="auto" />
-    </SafeAreaProvider>
+    </>
   );
 }
 
 export default function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <NotificationProvider>
+            <AppContent />
+          </NotificationProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
     </ErrorBoundary>
   );
 }

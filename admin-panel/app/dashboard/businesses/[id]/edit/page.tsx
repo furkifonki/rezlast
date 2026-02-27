@@ -4,6 +4,7 @@ import { Suspense, useState, useEffect, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase';
+import { cityNames, getDistrictsByCity } from '@/lib/turkey-cities';
 
 type Category = { id: string; name: string };
 type Business = {
@@ -395,12 +396,35 @@ function EditBusinessContent() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-zinc-700 mb-1">Şehir</label>
-              <input type="text" value={form.city} onChange={(e) => setForm((f) => (f ? { ...f, city: e.target.value } : f))} className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900 focus:border-green-600 focus:outline-none focus:ring-1 focus:ring-green-600" />
+              <label className="block text-sm font-medium text-zinc-700 mb-1">İl</label>
+              <select
+                value={form.city}
+                onChange={(e) => setForm((f) => (f ? { ...f, city: e.target.value, district: null } : f))}
+                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900 focus:border-green-600 focus:outline-none focus:ring-1 focus:ring-green-600"
+              >
+                {!cityNames.includes(form.city) && form.city && (
+                  <option value={form.city}>{form.city}</option>
+                )}
+                {cityNames.map((name) => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-zinc-700 mb-1">İlçe</label>
-              <input type="text" value={form.district ?? ''} onChange={(e) => setForm((f) => (f ? { ...f, district: e.target.value || null } : f))} className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900 focus:border-green-600 focus:outline-none focus:ring-1 focus:ring-green-600" />
+              <select
+                value={form.district ?? ''}
+                onChange={(e) => setForm((f) => (f ? { ...f, district: e.target.value || null } : f))}
+                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900 focus:border-green-600 focus:outline-none focus:ring-1 focus:ring-green-600"
+              >
+                <option value="">Seçin</option>
+                {form.district && !getDistrictsByCity(form.city).includes(form.district) && (
+                  <option value={form.district}>{form.district}</option>
+                )}
+                {getDistrictsByCity(form.city).map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
             </div>
           </div>
           <div>

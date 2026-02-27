@@ -17,6 +17,7 @@ import MessagesListScreen from '../screens/main/messages/MessagesListScreen';
 import ChatScreen from '../screens/main/messages/ChatScreen';
 import ExploreMapScreen from '../screens/main/ExploreMapScreen';
 import BusinessReviewsScreen from '../screens/main/BusinessReviewsScreen';
+import ReservationDetailScreen from '../screens/main/ReservationDetailScreen';
 
 const initialStack: StackEntry[] = [{ screen: 'Main', params: undefined }];
 
@@ -57,6 +58,15 @@ function MainStackContent() {
               businessName={current.params.businessName}
               onBack={goBack}
               onDone={goBack}
+            />
+          </StackScreenWrapper>
+        )}
+        {current.screen === 'ReservationDetail' && current.params && (
+          <StackScreenWrapper onGoBack={goBack}>
+            <ReservationDetailScreen
+              reservationId={current.params.reservationId}
+              onBack={goBack}
+              onUpdated={() => {}}
             />
           </StackScreenWrapper>
         )}

@@ -80,9 +80,10 @@ export default function DashboardLayout({
     <div className="min-h-screen flex bg-zinc-50">
       <aside className="w-56 bg-zinc-900 text-white flex flex-col">
         <div className="p-4 border-b border-zinc-700 flex items-center gap-2">
-          {/* Logo: admin-panel/public/logo.png dosyasını ekleyin */}
-          <img src="/logo.png" alt="Rezvio" className="h-8 w-8 object-contain" />
-          <span className="font-semibold text-green-400">Rezvio</span>
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <img src="/logo.png" alt="Rezvio" className="h-8 w-8 object-contain" />
+            <span className="font-semibold text-green-400">Rezvio</span>
+          </Link>
         </div>
         <nav className="flex-1 p-2 space-y-1">
           {nav.map(({ href, label, badge }) => {

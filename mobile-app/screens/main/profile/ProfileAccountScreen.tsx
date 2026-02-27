@@ -7,13 +7,13 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Switch,
 } from 'react-native';
 import { useSimpleStack } from '../../../navigation/SimpleStackContext';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useToast } from '../../../contexts/NotificationContext';
 import { supabase } from '../../../lib/supabase';
 import { useUserProfile } from '../../../hooks/useUserProfile';
 
@@ -23,7 +23,8 @@ function normalizePhone(v: string): string {
 
 export default function ProfileAccountScreen() {
   const { goBack, navigate } = useSimpleStack();
-  const { session, signOut } = useAuth();
+  const { session } = useAuth();
+  const toast = useToast();
   const { profile, loading, refetch } = useUserProfile();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -103,18 +104,11 @@ export default function ProfileAccountScreen() {
       .eq('id', session.user.id);
     setSaving(false);
     if (error) {
-      Alert.alert('Hata', error.message);
+      toast.error(error.message);
       return;
     }
     refetch();
-    Alert.alert('Kaydedildi', 'Profil bilgileriniz güncellendi.');
-  };
-
-  const handleSignOut = () => {
-    Alert.alert('Çıkış', 'Çıkış yapmak istediğinize emin misiniz?', [
-      { text: 'İptal', style: 'cancel' },
-      { text: 'Çıkış', style: 'destructive', onPress: signOut },
-    ]);
+    toast.success('Profil bilgileriniz güncellendi.', 'Kaydedildi');
   };
 
   return (
@@ -223,10 +217,6 @@ export default function ProfileAccountScreen() {
             <Text style={styles.legalLink}>ETK / İletişim İzinleri metnini oku</Text>
           </TouchableOpacity>
         </View>
-
-        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-          <Text style={styles.signOutButtonText}>Çıkış Yap</Text>
-        </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -284,13 +274,4 @@ const styles = StyleSheet.create({
   hint: { fontSize: 13, color: '#64748b', marginBottom: 12 },
   consentRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 },
   consentLabel: { fontSize: 15, color: '#0f172a', flex: 1 },
-  signOutButton: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#fecaca',
-  },
-  signOutButtonText: { color: '#dc2626', fontSize: 16, fontWeight: '600' },
 });

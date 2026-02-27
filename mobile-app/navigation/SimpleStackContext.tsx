@@ -5,6 +5,7 @@ type StackEntry =
   | { screen: 'Main'; params: undefined }
   | { screen: 'BusinessDetail'; params: { businessId: string } }
   | { screen: 'ReservationFlow'; params: { businessId: string; businessName: string } }
+  | { screen: 'ReservationDetail'; params: { reservationId: string } }
   | { screen: 'ProfileAccount'; params: undefined }
   | { screen: 'ProfilePoints'; params: undefined }
   | { screen: 'ProfileAppointments'; params: undefined }

@@ -13,6 +13,7 @@ import {
   Switch,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/NotificationContext';
 import { supabase } from '../../lib/supabase';
 import PointsInfoScreen from './PointsInfoScreen';
 import HizmetlerScreen from './HizmetlerScreen';
@@ -38,6 +39,7 @@ function normalizePhone(v: string): string {
 
 export default function ProfileScreen() {
   const { session, signOut } = useAuth();
+  const toast = useToast();
   const email = session?.user?.email ?? '';
   const [user, setUser] = useState<UserRow | null>(null);
   const [transactions, setTransactions] = useState<TxRow[]>([]);
@@ -114,11 +116,11 @@ export default function ProfileScreen() {
       .eq('id', session.user.id);
     setSaving(false);
     if (error) {
-      Alert.alert('Hata', error.message);
+      toast.error(error.message);
       return;
     }
     setUser((prev) => (prev ? { ...prev, first_name: fn, last_name: ln, phone: ph } : null));
-    Alert.alert('Kaydedildi', 'Profil bilgileriniz güncellendi.');
+    toast.success('Profil bilgileriniz güncellendi.', 'Kaydedildi');
   };
 
   const handleSignOut = () => {

@@ -60,8 +60,8 @@ export default function ProfileHomeScreen({ popToRootRef }: ProfileHomeScreenPro
       />
       <ProfileMenuCard
         icon="📅"
-        title="Randevu Geçmişi"
-        description="Geçmiş ve yaklaşan randevular"
+        title="Rezervasyonlar"
+        description="Gelecek ve geçmiş rezervasyonlarınız"
         onPress={() => navigate('ProfileAppointments', undefined)}
       />
       <ProfileMenuCard

@@ -6,12 +6,12 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   TextInput,
   Modal,
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/NotificationContext';
 
 type Review = { id: string; user_id: string; rating: number; comment: string | null; created_at: string };
 
@@ -23,6 +23,7 @@ type Props = {
 
 export default function BusinessReviewsScreen({ businessId, businessName, onBack }: Props) {
   const { session } = useAuth();
+  const toast = useToast();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewSort, setReviewSort] = useState<'newest' | 'highest' | 'lowest'>('newest');
   const [showWriteReview, setShowWriteReview] = useState(false);
@@ -63,7 +64,7 @@ export default function BusinessReviewsScreen({ businessId, businessName, onBack
     );
     setSubmittingReview(false);
     if (err) {
-      Alert.alert('Hata', err.message, [{ text: 'Tamam' }]);
+      toast.error(err.message);
       return;
     }
     setShowWriteReview(false);

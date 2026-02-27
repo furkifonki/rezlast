@@ -51,9 +51,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen flex flex-col md:flex-row bg-[#f8fafc]">
       {/* Mobile: header */}
       <header className="flex md:hidden items-center bg-white border-b border-[#e2e8f0] px-4 py-3 sticky top-0 z-10">
-        <div className="w-8 h-8 bg-[#f1f5f9] rounded-lg flex items-center justify-center text-lg mr-2.5">
+        <Link href="/app" className="w-8 h-8 bg-[#f1f5f9] rounded-lg flex items-center justify-center text-lg mr-2.5">
           📱
-        </div>
+        </Link>
         <h1 className="text-xl font-semibold text-[#0f172a] flex-1">
           {TABS.find((t) => t.key === currentTab)?.label ?? 'Keşfet'}
         </h1>
@@ -62,12 +62,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Desktop: sidebar */}
       <aside className="hidden md:flex md:flex-col md:w-56 md:flex-shrink-0 md:bg-white md:border-r md:border-[#e2e8f0] md:sticky md:top-0 md:h-screen">
         <div className="p-4 border-b border-[#e2e8f0]">
-          <div className="flex items-center gap-2">
+          <Link href="/app" className="flex items-center gap-2">
             <div className="w-9 h-9 bg-[#f0fdf4] rounded-xl flex items-center justify-center text-xl">
               📱
             </div>
             <span className="font-semibold text-[#0f172a]">Rezvio</span>
-          </div>
+          </Link>
         </div>
         <nav className="p-3 flex flex-col gap-0.5">
           {TABS.map((t) => {

@@ -6,11 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   TextInput,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/NotificationContext';
 import { useSimpleStack } from '../../navigation/SimpleStackContext';
 import { getOrCreateConversation } from '../../lib/messaging';
 
@@ -52,16 +54,19 @@ type Props = {
 export default function ReservationDetailScreen({ reservationId, onBack, onUpdated }: Props) {
   const { session } = useAuth();
   const { navigate } = useSimpleStack();
+  const toast = useToast();
   const [reservation, setReservation] = useState<ReservationDetail | null>(null);
   const [messageLoading, setMessageLoading] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState('');
+  const [showNoteInput, setShowNoteInput] = useState(false);
   const [paymentMethodId, setPaymentMethodId] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [hasPaymentColumn, setHasPaymentColumn] = useState(false);
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
 
   useEffect(() => {
     if (!supabase || !session?.user?.id || !reservationId) return;
@@ -95,6 +100,7 @@ export default function ReservationDetailScreen({ reservationId, onBack, onUpdat
             const business = Array.isArray(b) && b.length > 0 ? (b[0] as { name: string }) : (b && typeof b === 'object' && 'name' in b ? (b as { name: string }) : null);
             setReservation({ ...r, businesses: business, payment_method_id: null, payment_methods: null } as ReservationDetail);
             setNote((r.special_requests as string) ?? '');
+            setShowNoteInput(!!((r.special_requests as string) ?? '').trim());
             setHasPaymentColumn(false);
           }
         } else {
@@ -105,6 +111,7 @@ export default function ReservationDetailScreen({ reservationId, onBack, onUpdat
           const paymentMethod = Array.isArray(pm) && pm.length > 0 ? (pm[0] as PaymentMethod) : (pm && typeof pm === 'object' && 'name' in pm ? (pm as PaymentMethod) : null);
           setReservation({ ...r, businesses: business, payment_methods: paymentMethod } as ReservationDetail);
           setNote((r.special_requests as string) ?? '');
+          setShowNoteInput(!!((r.special_requests as string) ?? '').trim());
           setPaymentMethodId((r.payment_method_id as string) ?? '');
           setHasPaymentColumn(true);
         }
@@ -129,7 +136,7 @@ export default function ReservationDetailScreen({ reservationId, onBack, onUpdat
       const businessName = (reservation?.businesses as { name: string } | null)?.name ?? undefined;
       navigate('Chat', { conversationId, businessName, messagingDisabled: false });
     } catch (e) {
-      Alert.alert('Hata', e instanceof Error ? e.message : 'Sohbet açılamadı.');
+      toast.error(e instanceof Error ? e.message : 'Sohbet açılamadı.');
     } finally {
       setMessageLoading(false);
     }
@@ -152,36 +159,29 @@ export default function ReservationDetailScreen({ reservationId, onBack, onUpdat
     }
     setReservation((prev) => prev ? { ...prev, special_requests: note.trim() || null, payment_method_id: paymentMethodId || null } : null);
     onUpdated();
+    toast.success('Notunuz kaydedildi.', 'Kaydedildi');
   };
 
   const handleCancelReservation = () => {
-    Alert.alert(
-      'Rezervasyonu iptal et',
-      'Bu rezervasyonu iptal etmek istediğinize emin misiniz?',
-      [
-        { text: 'Vazgeç', style: 'cancel' },
-        {
-          text: 'İptal et',
-          style: 'destructive',
-          onPress: async () => {
-            if (!supabase || !reservationId || !session?.user?.id) return;
-            setCancelling(true);
-            const { error: err } = await supabase
-              .from('reservations')
-              .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-              .eq('id', reservationId)
-              .eq('user_id', session.user.id);
-            setCancelling(false);
-            if (err) {
-              setError(err.message);
-              return;
-            }
-            onUpdated();
-            onBack();
-          },
-        },
-      ]
-    );
+    setCancelModalVisible(true);
+  };
+
+  const confirmCancelReservation = async () => {
+    setCancelModalVisible(false);
+    if (!supabase || !reservationId || !session?.user?.id) return;
+    setCancelling(true);
+    const { error: err } = await supabase
+      .from('reservations')
+      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .eq('id', reservationId)
+      .eq('user_id', session.user.id);
+    setCancelling(false);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    onUpdated();
+    onBack();
   };
 
   if (loading) {
@@ -207,28 +207,29 @@ export default function ReservationDetailScreen({ reservationId, onBack, onUpdat
   const businessName = (reservation.businesses as { name: string } | null)?.name ?? '—';
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.headerRow}>
         <TouchableOpacity onPress={onBack} style={styles.backBtnRound} activeOpacity={0.7}>
           <Text style={styles.backBtnIcon}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Rezervasyon detayı</Text>
-      </View>
-
-      <View style={[styles.statusBadge, { backgroundColor: `${STATUS_COLOR[reservation.status] ?? '#64748b'}20` }]}>
-        <Text style={[styles.statusText, { color: STATUS_COLOR[reservation.status] ?? '#64748b' }]}>
-          {STATUS_LABELS[reservation.status] ?? reservation.status}
-        </Text>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>Rezervasyon detayı</Text>
+          <View style={[styles.statusBadge, { backgroundColor: `${STATUS_COLOR[reservation.status] ?? '#64748b'}20` }]}>
+            <Text style={[styles.statusText, { color: STATUS_COLOR[reservation.status] ?? '#64748b' }]}>
+              {STATUS_LABELS[reservation.status] ?? reservation.status}
+            </Text>
+          </View>
+        </View>
       </View>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>{businessName}</Text>
-        <Text style={styles.cardDate}>
-          {reservation.reservation_date} · {String(reservation.reservation_time).slice(0, 5)}
-        </Text>
-        <Text style={styles.cardMeta}>
-          {reservation.party_size} kişi
-        </Text>
+        <View style={styles.cardMetaRow}>
+          <Text style={styles.cardDate}>
+            {reservation.reservation_date} · {String(reservation.reservation_time).slice(0, 5)}
+          </Text>
+          <Text style={styles.cardMeta}>{reservation.party_size} kişi</Text>
+        </View>
         {hasPaymentColumn && (reservation.payment_methods as PaymentMethod | null)?.name && (
           <Text style={styles.cardMeta}>Ödeme: {(reservation.payment_methods as PaymentMethod).name}</Text>
         )}
@@ -236,16 +237,30 @@ export default function ReservationDetailScreen({ reservationId, onBack, onUpdat
 
       {canEdit && (
         <View style={styles.card}>
-          <Text style={styles.sectionLabel}>Not / Özel istek</Text>
-          <TextInput
-            style={styles.noteInput}
-            value={note}
-            onChangeText={setNote}
-            placeholder="İşletmeye iletmek istediğiniz not..."
-            placeholderTextColor="#94a3b8"
-            multiline
-            numberOfLines={3}
-          />
+          {!showNoteInput && !note.trim() ? (
+            <TouchableOpacity style={styles.noteToggleRow} onPress={() => setShowNoteInput(true)}>
+              <Text style={styles.noteToggleLabel}>Not (işletmeye iletilecek)</Text>
+              <Text style={styles.noteToggleLink}>+ Not ekle</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <Text style={styles.sectionLabel}>Not (işletmeye iletilecek)</Text>
+              <TextInput
+                style={styles.noteInput}
+                value={note}
+                onChangeText={setNote}
+                placeholder="İşletmeye iletmek istediğiniz not..."
+                placeholderTextColor="#94a3b8"
+                multiline
+                numberOfLines={3}
+              />
+              {!note.trim() && (
+                <TouchableOpacity onPress={() => setShowNoteInput(false)} style={styles.noteHideRow}>
+                  <Text style={styles.noteHideText}>Gizle</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
           {hasPaymentColumn && paymentMethods.length > 0 && (
             <>
               <Text style={[styles.sectionLabel, { marginTop: 16 }]}>Ödeme yöntemi (önceden belirtin)</Text>
@@ -283,26 +298,44 @@ export default function ReservationDetailScreen({ reservationId, onBack, onUpdat
         </TouchableOpacity>
       )}
 
-      <View style={styles.card}>
-        {canMessage ? (
+      {canEdit && (
+        <View style={styles.card}>
           <TouchableOpacity
-            style={[styles.messageButton, messageLoading && styles.buttonDisabled]}
+            style={[styles.linkRow, messageLoading && styles.buttonDisabled]}
             onPress={handleMessagePress}
-            disabled={messageLoading}
+            disabled={!canMessage || messageLoading}
           >
-            <Text style={styles.messageButtonText}>
-              {messageLoading ? 'Açılıyor...' : 'Restoranla Mesajlaş'}
-            </Text>
+            <Text style={styles.linkRowText}>Restoranla Mesajlaş</Text>
+            <Text style={styles.linkRowArrow}>→</Text>
           </TouchableOpacity>
-        ) : (
-          <>
-            <TouchableOpacity style={styles.messageButtonDisabled} disabled>
-              <Text style={styles.messageButtonTextDisabled}>Restoranla Mesajlaş</Text>
-            </TouchableOpacity>
+          {!canMessage && (
             <Text style={styles.messageHint}>Bu rezervasyon için mesajlaşma kapalı.</Text>
-          </>
-        )}
-      </View>
+          )}
+        </View>
+      )}
+
+      {!canEdit && (
+        <View style={styles.card}>
+          {canMessage ? (
+            <TouchableOpacity
+              style={[styles.linkRow, messageLoading && styles.buttonDisabled]}
+              onPress={handleMessagePress}
+              disabled={messageLoading}
+            >
+              <Text style={styles.linkRowText}>Restoranla Mesajlaş</Text>
+              <Text style={styles.linkRowArrow}>→</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity style={styles.linkRowDisabled} disabled>
+                <Text style={styles.linkRowTextDisabled}>Restoranla Mesajlaş</Text>
+                <Text style={styles.linkRowArrowDisabled}>→</Text>
+              </TouchableOpacity>
+              <Text style={styles.messageHint}>Bu rezervasyon için mesajlaşma kapalı.</Text>
+            </>
+          )}
+        </View>
+      )}
 
       {!canEdit && reservation.special_requests ? (
         <View style={styles.card}>
@@ -310,70 +343,135 @@ export default function ReservationDetailScreen({ reservationId, onBack, onUpdat
           <Text style={styles.noteStatic}>{reservation.special_requests}</Text>
         </View>
       ) : null}
+
+      <Modal
+        visible={cancelModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCancelModalVisible(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setCancelModalVisible(false)}>
+          <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>Rezervasyonu iptal et</Text>
+            <Text style={styles.modalMessage}>Bu rezervasyonu iptal etmek istediğinize emin misiniz?</Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setCancelModalVisible(false)}>
+                <Text style={styles.modalCancelText}>Vazgeç</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalConfirmBtn} onPress={confirmCancelReservation} disabled={cancelling}>
+                <Text style={styles.modalConfirmText}>{cancelling ? 'İptal ediliyor...' : 'İptal et'}</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
-  content: { padding: 16, paddingBottom: 32 },
+  content: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 32 },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 10,
   },
   backBtnRound: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
-  },
-  backBtnIcon: { fontSize: 22, color: '#15803d', fontWeight: '600' },
-  headerTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: '#0f172a' },
-  statusBadge: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, marginBottom: 16 },
-  statusText: { fontSize: 14, fontWeight: '600' },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    marginRight: 10,
     borderWidth: 1,
     borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  cardTitle: { fontSize: 18, fontWeight: '600', color: '#0f172a', marginBottom: 6 },
-  cardDate: { fontSize: 15, color: '#64748b', marginBottom: 4 },
-  cardMeta: { fontSize: 14, color: '#94a3b8' },
-  sectionLabel: { fontSize: 14, fontWeight: '600', color: '#475569', marginBottom: 8 },
+  backBtnIcon: { fontSize: 20, color: '#15803d', fontWeight: '700' },
+  headerCenter: { flex: 1 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a', marginBottom: 4 },
+  statusBadge: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
+  statusText: { fontSize: 13, fontWeight: '600' },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  cardTitle: { fontSize: 17, fontWeight: '700', color: '#0f172a', marginBottom: 6 },
+  cardMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 },
+  cardDate: { fontSize: 15, color: '#475569', fontWeight: '500' },
+  cardMeta: { fontSize: 14, color: '#64748b' },
+  sectionLabel: { fontSize: 13, fontWeight: '600', color: '#64748b', marginBottom: 8 },
   noteInput: {
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    borderRadius: 10,
-    padding: 12,
+    borderRadius: 12,
+    padding: 14,
     fontSize: 15,
     color: '#0f172a',
-    minHeight: 80,
+    minHeight: 88,
     textAlignVertical: 'top',
+    backgroundColor: '#fafafa',
   },
-  noteStatic: { fontSize: 15, color: '#64748b' },
-  paymentRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f1f5f9' },
+  noteToggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
+  noteToggleLabel: { fontSize: 14, color: '#64748b' },
+  noteToggleLink: { fontSize: 15, color: '#15803d', fontWeight: '600' },
+  noteHideRow: { marginTop: 10 },
+  noteHideText: { fontSize: 14, color: '#64748b' },
+  noteStatic: { fontSize: 15, color: '#475569', lineHeight: 22 },
+  paymentRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  chip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: '#f1f5f9' },
   chipActive: { backgroundColor: '#15803d' },
   chipText: { fontSize: 14, color: '#64748b' },
   chipTextActive: { color: '#fff', fontWeight: '600' },
-  saveButton: { backgroundColor: '#15803d', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 16 },
-  saveButtonText: { fontSize: 16, fontWeight: '600', color: '#fff' },
-  cancelButton: { backgroundColor: '#fff', borderRadius: 12, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: '#dc2626', marginTop: 8 },
-  cancelButtonText: { fontSize: 16, fontWeight: '600', color: '#dc2626' },
-  messageButton: { backgroundColor: '#0ea5e9', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  messageButtonText: { fontSize: 16, fontWeight: '600', color: '#fff' },
-  messageButtonDisabled: { backgroundColor: '#e2e8f0', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  messageButtonTextDisabled: { fontSize: 16, fontWeight: '600', color: '#94a3b8' },
-  messageHint: { fontSize: 13, color: '#64748b', marginTop: 8, textAlign: 'center' },
+  saveButton: { backgroundColor: '#15803d', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 20 },
+  saveButtonText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  cancelButton: { backgroundColor: '#fff', borderRadius: 14, paddingVertical: 16, alignItems: 'center', borderWidth: 2, borderColor: '#fecaca', marginTop: 10 },
+  cancelButtonText: { fontSize: 16, fontWeight: '700', color: '#dc2626' },
+  linkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 4 },
+  linkRowText: { fontSize: 16, color: '#0f172a', fontWeight: '600' },
+  linkRowArrow: { fontSize: 20, color: '#15803d', fontWeight: '600' },
+  linkRowDisabled: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 4, opacity: 0.6 },
+  linkRowTextDisabled: { fontSize: 16, color: '#94a3b8', fontWeight: '600' },
+  linkRowArrowDisabled: { fontSize: 20, color: '#94a3b8' },
+  messageHint: { fontSize: 13, color: '#64748b', marginTop: 8, paddingHorizontal: 4 },
   buttonDisabled: { opacity: 0.6 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   loadingText: { marginTop: 12, fontSize: 14, color: '#64748b' },
   errorText: { fontSize: 14, color: '#dc2626', marginBottom: 12 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalBox: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 320,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a', marginBottom: 10 },
+  modalMessage: { fontSize: 15, color: '#64748b', marginBottom: 20, lineHeight: 22 },
+  modalActions: { flexDirection: 'row', gap: 12 },
+  modalCancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#f1f5f9', alignItems: 'center' },
+  modalCancelText: { fontSize: 16, fontWeight: '600', color: '#475569' },
+  modalConfirmBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#dc2626', alignItems: 'center' },
+  modalConfirmText: { fontSize: 16, fontWeight: '600', color: '#fff' },
 });

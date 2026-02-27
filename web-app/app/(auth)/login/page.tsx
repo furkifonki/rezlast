@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { PasswordInput } from '@/components/PasswordInput';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -48,13 +49,13 @@ export default function LoginPage() {
           className="w-full border border-[#e2e8f0] rounded-xl px-4 py-3.5 text-base text-[#0f172a] mb-3 focus:outline-none focus:ring-2 focus:ring-[#15803d]"
           disabled={loading}
         />
-        <input
-          type="password"
-          placeholder="Şifre"
+        <PasswordInput
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full border border-[#e2e8f0] rounded-xl px-4 py-3.5 text-base text-[#0f172a] mb-3 focus:outline-none focus:ring-2 focus:ring-[#15803d]"
+          placeholder="Şifre"
           disabled={loading}
+          aria-label="Şifre"
+          className="mb-3"
         />
         {error && <p className="text-sm text-[#dc2626] mb-2">{error}</p>}
         <button

@@ -371,6 +371,19 @@ export default function ReservationDetailPage() {
                 </button>
               </>
             )}
+            {reservation.status === 'completed' && (
+              <button
+                onClick={() => {
+                  if (typeof window !== 'undefined' && window.confirm('Bu rezervasyonu tekrar "Onaylandı" durumuna almak istediğinize emin misiniz?')) {
+                    updateStatus('confirmed');
+                  }
+                }}
+                disabled={actionLoading}
+                className="rounded-lg border border-amber-400 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+              >
+                Onaylandıya geri al
+              </button>
+            )}
           </div>
         </div>
       </div>

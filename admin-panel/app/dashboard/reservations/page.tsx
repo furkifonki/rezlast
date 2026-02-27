@@ -27,25 +27,32 @@ type Reservation = {
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Beklemede',
   confirmed: 'Onaylandı',
+  approved: 'Onaylandı',
   cancelled: 'İptal',
   completed: 'Tamamlandı',
   no_show: 'Gelmedi',
+  rejected: 'Reddedildi',
 };
 
 const STATUS_CLASS: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-800',
   confirmed: 'bg-green-100 text-green-800',
+  approved: 'bg-green-100 text-green-800',
   cancelled: 'bg-zinc-100 text-zinc-600',
   completed: 'bg-blue-100 text-blue-800',
   no_show: 'bg-red-100 text-red-800',
+  rejected: 'bg-red-100 text-red-800',
 };
 
 function ReservationsContent() {
   const searchParams = useSearchParams();
   const statusFromUrl = searchParams.get('status');
+  const tabFromUrl = searchParams.get('tab');
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  type TabKey = 'active' | 'past' | 'cancelled';
+  const [tab, setTab] = useState<TabKey>(tabFromUrl === 'past' || tabFromUrl === 'cancelled' ? tabFromUrl : 'active');
   const [filterStatus, setFilterStatus] = useState<string>(statusFromUrl && ['pending', 'confirmed', 'cancelled', 'completed', 'no_show'].includes(statusFromUrl) ? statusFromUrl : 'all');
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
@@ -57,6 +64,10 @@ function ReservationsContent() {
       setFilterStatus(statusFromUrl);
     }
   }, [statusFromUrl]);
+
+  useEffect(() => {
+    setFilterStatus('all');
+  }, [tab]);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,6 +113,9 @@ function ReservationsContent() {
           .in('business_id', businessIds)
           .order('reservation_date', { ascending: false })
           .order('reservation_time', { ascending: false });
+        if (tab === 'active') query = query.in('status', ['pending', 'confirmed']);
+        else if (tab === 'past') query = query.eq('status', 'completed');
+        else if (tab === 'cancelled') query = query.in('status', ['cancelled', 'no_show']);
         if (filterStatus !== 'all') query = query.eq('status', filterStatus);
         if (filterDateFrom) query = query.gte('reservation_date', filterDateFrom);
         if (filterDateTo) query = query.lte('reservation_date', filterDateTo);
@@ -116,6 +130,9 @@ function ReservationsContent() {
             .order('reservation_date', { ascending: false })
             .order('reservation_time', { ascending: false });
           if (filterStatus !== 'all') queryFallback = queryFallback.eq('status', filterStatus);
+          if (tab === 'active') queryFallback = queryFallback.in('status', ['pending', 'confirmed']);
+          else if (tab === 'past') queryFallback = queryFallback.eq('status', 'completed');
+          else if (tab === 'cancelled') queryFallback = queryFallback.in('status', ['cancelled', 'no_show']);
           if (filterDateFrom) queryFallback = queryFallback.gte('reservation_date', filterDateFrom);
           if (filterDateTo) queryFallback = queryFallback.lte('reservation_date', filterDateTo);
           const res2 = await queryFallback;
@@ -157,7 +174,7 @@ function ReservationsContent() {
     }
     load();
     return () => { cancelled = true; };
-  }, [filterStatus, filterDateFrom, filterDateTo]);
+  }, [tab, filterStatus, filterDateFrom, filterDateTo]);
 
   const updateStatus = async (id: string, status: string) => {
     setActionLoading(id);
@@ -195,6 +212,24 @@ function ReservationsContent() {
         </Link>
       </div>
 
+      {/* Sekmeler */}
+      <div className="mb-4 flex gap-1 border-b border-zinc-200">
+        {(['active', 'past', 'cancelled'] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={`px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 -mb-px ${
+              tab === t
+                ? 'border-green-600 text-green-700 bg-white'
+                : 'border-transparent text-zinc-600 hover:text-zinc-900'
+            }`}
+          >
+            {t === 'active' ? 'Aktif' : t === 'past' ? 'Geçmiş' : 'İptal'}
+          </button>
+        ))}
+      </div>
+
       {/* Filtreler */}
       <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4">
         <label className="text-sm font-medium text-zinc-700">Durum:</label>
@@ -204,9 +239,19 @@ function ReservationsContent() {
           className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm text-zinc-900"
         >
           <option value="all">Tümü</option>
-          {Object.entries(STATUS_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>{label}</option>
-          ))}
+          {tab === 'active' && (
+            <>
+              <option value="pending">Beklemede</option>
+              <option value="confirmed">Onaylandı</option>
+            </>
+          )}
+          {tab === 'past' && <option value="completed">Tamamlandı</option>}
+          {tab === 'cancelled' && (
+            <>
+              <option value="cancelled">İptal</option>
+              <option value="no_show">Gelmedi</option>
+            </>
+          )}
         </select>
         <label className="text-sm font-medium text-zinc-700 ml-2">Tarih:</label>
         <input
@@ -329,6 +374,15 @@ function ReservationsContent() {
                           İptal
                         </button>
                       </>
+                    )}
+                    {r.status === 'completed' && (
+                      <button
+                        onClick={() => window.confirm('Bu rezervasyonu tekrar "Onaylandı" durumuna almak istediğinize emin misiniz?') && updateStatus(r.id, 'confirmed')}
+                        disabled={actionLoading === r.id}
+                        className="text-sm font-medium text-amber-700 hover:underline disabled:opacity-50"
+                      >
+                        Onaylandıya geri al
+                      </button>
                     )}
                   </td>
                 </tr>

@@ -1,0 +1,224 @@
+{
+  "common": {
+    "loading": "Yükleniyor...",
+    "ok": "Tamam",
+    "cancel": "İptal",
+    "logout": "Çıkış",
+    "try_again": "Tekrar dene",
+    "home": "Ana sayfaya dön",
+    "error_generic": "Bir hata oluştu",
+    "no_limit": "Süre sınırı yok",
+    "no_duration": "Süre yok",
+    "minutes": "{count} dk"
+  },
+  "errors": {
+    "network": "İnternet bağlantınızı kontrol edin.",
+    "unauthorized": "Oturumunuz sonlanmış. Lütfen tekrar giriş yapın.",
+    "server": "Sunucu hatası. Lütfen daha sonra tekrar deneyin.",
+    "config_missing": "Bağlantı yapılandırması eksik. Lütfen sayfayı yenileyin veya daha sonra tekrar deneyin."
+  },
+  "auth": {
+    "invalidCredentials": "E-posta veya şifre hatalı.",
+    "login": {
+      "title": "Giriş",
+      "email_placeholder": "E-posta",
+      "password_placeholder": "Şifre",
+      "submit": "Giriş yap",
+      "email_password_required": "E-posta ve şifre girin.",
+      "failed": "Giriş hatası",
+      "no_account": "Hesabınız yok mu? Kayıt olun"
+    },
+    "register": {
+      "title": "Kayıt Ol",
+      "full_name_placeholder": "Ad Soyad *",
+      "email_placeholder": "E-posta *",
+      "password_placeholder": "Şifre * (en az 6 karakter)",
+      "name_required": "Ad ve soyad zorunludur. Lütfen ad soyad girin.",
+      "email_password_required": "E-posta ve şifre girin.",
+      "password_min": "Şifre en az 6 karakter olmalı.",
+      "kvkk_required": "Üyelik için KVKK aydınlatma metnini kabul etmeniz gerekmektedir.",
+      "failed": "Kayıt hatası",
+      "success": "Kayıt başarılı"
+    },
+    "forgot": {
+      "title": "Şifremi unuttum",
+      "email_placeholder": "E-posta",
+      "email_required": "E-posta adresi girin.",
+      "config_missing": "Bağlantı yapılandırılmamış.",
+      "submit": "Sıfırlama linki gönder"
+    },
+    "logout_confirm_title": "Çıkış",
+    "logout_confirm_message": "Çıkış yapmak istediğinize emin misiniz?"
+  },
+  "profile": {
+    "save_success": "Profil bilgileriniz güncellendi.",
+    "save_error": "Profil güncellenirken hata oluştu.",
+    "saved_title": "Kaydedildi",
+    "first_name_placeholder": "Adınız",
+    "last_name_placeholder": "Soyadınız",
+    "phone_placeholder": "5XX XXX XX XX",
+    "email_placeholder": "E-posta",
+    "points_empty": "Henüz puan hareketi yok.",
+    "points_empty_hint": "Rezervasyon tamamlandıkça puan kazanırsınız.",
+    "settings_placeholder": "Bildirim izinleri, dil ve gizlilik ayarları burada yer alacak.",
+    "payments_placeholder": "Kayıtlı kartlar ve ödeme seçenekleri burada listelenecek.",
+    "appointments_placeholder": "Geçmiş ve yaklaşan randevularınız burada listelenecek."
+  },
+  "restaurants": {
+    "unavailable": "Bu işletme şu anda hizmet veremiyor. Lütfen başka bir işletme seçin.",
+    "reservation_nav_error": "Rezervasyon ekranına geçilemiyor.",
+    "no_reviews_yet": "Henüz yorum yok.",
+    "reviews_count": "{count} yorum"
+  },
+  "favorites": {
+    "empty": "Henüz favori yok",
+    "title": "Favoriler"
+  },
+  "reservation": {
+    "title": "Rezervasyon",
+    "login_required": "Giriş yapmanız gerekiyor.",
+    "date_time_required": "Tarih ve saat seçin.",
+    "table_required": "Lütfen müsait bir masa seçin. Bu tarih ve saat için uygun masa bulunamadıysa başka bir saat deneyin.",
+    "select_table_required": "Rezervasyon için müsait bir masa seçin.",
+    "party_exceeds_max": "Bu işletmede masa kapasitesi en fazla {max} kişiliktir. Kişi sayısını {max} veya altına düşürün.",
+    "selected_table_capacity": "Seçilen masa {capacity} kişiliktir. Kişi sayısını azaltın veya masa seçimini kaldırın.",
+    "submit_error": "Rezervasyon kaydedilirken bir hata oluştu. Lütfen tekrar deneyin.",
+    "success_title": "Başarılı",
+    "success_message": "Rezervasyonunuz restorana onaya gönderildi. En kısa sürede bilgilendirileceksiniz.",
+    "no_slots": "Bu günde uygunluk bulunamadı.",
+    "no_table_for_slot": "Bu tarih ve saat için uygun masa bulunamadı. Lütfen başka bir saat seçin.",
+    "service_optional": "Belirtmeyeyim",
+    "notes_placeholder": "Not ekleyebilirsiniz",
+    "submit": "Rezervasyon yap",
+    "submitting": "Gönderiliyor...",
+    "check_availability": "Uygunluk kontrol et",
+    "not_found": "Rezervasyon bulunamadı.",
+    "cancel_confirm_title": "Rezervasyonu iptal et",
+    "cancel_confirm_message": "Bu rezervasyonu iptal etmek istediğinize emin misiniz?",
+    "cancel": "İptal et",
+    "go_back": "Vazgeç",
+    "empty": "Henüz rezervasyonunuz yok.",
+    "chat_error": "Sohbet açılamadı.",
+    "special_requests_placeholder": "İşletmeye iletmek istediğiniz not..."
+  },
+  "chat": {
+    "empty": "Henüz mesaj yok. İlk mesajı siz atın.",
+    "placeholder": "Mesaj yazın...",
+    "disabled_placeholder": "Bu rezervasyon için mesajlaşma kapalı.",
+    "send_error": "Mesaj gönderilemedi."
+  },
+  "messages": {
+    "empty_list": "Henüz sohbet yok",
+    "loading": "Yükleniyor..."
+  },
+  "reviews": {
+    "empty": "Henüz yorum yok. İlk yorumu siz yazın.",
+    "placeholder": "Yorumunuzu yazın (isteğe bağlı)",
+    "load_error": "Yorumlar yüklenemedi."
+  },
+  "explore": {
+    "no_connection": "Bağlantı yok",
+    "empty_category_title": "Bu kategoride işletme yok",
+    "empty_category_hint": "Farklı bir kategori seçin veya \"Tümü\"ne tıklayın.",
+    "map_empty": "Konumu tanımlı işletme yok",
+    "map_button": "Harita görünümü",
+    "featured_error": "Öne çıkanlar yüklenemedi"
+  },
+  "app": {
+    "error_boundary_title": "Uygulama hatası",
+    "tabs": {
+      "explore": "Keşfet",
+      "reservations": "Rezervasyonlarım",
+      "profile": "Profil",
+      "favorites": "Favoriler",
+      "messages": "Mesajlar"
+    }
+  },
+  "web": {
+    "error": {
+      "domain_hint": "Site yeni domain (rezvio.com) ile güncellendiyse, Supabase ve Vercel ayarlarını kontrol edin. Tarayıcı konsolunda (F12) daha ayrıntılı hata görebilirsiniz.",
+      "try_again": "Tekrar dene",
+      "home": "Ana sayfaya dön"
+    },
+    "reserve": {
+      "no_slots_today": "Bu günde uygunluk bulunamadı.",
+      "login_required": "Rezervasyon yapmak için giriş yapın.",
+      "login_link": "Giriş yap"
+    }
+  },
+  "admin": {
+    "login": {
+      "email_password_required": "E-posta ve şifre gerekli.",
+      "failed": "Giriş başarısız.",
+      "connection_error": "Bağlantı hatası.",
+      "no_account": "Hesabınız yok mu?"
+    },
+    "business": {
+      "not_found": "İşletme bulunamadı.",
+      "geocode_fail": "Bu adres için koordinat bulunamadı. İlçe ve şehir alanlarını doldurup tekrar deneyin.",
+      "geocode_network": "Konum alınamadı. İnternet bağlantısını kontrol edin.",
+      "no_photos": "Henüz fotoğraf yok.",
+      "no_photos_hint": "\"Bilgisayardan fotoğraf seç\" ile ekleyin.",
+      "no_closed_days": "Tanımlı kapalı gün yok.",
+      "upload_select": "Lütfen bir resim dosyası seçin (JPEG, PNG, WebP vb.).",
+      "select_photo": "Bilgisayardan fotoğraf seç",
+      "saving": "Yükleniyor..."
+    },
+    "tables": {
+      "required": "İşletme ve masa numarası zorunludur.",
+      "delete_has_reservations": "Bu masa silinemez: Bu masaya ait rezervasyonlar var. Önce ilgili rezervasyonları iptal edin veya başka masaya taşıyın.",
+      "delete_error": "Masa silinirken bir hata oluştu. Lütfen tekrar deneyin.",
+      "empty": "Henüz masa tanımı yok."
+    },
+    "reservations": {
+      "not_found": "Rezervasyon bulunamadı.",
+      "required": "İşletme, tarih ve saat zorunludur.",
+      "session_required": "Oturum bulunamadı. Lütfen tekrar giriş yapın.",
+      "table_capacity_hint": "Seçilen masa {capacity} kişiliktir. Kişi sayısını buna göre girin.",
+      "empty": "Henüz rezervasyon yok.",
+      "empty_filter": "Bu filtreye uyan rezervasyon yok.",
+      "no_limit": "Süre sınırı yok",
+      "data_error": "Veri yüklenemedi."
+    },
+    "hizmetler": {
+      "required": "İşletme ve hizmet adı zorunludur.",
+      "empty": "Henüz hizmet tanımı yok.",
+      "no_limit": "Süre sınırı yok",
+      "no_duration": "Süre yok"
+    },
+    "sponsored": {
+      "required": "İşletme ve tarih alanları zorunludur.",
+      "end_before_start": "Bitiş tarihi başlangıçtan önce olamaz.",
+      "empty": "Henüz öne çıkan kaydı yok.",
+      "empty_hint": "\"Yeni Öne Çıkan Ekle\" ile ekleyebilirsiniz."
+    },
+    "loyalty": {
+      "invalid_points": "Geçerli bir puan girin (pozitif ekler, negatif düşer).",
+      "select_business_customer": "İşletme ve müşteri seçin.",
+      "no_customers": "Bu işletmede henüz rezervasyon yapan müşteri yok."
+    },
+    "reviews": {
+      "empty_filter": "Bu filtreye uyan yorum yok.",
+      "no_comment": "Yorum yok"
+    },
+    "messages": {
+      "empty": "Henüz sohbet yok.",
+      "loading": "Yükleniyor..."
+    },
+    "gelir": {
+      "empty_filter": "Bu filtreye uyan rezervasyon yok. Rezervasyon detayından \"Ücret\" ve \"Ödeme yöntemi\" girerek gelir kaydı oluşturabilirsiniz."
+    },
+    "reset_password": {
+      "invalid_link": "Geçersiz veya süresi dolmuş link. Yeni bir sıfırlama linki isteyin.",
+      "password_min": "Şifre en az 6 karakter olmalı.",
+      "password_mismatch": "Şifreler eşleşmiyor.",
+      "loading": "Yükleniyor..."
+    },
+    "forgot": {
+      "email_required": "E-posta adresi girin."
+    },
+    "register": {
+      "email_taken": "Bu e-posta adresi zaten kullanılıyor. Giriş yapmayı deneyin."
+    }
+  }
+}

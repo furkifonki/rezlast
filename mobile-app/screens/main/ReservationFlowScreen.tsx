@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   TextInput,
@@ -14,7 +13,9 @@ import {
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/NotificationContext';
 import { validateReservationTime, isSlotDisabled } from '../../lib/reservationTimeValidation';
+import { t } from '../../lib/i18n';
 
 type Service = { id: string; name: string; duration_minutes: number; duration_display: string | null; price: number | null };
 type TableRow = { id: string; table_number: string; capacity: number; table_type: string | null; position_x: number | null; position_y: number | null };
@@ -178,6 +179,7 @@ type Props = {
 
 export default function ReservationFlowScreen({ businessId, businessName, onBack, onDone }: Props) {
   const { session } = useAuth();
+  const toast = useToast();
   const [services, setServices] = useState<Service[]>([]);
   const [hours, setHours] = useState<HourRow[]>([]);
   const [closures, setClosures] = useState<ClosureRow[]>([]);
@@ -200,11 +202,16 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
   const [tableViewMode, setTableViewMode] = useState<'list' | 'map'>('map');
   const [partySize, setPartySize] = useState(2);
   const [specialRequests, setSpecialRequests] = useState('');
+  const [showNoteInput, setShowNoteInput] = useState(false);
 
   const selectedTable = tableId ? (tables.find((t) => t.id === tableId) || null) : null;
   const maxTableCapacity = tables.length > 0 ? Math.max(...tables.map((t) => t.capacity)) : null;
   const capacityExceeded = selectedTable !== null && selectedTable !== undefined && partySize > selectedTable.capacity;
   const exceedsMaxCapacity = maxTableCapacity != null && partySize > maxTableCapacity;
+  const guestCountOptions = useMemo(() => {
+    const max = maxTableCapacity != null ? Math.max(6, maxTableCapacity) : 6;
+    return Array.from({ length: max }, (_, i) => i + 1);
+  }, [maxTableCapacity]);
 
   const effectiveDuration = useMemo(() => {
     const s = serviceId ? services.find((se) => se.id === serviceId) : null;
@@ -314,6 +321,12 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
     return () => { cancelled = true; };
   }, [businessId, reservationDate, effectiveDuration]);
 
+  // Tarih + saat seçildiğinde masaları otomatik yükle (işletmede masa varsa seçim zorunlu olsun diye)
+  useEffect(() => {
+    if (!reservationDate || !reservationTime || !supabase || !businessId) return;
+    loadAvailableTables();
+  }, [reservationDate, reservationTime]);
+
   useEffect(() => {
     if (!reservationDate) return;
     const times = availableSlotsForDate !== null && availableSlotsForDate.length > 0
@@ -389,28 +402,28 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
 
   const handleSubmit = async () => {
     if (!session?.user?.id) {
-      Alert.alert('Hata', 'Giriş yapmanız gerekiyor.');
+      toast.error('Giriş yapmanız gerekiyor.');
       return;
     }
     if (!reservationDate || !reservationTime) {
-      Alert.alert('Hata', 'Tarih ve saat seçin.');
+      toast.error(t('reservation.date_time_required'));
       return;
     }
     const timeValidation = validateReservationTime(reservationDate, reservationTime);
     if (!timeValidation.valid) {
-      Alert.alert('Hata', timeValidation.error);
+      toast.error(timeValidation.error);
       return;
     }
     if (tables.length > 0 && (!tableId || occupiedTableIds.has(tableId))) {
-      Alert.alert('Hata', 'Lütfen müsait bir masa seçin. Bu tarih ve saat için uygun masa bulunamadıysa başka bir saat deneyin.');
+      toast.error(t('reservation.table_required'));
       return;
     }
     if (maxTableCapacity != null && partySize > maxTableCapacity) {
-      Alert.alert('Hata', `Bu işletmede masa kapasitesi en fazla ${maxTableCapacity} kişiliktir. Kişi sayısını ${maxTableCapacity} veya altına düşürün.`);
+      toast.error(`Bu işletmede masa kapasitesi en fazla ${maxTableCapacity} kişiliktir. Kişi sayısını ${maxTableCapacity} veya altına düşürün.`);
       return;
     }
     if (selectedTable && partySize > selectedTable.capacity) {
-      Alert.alert('Hata', `Seçilen masa ${selectedTable.capacity} kişiliktir. Kişi sayısını azaltın veya masa seçimini kaldırın.`);
+      toast.error(`Seçilen masa ${selectedTable.capacity} kişiliktir. Kişi sayısını azaltın veya masa seçimini kaldırın.`);
       return;
     }
     setError(null);
@@ -430,14 +443,11 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
     setSaving(false);
     if (err) {
       setError(err.message);
-      Alert.alert('Hata', err.message);
+      toast.error(err.message);
       return;
     }
-    Alert.alert(
-      'Başarılı',
-      'Rezervasyonunuz restorana onaya gönderildi. En kısa sürede bilgilendirileceksiniz.',
-      [{ text: 'Tamam', onPress: onDone }]
-    );
+    toast.success('Rezervasyonunuz restorana onaya gönderildi. En kısa sürede bilgilendirileceksiniz.', 'Başarılı');
+    onDone();
   };
 
   return (
@@ -506,15 +516,16 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
           ) : reservationDate && availableSlotsForDate !== null && availableSlotsForDate.length === 0 && availableTimes.length === 0 ? (
             <Text style={styles.noSlotsMessage}>Bu günde uygunluk bulunamadı.</Text>
           ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateScroll} contentContainerStyle={styles.chipRowScroll}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateScroll} contentContainerStyle={[styles.chipRowScroll, styles.timeSlotRow]}>
               {(availableSlotsForDate && availableSlotsForDate.length > 0 ? availableSlotsForDate : availableTimes).map((t) => {
                 const disabled = isSlotDisabled(reservationDate, t);
+                const isSelected = reservationTime === t;
                 return (
                   <TouchableOpacity
                     key={t}
                     style={[
-                      styles.dateChip,
-                      reservationTime === t && styles.chipActive,
+                      styles.timeChip,
+                      isSelected && styles.timeChipActive,
                       disabled && styles.dateChipDisabled,
                     ]}
                     onPress={() => !disabled && setReservationTime(t)}
@@ -523,8 +534,8 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
                   >
                     <Text
                       style={[
-                        styles.dateChipText,
-                        reservationTime === t && styles.chipTextActive,
+                        styles.timeChipText,
+                        isSelected && styles.timeChipTextActive,
                         disabled && styles.dateChipTextDisabled,
                       ]}
                     >
@@ -555,9 +566,6 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
                 <Text style={styles.errorText}>Bu tarih ve saat için uygun masa bulunamadı. Lütfen başka bir saat seçin.</Text>
               ) : null}
               <View style={styles.chipRow}>
-                <TouchableOpacity style={[styles.chip, tableId === null && styles.chipActive]} onPress={() => setTableId(null)}>
-                  <Text style={[styles.chipText, tableId === null && styles.chipTextActive]}>İşletme belirlesin</Text>
-                </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.chip, tableViewMode === 'map' && styles.chipActive]}
                   onPress={() => setTableViewMode('map')}
@@ -618,43 +626,58 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
             </Text>
           ) : null}
           <View style={styles.chipRow}>
-            {[1, 2, 3, 4, 5, 6]
-              .filter((n) => maxTableCapacity == null || n <= maxTableCapacity)
-              .map((n) => (
-                <TouchableOpacity
-                  key={n}
-                  style={[styles.chip, partySize === n && styles.chipActive]}
-                  onPress={() => setPartySize(n)}
-                >
-                  <Text style={[styles.chipText, partySize === n && styles.chipTextActive]}>{n}</Text>
-                </TouchableOpacity>
-              ))}
+            {guestCountOptions.map((n) => (
+              <TouchableOpacity
+                key={n}
+                style={[styles.chip, partySize === n && styles.chipActive]}
+                onPress={() => setPartySize(n)}
+              >
+                <Text style={[styles.chipText, partySize === n && styles.chipTextActive]}>{n}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
 
-          <Text style={styles.label}>Özel istek (opsiyonel)</Text>
-          <TextInput
-            style={styles.specialInput}
-            value={specialRequests}
-            onChangeText={setSpecialRequests}
-            placeholder="Not ekleyebilirsiniz"
-            placeholderTextColor="#94a3b8"
-            multiline
-            numberOfLines={3}
-          />
+          {!showNoteInput && !specialRequests.trim() ? (
+            <TouchableOpacity style={styles.noteToggleInline} onPress={() => setShowNoteInput(true)}>
+              <Text style={styles.noteToggleInlineText}>+ Not ekle</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <Text style={styles.label}>Not (işletmeye iletilecek)</Text>
+              <TextInput
+                style={styles.specialInput}
+                value={specialRequests}
+                onChangeText={setSpecialRequests}
+                placeholder="İsteğe bağlı not..."
+                placeholderTextColor="#94a3b8"
+                multiline
+                numberOfLines={3}
+              />
+              {!specialRequests.trim() && (
+                <TouchableOpacity onPress={() => setShowNoteInput(false)}>
+                  <Text style={styles.noteToggleHide}>Gizle</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
 
-          {tables.length > 0 && tablesLoadAttempted && !tableId ? (
-            <Text style={styles.errorText}>Rezervasyon için müsait bir masa seçin.</Text>
-          ) : null}
           <TouchableOpacity
             style={[
               styles.submitButton,
-              (saving || capacityExceeded || exceedsMaxCapacity || (tables.length > 0 && (!tableId || occupiedTableIds.has(tableId)))) && styles.submitDisabled,
+              (saving ||
+                !reservationDate ||
+                !reservationTime ||
+                loadingTables ||
+                capacityExceeded ||
+                exceedsMaxCapacity ||
+                (tables.length > 0 && (!tableId || occupiedTableIds.has(tableId)))) && styles.submitDisabled,
             ]}
             onPress={handleSubmit}
             disabled={
               saving ||
               !reservationDate ||
               !reservationTime ||
+              loadingTables ||
               capacityExceeded ||
               exceedsMaxCapacity ||
               (tables.length > 0 && (!tableId || occupiedTableIds.has(tableId)))
@@ -709,6 +732,22 @@ const styles = StyleSheet.create({
   dateChipText: { fontSize: 14, color: '#64748b' },
   dateChipDisabled: { backgroundColor: '#e2e8f0', opacity: 0.8 },
   dateChipTextDisabled: { color: '#94a3b8' },
+  timeSlotRow: { gap: 10, paddingVertical: 4 },
+  timeChip: {
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: '#f1f5f9',
+    marginRight: 10,
+    minWidth: 84,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  timeChipActive: { backgroundColor: '#15803d', borderColor: '#0f766e' },
+  timeChipText: { fontSize: 15, fontWeight: '600', color: '#475569' },
+  timeChipTextActive: { color: '#fff' },
   hint: { fontSize: 13, color: '#64748b', marginTop: 4 },
   noSlotsError: { fontSize: 14, color: '#dc2626', marginTop: 4, fontWeight: '500' },
   secondaryButton: {
@@ -749,6 +788,11 @@ const styles = StyleSheet.create({
   mapFallbackLabel: { fontSize: 12, color: '#64748b', marginBottom: 6 },
   hintText: { fontSize: 12, color: '#64748b', marginBottom: 4 },
   capacityError: { fontSize: 13, color: '#dc2626', marginTop: 4, marginBottom: 4 },
+  noteToggleButton: { marginTop: 16, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#fff', alignSelf: 'flex-start' },
+  noteToggleInline: { marginTop: 12, alignSelf: 'flex-start' },
+  noteToggleInlineText: { fontSize: 15, color: '#15803d', fontWeight: '500' },
+  noteToggleText: { fontSize: 15, color: '#15803d', fontWeight: '500' },
+  noteToggleHide: { fontSize: 13, color: '#64748b', marginTop: 6 },
   specialInput: {
     borderWidth: 1,
     borderColor: '#e2e8f0',

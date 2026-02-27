@@ -8,13 +8,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Alert,
   ScrollView,
   Image,
   Modal,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { useToast } from '../../contexts/NotificationContext';
 
 type Props = {
   navigation: { navigate: (name: string) => void };
@@ -22,6 +22,7 @@ type Props = {
 
 export default function RegisterScreen({ navigation }: Props) {
   const { signUp } = useAuth();
+  const toast = useToast();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -44,26 +45,26 @@ export default function RegisterScreen({ navigation }: Props) {
     const p = password;
     const name = fullName.trim();
     if (!name || !name.trim()) {
-      Alert.alert('Zorunlu alan', 'Ad ve soyad zorunludur. Lütfen ad soyad girin.');
+      toast.error('Ad ve soyad zorunludur. Lütfen ad soyad girin.');
       return;
     }
     if (!e || !p) {
-      Alert.alert('Hata', 'E-posta ve şifre girin.');
+      toast.error('E-posta ve şifre girin.');
       return;
     }
     if (p.length < 6) {
-      Alert.alert('Hata', 'Şifre en az 6 karakter olmalı.');
+      toast.error('Şifre en az 6 karakter olmalı.');
       return;
     }
     if (!kvkkAccepted) {
-      Alert.alert('Zorunlu', 'Üyelik için KVKK aydınlatma metnini kabul etmeniz gerekmektedir.');
+      toast.error('Üyelik için KVKK aydınlatma metnini kabul etmeniz gerekmektedir.');
       return;
     }
     setLoading(true);
     const { error } = await signUp(e, p, name);
     if (error) {
       setLoading(false);
-      Alert.alert('Kayıt hatası', error.message);
+      toast.error(error.message, 'Kayıt hatası');
       return;
     }
     const parts = name.split(/\s+/).filter(Boolean);
@@ -91,10 +92,9 @@ export default function RegisterScreen({ navigation }: Props) {
       }
     }
     setLoading(false);
-    Alert.alert(
-      'Kayıt başarılı',
+    toast.success(
       'E-posta adresinize gelen link ile hesabınızı doğrulayabilirsiniz. (Doğrulama zorunlu değilse doğrudan giriş yapabilirsiniz.)',
-      [{ text: 'Tamam' }]
+      'Kayıt başarılı'
     );
     navigation.navigate('Login');
   };

@@ -8,15 +8,16 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
+import { useToast } from '../../contexts/NotificationContext';
 
 type Props = {
   navigation: { navigate: (name: string) => void };
 };
 
 export default function ForgotPasswordScreen({ navigation }: Props) {
+  const toast = useToast();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -24,11 +25,11 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
   const handleSubmit = async () => {
     const e = email.trim();
     if (!e) {
-      Alert.alert('Hata', 'E-posta adresi girin.');
+      toast.error('E-posta adresi girin.');
       return;
     }
     if (!supabase) {
-      Alert.alert('Hata', 'Bağlantı yapılandırılmamış.');
+      toast.error('Bağlantı yapılandırılmamış.');
       return;
     }
     setLoading(true);
@@ -37,7 +38,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
     const { error } = await supabase.auth.resetPasswordForEmail(e, { redirectTo });
     setLoading(false);
     if (error) {
-      Alert.alert('Hata', error.message);
+      toast.error(error.message);
       return;
     }
     setSent(true);

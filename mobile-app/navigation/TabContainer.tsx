@@ -43,7 +43,9 @@ export function TabContainer({ initialTab = 'Explore', onTabChange }: TabContain
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Image source={require('../assets/icon.png')} style={styles.headerLogo} resizeMode="contain" />
+        <TouchableOpacity onPress={() => handleTabPress('Explore')} activeOpacity={0.7} accessibilityLabel="Keşfet sayfasına git">
+          <Image source={require('../assets/icon.png')} style={styles.headerLogo} resizeMode="contain" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>
           {TABS.find((t) => t.key === tab)?.label ?? 'Keşfet'}
         </Text>

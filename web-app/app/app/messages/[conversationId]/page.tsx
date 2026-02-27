@@ -67,7 +67,15 @@ export default function ChatPage() {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
-        (payload) => setMessages((prev) => [...prev, payload.new as Message])
+        (payload) => {
+          const newMsg = payload.new as Message;
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg].sort(
+              (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            );
+          });
+        }
       )
       .subscribe();
     return () => {
@@ -83,15 +91,38 @@ export default function ChatPage() {
     e.preventDefault();
     const text = replyText.trim();
     if (!text || !conversationId || !supabase || !session?.user?.id || sending || messagingDisabled) return;
-    setSending(true);
-    const { error } = await supabase.from('messages').insert({
+    const tempId = `temp-${Date.now()}`;
+    const optimistic: Message = {
+      id: tempId,
       conversation_id: conversationId,
       sender_type: 'user',
       sender_id: session.user.id,
       text,
-    });
+      created_at: new Date().toISOString(),
+      read_at_user: null,
+      read_at_restaurant: null,
+    };
+    setMessages((prev) => [...prev, optimistic]);
+    setReplyText('');
+    setSending(true);
+    const { data: created, error } = await supabase
+      .from('messages')
+      .insert({
+        conversation_id: conversationId,
+        sender_type: 'user',
+        sender_id: session.user.id,
+        text,
+      })
+      .select()
+      .single();
     setSending(false);
-    if (!error) setReplyText('');
+    if (error) {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      return;
+    }
+    setMessages((prev) =>
+      prev.map((m) => (m.id === tempId ? (created as Message) : m))
+    );
   };
 
   if (loading && messages.length === 0) {

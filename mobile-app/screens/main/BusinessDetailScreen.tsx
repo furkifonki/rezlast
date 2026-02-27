@@ -7,13 +7,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Linking,
-  Alert,
   Image,
   Modal,
 } from 'react-native';
 import Constants from 'expo-constants';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/NotificationContext';
 
 // Harita sadece development build'de yüklensin; Expo Go'da native modül yok.
 const isExpoGo = Constants.appOwnership === 'expo';
@@ -55,6 +55,7 @@ type Props = {
 
 export default function BusinessDetailScreen({ businessId, onBack, onReservationPress, onReviewsPress }: Props) {
   const { session } = useAuth();
+  const toast = useToast();
   const [business, setBusiness] = useState<Business | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [hours, setHours] = useState<Hour[]>([]);
@@ -131,7 +132,7 @@ export default function BusinessDetailScreen({ businessId, onBack, onReservation
     if (onReservationPress && business) {
       onReservationPress(business.id, business.name);
     } else {
-      Alert.alert('Rezervasyon', 'Rezervasyon ekranına geçilemiyor.', [{ text: 'Tamam' }]);
+      toast.error('Rezervasyon ekranına geçilemiyor.');
     }
   };
 

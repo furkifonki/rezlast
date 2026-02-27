@@ -2,6 +2,7 @@ export type RootStackParamList = {
   Main: undefined;
   BusinessDetail: { businessId: string };
   ReservationFlow: { businessId: string; businessName: string };
+  ReservationDetail: { reservationId: string };
   ProfileAccount: undefined;
   ProfilePoints: undefined;
   ProfileAppointments: undefined;

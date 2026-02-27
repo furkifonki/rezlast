@@ -1,6 +1,13 @@
 import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { t } from '../lib/i18n';
+
+function isInvalidCredentialsError(e: { message?: string } | null): boolean {
+  if (!e?.message) return false;
+  const m = e.message.toLowerCase();
+  return m.includes('invalid') && (m.includes('credential') || m.includes('login'));
+}
 
 type AuthContextType = {
   session: Session | null;
@@ -34,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string) => {
     if (!supabase) return { error: new Error('Supabase yapılandırılmamış') };
     const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error && isInvalidCredentialsError(error)) return { error: new Error(t('auth.invalidCredentials')) };
     return { error: error ?? null };
   };
 

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase';
 import { slugify } from '@/lib/utils';
+import { cityNames, getDistrictsByCity } from '@/lib/turkey-cities';
 
 type Category = { id: string; name: string };
 
@@ -18,7 +19,7 @@ export default function NewBusinessPage() {
     name: '',
     category_id: '',
     address: '',
-    city: 'Istanbul',
+    city: 'İstanbul',
     district: '',
     phone: '',
     email: '',
@@ -62,7 +63,7 @@ export default function NewBusinessPage() {
       slug,
       category_id: form.category_id,
       address: form.address.trim(),
-      city: form.city.trim() || 'Istanbul',
+      city: form.city.trim() || 'İstanbul',
       district: form.district.trim() || null,
       phone: form.phone.trim() || null,
       email: form.email.trim() || null,
@@ -141,24 +142,29 @@ export default function NewBusinessPage() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1">Şehir</label>
-            <input
-              type="text"
+            <label className="block text-sm font-medium text-zinc-700 mb-1">İl *</label>
+            <select
               value={form.city}
-              onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+              onChange={(e) => setForm((f) => ({ ...f, city: e.target.value, district: '' }))}
               className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900 focus:border-green-600 focus:outline-none focus:ring-1 focus:ring-green-600"
-              placeholder="Istanbul"
-            />
+            >
+              {cityNames.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-zinc-700 mb-1">İlçe</label>
-            <input
-              type="text"
+            <select
               value={form.district}
               onChange={(e) => setForm((f) => ({ ...f, district: e.target.value }))}
               className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900 focus:border-green-600 focus:outline-none focus:ring-1 focus:ring-green-600"
-              placeholder="Kadıköy"
-            />
+            >
+              <option value="">Seçin</option>
+              {getDistrictsByCity(form.city).map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
           </div>
         </div>
 
