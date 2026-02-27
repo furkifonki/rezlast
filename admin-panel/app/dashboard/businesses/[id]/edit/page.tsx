@@ -159,7 +159,7 @@ function EditBusinessContent() {
       .update({
         name: form.name.trim(),
         address: form.address.trim(),
-        city: form.city.trim() || 'Istanbul',
+        city: form.city.trim() || 'İstanbul',
         district: form.district?.trim() || null,
         latitude: latNum,
         longitude: lngNum,
