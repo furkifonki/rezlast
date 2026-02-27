@@ -16,6 +16,7 @@ import LegalTextScreen from '../screens/main/LegalTextScreen';
 import MessagesListScreen from '../screens/main/messages/MessagesListScreen';
 import ChatScreen from '../screens/main/messages/ChatScreen';
 import ExploreMapScreen from '../screens/main/ExploreMapScreen';
+import BusinessReviewsScreen from '../screens/main/BusinessReviewsScreen';
 
 const initialStack: StackEntry[] = [{ screen: 'Main', params: undefined }];
 
@@ -42,6 +43,9 @@ function MainStackContent() {
               onBack={goBack}
               onReservationPress={(id, name) =>
                 setStack((prev) => [...prev, { screen: 'ReservationFlow', params: { businessId: id, businessName: name } }])
+              }
+              onReviewsPress={(id, name) =>
+                setStack((prev) => [...prev, { screen: 'BusinessReviews', params: { businessId: id, businessName: name } }])
               }
             />
           </StackScreenWrapper>
@@ -108,7 +112,7 @@ function MainStackContent() {
           </StackScreenWrapper>
         )}
         {current.screen === 'Chat' && current.params && (
-          <StackScreenWrapper onGoBack={goBack}>
+          <StackScreenWrapper onGoBack={goBack} noTopPadding>
             <ChatScreen
               conversationId={current.params.conversationId}
               businessName={current.params.businessName}
@@ -120,6 +124,15 @@ function MainStackContent() {
         {current.screen === 'ExploreMap' && (
           <StackScreenWrapper onGoBack={goBack}>
             <ExploreMapScreen onBack={goBack} />
+          </StackScreenWrapper>
+        )}
+        {current.screen === 'BusinessReviews' && current.params && (
+          <StackScreenWrapper onGoBack={goBack}>
+            <BusinessReviewsScreen
+              businessId={current.params.businessId}
+              businessName={current.params.businessName}
+              onBack={goBack}
+            />
           </StackScreenWrapper>
         )}
       </View>

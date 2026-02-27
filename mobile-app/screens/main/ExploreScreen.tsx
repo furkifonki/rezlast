@@ -14,6 +14,7 @@ import {
 import { useSimpleStack } from '../../navigation/SimpleStackContext';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { useFavorites } from '../../hooks/useFavorites';
 
 type Category = { id: string; name: string; slug: string };
 type Business = {
@@ -53,7 +54,7 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
   const [sponsored, setSponsored] = useState<SponsoredItem[]>([]);
   const [sponsoredError, setSponsoredError] = useState<string | null>(null);
   const [photoMap, setPhotoMap] = useState<Record<string, string>>({});
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const { favoritesSet: favorites, toggleFavorite, refetch: refetchFavorites } = useFavorites();
   const [showAllFeatured, setShowAllFeatured] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -70,46 +71,6 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
       popToRootRef.current = null;
     };
   }, [popToRootRef, popToTop]);
-
-  const loadFavorites = useCallback(async () => {
-    if (!supabase || !session?.user?.id) {
-      setFavorites(new Set());
-      return;
-    }
-    const { data, error: err } = await supabase
-      .from('user_favorites')
-      .select('business_id')
-      .eq('user_id', session.user.id);
-    if (err) {
-      setFavorites(new Set());
-      return;
-    }
-    const ids = (data ?? []).map((r: { business_id: string }) => r.business_id).filter(Boolean);
-    setFavorites(new Set(ids));
-  }, [session?.user?.id]);
-
-  const toggleFavorite = useCallback(async (businessId: string) => {
-    if (!session?.user?.id) return;
-    if (!supabase) return;
-    const isFav = favorites.has(businessId);
-    if (isFav) {
-      await supabase
-        .from('user_favorites')
-        .delete()
-        .eq('user_id', session.user.id)
-        .eq('business_id', businessId);
-      setFavorites((prev) => {
-        const next = new Set(prev);
-        next.delete(businessId);
-        return next;
-      });
-    } else {
-      await supabase
-        .from('user_favorites')
-        .insert({ user_id: session.user.id, business_id: businessId });
-      setFavorites((prev) => new Set([...prev, businessId]));
-    }
-  }, [favorites, session?.user?.id]);
 
   const loadSponsored = useCallback(async () => {
     if (!supabase) return;
@@ -189,8 +150,7 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
   useEffect(() => {
     loadCategories();
     loadSponsored();
-    loadFavorites();
-  }, [loadSponsored, loadFavorites]);
+  }, [loadSponsored]);
 
   useEffect(() => {
     setLoading(true);
@@ -206,6 +166,7 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
     setRefreshing(true);
     loadSponsored();
     loadBusinesses();
+    refetchFavorites();
   };
 
   const renderBusinessCard = (item: Business, isFeatured?: boolean, cardWidth?: number) => {

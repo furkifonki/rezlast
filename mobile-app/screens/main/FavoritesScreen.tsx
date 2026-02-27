@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,8 @@ import {
   Image,
 } from 'react-native';
 import { useSimpleStack } from '../../navigation/SimpleStackContext';
-import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { useFavorites } from '../../hooks/useFavorites';
 
 type Business = {
   id: string;
@@ -24,12 +24,6 @@ type Business = {
   categories: { name: string } | null;
 };
 
-type FavoriteRow = {
-  id: string;
-  business_id: string;
-  businesses: Business | null;
-};
-
 type FavoritesScreenProps = {
   popToRootRef?: React.MutableRefObject<(() => void) | null>;
 };
@@ -37,11 +31,8 @@ type FavoritesScreenProps = {
 export default function FavoritesScreen({ popToRootRef }: FavoritesScreenProps) {
   const { navigate, popToTop } = useSimpleStack();
   const { session } = useAuth();
-  const [list, setList] = useState<FavoriteRow[]>([]);
-  const [photoMap, setPhotoMap] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
+  const { list, photoMap, loading, error, refetch, removeFavorite } = useFavorites();
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!popToRootRef) return;
@@ -51,63 +42,10 @@ export default function FavoritesScreen({ popToRootRef }: FavoritesScreenProps) 
     };
   }, [popToRootRef, popToTop]);
 
-  const loadFavorites = useCallback(async () => {
-    if (!supabase || !session?.user?.id) {
-      setList([]);
-      setLoading(false);
-      setRefreshing(false);
-      return;
-    }
-    setError(null);
-    const { data, err } = await supabase
-      .from('user_favorites')
-      .select('id, business_id, businesses ( id, name, address, city, district, description, rating, categories ( name ) )')
-      .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false });
-    if (err) {
-      setError(err.message);
-      setList([]);
-    } else {
-      const rows = (data ?? []) as FavoriteRow[];
-      setList(rows);
-      const ids = rows.map((r) => r.business_id).filter(Boolean);
-      if (ids.length > 0) {
-        const { data: photoRows } = await supabase
-          .from('business_photos')
-          .select('business_id, photo_url, is_primary, photo_order')
-          .in('business_id', ids)
-          .order('is_primary', { ascending: false })
-          .order('photo_order');
-        const map: Record<string, string> = {};
-        (photoRows ?? []).forEach((row: { business_id: string; photo_url: string }) => {
-          if (!map[row.business_id]) map[row.business_id] = row.photo_url;
-        });
-        setPhotoMap(map);
-      } else {
-        setPhotoMap({});
-      }
-    }
-    setLoading(false);
-    setRefreshing(false);
-  }, [session?.user?.id]);
-
-  useEffect(() => {
-    loadFavorites();
-  }, [loadFavorites]);
-
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    loadFavorites();
-  };
-
-  const removeFavorite = async (businessId: string) => {
-    if (!supabase || !session?.user?.id) return;
-    await supabase
-      .from('user_favorites')
-      .delete()
-      .eq('user_id', session.user.id)
-      .eq('business_id', businessId);
-    setList((prev) => prev.filter((r) => r.business_id !== businessId));
+    await refetch();
+    setRefreshing(false);
   };
 
   if (!session) {
@@ -133,7 +71,7 @@ export default function FavoritesScreen({ popToRootRef }: FavoritesScreenProps) 
     return (
       <View style={styles.centered}>
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => { setLoading(true); loadFavorites(); }}>
+        <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
           <Text style={styles.retryButtonText}>Tekrar dene</Text>
         </TouchableOpacity>
       </View>

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,10 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMessages } from '../../../hooks/useMessages';
-import { sendMessage } from '../../../lib/messaging';
 import { useAuth } from '../../../contexts/AuthContext';
 import { ChatBubble } from './components/ChatBubble';
 import { ChatInput } from './components/ChatInput';
@@ -29,8 +30,17 @@ export default function ChatScreen({
   messagingDisabled,
   onBack,
 }: Props) {
+  const insets = useSafeAreaInsets();
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const { session } = useAuth();
-  const { messages, loading, error } = useMessages(conversationId);
+
+  useEffect(() => {
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardVisible(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+
+  const { messages, loading, error, sendMessage } = useMessages(conversationId);
   const listRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -41,20 +51,22 @@ export default function ChatScreen({
 
   const handleSend = async (text: string) => {
     if (!session?.user?.id || messagingDisabled) return;
-    await sendMessage(conversationId, text, 'user', session.user.id);
+    try {
+      await sendMessage(text);
+    } catch (_) {
+      // Error already reflected by optimistic rollback
+    }
   };
 
   const renderItem = ({ item }: { item: Message }) => (
     <ChatBubble message={item} isOwn={item.sender_type === 'user'} />
   );
 
+  const keyboardOffset = Platform.OS === 'ios' ? 0 : 0;
+
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
-      <View style={styles.header}>
+    <View style={styles.container}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
         <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
           <Text style={styles.backBtnText}>←</Text>
         </TouchableOpacity>
@@ -73,7 +85,11 @@ export default function ChatScreen({
           <Text style={styles.errorText}>{error}</Text>
         </View>
       ) : (
-        <>
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={keyboardOffset}
+        >
           <FlatList
             ref={listRef}
             data={messages}
@@ -90,15 +106,17 @@ export default function ChatScreen({
             onSend={handleSend}
             disabled={messagingDisabled}
             placeholder={messagingDisabled ? 'Bu rezervasyon için mesajlaşma kapalı.' : 'Mesaj yazın...'}
+            bottomInset={keyboardVisible ? 0 : insets.bottom}
           />
-        </>
+        </KeyboardAvoidingView>
       )}
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f1f5f9' },
+  flex: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

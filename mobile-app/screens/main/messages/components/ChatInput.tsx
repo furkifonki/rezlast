@@ -5,9 +5,10 @@ type Props = {
   onSend: (text: string) => Promise<void>;
   disabled?: boolean;
   placeholder?: string;
+  bottomInset?: number;
 };
 
-export function ChatInput({ onSend, disabled, placeholder = 'Mesaj yazın...' }: Props) {
+export function ChatInput({ onSend, disabled, placeholder = 'Mesaj yazın...', bottomInset = 0 }: Props) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -24,7 +25,7 @@ export function ChatInput({ onSend, disabled, placeholder = 'Mesaj yazın...' }:
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, bottomInset > 0 && { paddingBottom: 8 + bottomInset }]}>
       <TextInput
         style={styles.input}
         value={text}

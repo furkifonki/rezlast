@@ -208,7 +208,8 @@ export default function ExploreMapScreen({ onBack }: Props) {
           )}
           ListEmptyComponent={
             <View style={styles.centered}>
-              <Text style={styles.emptyText}>Bulunamadı</Text>
+              <Text style={styles.emptyText}>Konumu tanımlı işletme yok</Text>
+              <Text style={styles.emptyHint}>İşletmelerin konum bilgileri eklendiğinde haritada görünecektir.</Text>
             </View>
           }
         />
@@ -423,4 +424,5 @@ const styles = StyleSheet.create({
   },
   listCardMapBtnText: { fontSize: 13, fontWeight: '600', color: '#fff' },
   emptyText: { fontSize: 14, color: '#64748b', textAlign: 'center' },
+  emptyHint: { fontSize: 12, color: '#94a3b8', textAlign: 'center', marginTop: 8, paddingHorizontal: 24 },
 });

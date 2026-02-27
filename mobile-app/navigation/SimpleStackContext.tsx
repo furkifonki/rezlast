@@ -14,7 +14,8 @@ type StackEntry =
   | { screen: 'LegalText'; params: { legalKey: 'kvkk' | 'etk' } }
   | { screen: 'MessagesList'; params: undefined }
   | { screen: 'Chat'; params: { conversationId: string; businessName?: string; messagingDisabled?: boolean } }
-  | { screen: 'ExploreMap'; params: undefined };
+  | { screen: 'ExploreMap'; params: undefined }
+  | { screen: 'BusinessReviews'; params: { businessId: string; businessName: string } };
 
 type SimpleStackContextValue = {
   navigate: <K extends keyof RootStackParamList>(screen: K, params: RootStackParamList[K]) => void;

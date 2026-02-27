@@ -51,30 +51,22 @@ type Props = {
   businessId: string;
   onBack: () => void;
   onReservationPress?: (businessId: string, businessName: string) => void;
+  onReviewsPress?: (businessId: string, businessName: string) => void;
 };
 
-export default function BusinessDetailScreen({ businessId, onBack, onReservationPress }: Props) {
+export default function BusinessDetailScreen({ businessId, onBack, onReservationPress, onReviewsPress }: Props) {
   const { session } = useAuth();
   const [business, setBusiness] = useState<Business | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [hours, setHours] = useState<Hour[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [reviewSort, setReviewSort] = useState<'newest' | 'highest' | 'lowest'>('newest');
-  const [showWriteReview, setShowWriteReview] = useState(false);
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewComment, setReviewComment] = useState('');
-  const [submittingReview, setSubmittingReview] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const loadReviews = async () => {
     if (!supabase || !businessId) return;
-    let q = supabase.from('reviews').select('id, user_id, rating, comment, created_at').eq('business_id', businessId);
-    if (reviewSort === 'newest') q = q.order('created_at', { ascending: false });
-    else if (reviewSort === 'highest') q = q.order('rating', { ascending: false });
-    else q = q.order('rating', { ascending: true });
-    const { data } = await q;
+    const { data } = await supabase.from('reviews').select('id').eq('business_id', businessId);
     setReviews((data ?? []) as Review[]);
   };
 
@@ -118,36 +110,7 @@ export default function BusinessDetailScreen({ businessId, onBack, onReservation
 
   useEffect(() => {
     if (businessId) loadReviews();
-  }, [businessId, reviewSort]);
-
-  const myReview = useMemo(() => (session?.user?.id ? reviews.find((r) => r.user_id === session.user.id) : null), [reviews, session?.user?.id]);
-
-  const submitReview = async () => {
-    if (!supabase || !session?.user?.id || !businessId) return;
-    setSubmittingReview(true);
-    const { error: err } = await supabase.from('reviews').upsert(
-      {
-        business_id: businessId,
-        user_id: session.user.id,
-        rating: reviewRating,
-        comment: reviewComment.trim() || null,
-      },
-      { onConflict: 'business_id,user_id' }
-    );
-    setSubmittingReview(false);
-    if (err) {
-      Alert.alert('Hata', err.message, [{ text: 'Tamam' }]);
-      return;
-    }
-    setShowWriteReview(false);
-    setReviewComment('');
-    setReviewRating(5);
-    loadReviews();
-    if (business) {
-      const { data } = await supabase.from('businesses').select('rating').eq('id', businessId).single();
-      if (data) setBusiness((b) => (b ? { ...b, rating: (data as { rating: number }).rating } : b));
-    }
-  };
+  }, [businessId]);
 
   const formatTime = (t: string | null) => {
     if (!t) return '—';
@@ -340,90 +303,30 @@ export default function BusinessDetailScreen({ businessId, onBack, onReservation
               </View>
             </>
           ) : null}
-          {/* Yorumlar */}
+          {/* Yorumlar: özet + Yorumlara git */}
           <Text style={styles.label}>Yorumlar</Text>
           {business.rating != null && Number(business.rating) > 0 ? (
             <Text style={styles.rating}>★ {Number(business.rating).toFixed(1)} · {reviews.length} yorum</Text>
           ) : (
             <Text style={styles.value}>{reviews.length === 0 ? 'Henüz yorum yok.' : `${reviews.length} yorum`}</Text>
           )}
-          <View style={styles.reviewSortRow}>
-            {(['newest', 'highest', 'lowest'] as const).map((s) => (
-              <TouchableOpacity
-                key={s}
-                style={[styles.sortChip, reviewSort === s && styles.sortChipActive]}
-                onPress={() => setReviewSort(s)}
-              >
-                <Text style={[styles.sortChipText, reviewSort === s && styles.sortChipTextActive]}>
-                  {s === 'newest' ? 'En yeni' : s === 'highest' ? 'En yüksek' : 'En düşük'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          {reviews.length > 0 && (
-            <View style={styles.reviewList}>
-              {reviews.slice(0, 10).map((r) => (
-                <View key={r.id} style={styles.reviewCard}>
-                  <View style={styles.reviewHeader}>
-                    <Text style={styles.reviewStars}>{'★'.repeat(Math.round(r.rating))}{'☆'.repeat(5 - Math.round(r.rating))}</Text>
-                    <Text style={styles.reviewDate}>{new Date(r.created_at).toLocaleDateString('tr-TR')}</Text>
-                  </View>
-                  {r.comment ? <Text style={styles.reviewCardComment}>{r.comment}</Text> : null}
-                  {r.user_id === session?.user?.id && <Text style={styles.reviewYou}>Yorumunuz</Text>}
-                </View>
-              ))}
-              {reviews.length > 10 && <Text style={styles.moreReviews}>+{reviews.length - 10} yorum daha</Text>}
-            </View>
-          )}
-          {session ? (
-            myReview ? (
-              <TouchableOpacity style={styles.writeReviewButton} onPress={() => { setReviewRating(myReview.rating); setReviewComment(myReview.comment ?? ''); setShowWriteReview(true); }}>
-                <Text style={styles.writeReviewButtonText}>Yorumunuzu düzenle</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity style={styles.writeReviewButton} onPress={() => setShowWriteReview(true)}>
-                <Text style={styles.writeReviewButtonText}>Yorum yaz</Text>
-              </TouchableOpacity>
-            )
-          ) : (
-            <Text style={styles.loginToReview}>Yorum yazmak için giriş yapın.</Text>
-          )}
-          <TouchableOpacity style={styles.reserveButton} onPress={onReservation}>
-            <Text style={styles.reserveButtonText}>Rezervasyon Yap</Text>
-          </TouchableOpacity>
+          {onReviewsPress ? (
+            <TouchableOpacity
+              style={styles.reviewsLinkButton}
+              onPress={() => onReviewsPress(business.id, business.name)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.reviewsLinkButtonText}>Yorumlara git</Text>
+              <Text style={styles.reviewsLinkArrow}>→</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </ScrollView>
-      <Modal visible={showWriteReview} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Yorum yaz</Text>
-            <View style={styles.starRow}>
-              {[1, 2, 3, 4, 5].map((n) => (
-                <TouchableOpacity key={n} onPress={() => setReviewRating(n)} style={styles.starButton}>
-                  <Text style={styles.starIcon}>{n <= reviewRating ? '★' : '☆'}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <TextInput
-              style={styles.reviewInput}
-              placeholder="Yorumunuzu yazın (isteğe bağlı)"
-              placeholderTextColor="#94a3b8"
-              value={reviewComment}
-              onChangeText={setReviewComment}
-              multiline
-              numberOfLines={3}
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.modalCancel} onPress={() => { setShowWriteReview(false); setReviewComment(''); setReviewRating(5); }}>
-                <Text style={styles.modalCancelText}>İptal</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalSubmit} onPress={submitReview} disabled={submittingReview}>
-                {submittingReview ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.modalSubmitText}>Gönder</Text>}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <View style={styles.stickyReserveWrap}>
+        <TouchableOpacity style={styles.reserveButton} onPress={onReservation} activeOpacity={0.9}>
+          <Text style={styles.reserveButtonText}>Rezervasyon Yap</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -474,7 +377,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 32,
+    paddingBottom: 100,
   },
   heroImage: {
     width: '100%',
@@ -588,7 +491,32 @@ const styles = StyleSheet.create({
   writeReviewButton: { marginTop: 12, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center' },
   writeReviewButtonText: { fontSize: 15, color: '#15803d', fontWeight: '600' },
   loginToReview: { marginTop: 12, fontSize: 14, color: '#64748b' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  reviewsLinkButton: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  reviewsLinkButtonText: { fontSize: 15, color: '#15803d', fontWeight: '600' },
+  reviewsLinkArrow: { fontSize: 18, color: '#15803d', fontWeight: '600' },
+  stickyReserveWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: 16,
+    paddingBottom: 24,
+    backgroundColor: '#f8fafc',
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  reserveButton: {
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 360 },
   modalTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a', marginBottom: 16 },
   starRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 16 },
@@ -609,7 +537,7 @@ const styles = StyleSheet.create({
   galleryNavText: { fontSize: 24, color: '#fff', fontWeight: '700' },
   galleryCounter: { fontSize: 14, color: 'rgba(255,255,255,0.8)' },
   reserveButton: {
-    marginTop: 24,
+    marginTop: 0,
     backgroundColor: '#15803d',
     borderRadius: 12,
     paddingVertical: 16,

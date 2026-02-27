@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Rezvio",
+    "name": "rezvio",
     "slug": "rezvio",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -14,7 +14,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.rezervasyonuygulamasi.app",
+      "bundleIdentifier": "com.rezervio.app",
+      "buildNumber": "2",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }

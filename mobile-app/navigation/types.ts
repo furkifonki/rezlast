@@ -12,4 +12,5 @@ export type RootStackParamList = {
   MessagesList: undefined;
   Chat: { conversationId: string; businessName?: string; messagingDisabled?: boolean };
   ExploreMap: undefined;
+  BusinessReviews: { businessId: string; businessName: string };
 };

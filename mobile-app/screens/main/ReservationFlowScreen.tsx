@@ -368,7 +368,7 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
       setLoadingTables(false);
       setOccupiedTableIds(new Set());
       setTableId(null);
-      setTablesError('Bu işletmede henüz masa tanımlanmamış. Admin panel > Masalar bölümünden bu işletme için masa ekleyin.');
+      setTablesError('Bu işletmede henüz masa tanımlanmamış.');
       return;
     }
     setTablesError(null);
@@ -399,6 +399,10 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
     const timeValidation = validateReservationTime(reservationDate, reservationTime);
     if (!timeValidation.valid) {
       Alert.alert('Hata', timeValidation.error);
+      return;
+    }
+    if (tables.length > 0 && (!tableId || occupiedTableIds.has(tableId))) {
+      Alert.alert('Hata', 'Lütfen müsait bir masa seçin. Bu tarih ve saat için uygun masa bulunamadıysa başka bir saat deneyin.');
       return;
     }
     if (maxTableCapacity != null && partySize > maxTableCapacity) {
@@ -480,7 +484,7 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
           ) : availableDates.length === 0 ? (
             <>
               <Text style={styles.hint}>Bu işletme için müsait gün tanımlı değil veya çalışma saatleri eksik.</Text>
-              <Text style={[styles.hint, { marginTop: 4 }]}>Admin panel: İşletme düzenle → Çalışma saatleri ekleyin (her gün için açılış/kapanış veya kapalı işaretleyin).</Text>
+              <Text style={[styles.hint, { marginTop: 4 }]}>Bu işletme için şu an uygun gün veya saat tanımlı değil.</Text>
             </>
           ) : (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateScroll}>
@@ -545,8 +549,11 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
 
           {tables.length > 0 ? (
             <>
-              <Text style={styles.label}>Masa / Alan (opsiyonel)</Text>
-              <Text style={styles.hint}>Deniz kenarı, VIP, teras vb. alan tipleri işletmenin tanımladığı şekilde gösterilir. Seçtiğiniz tarih ve saatte dolu olan masalar &quot;Meşgul&quot; olarak görünür ve seçilemez.</Text>
+              <Text style={styles.label}>Masa / Alan *</Text>
+              <Text style={styles.hint}>Bu tarih ve saat için müsait bir masa seçin. Dolu masalar &quot;Meşgul&quot; olarak görünür.</Text>
+              {tablesLoadAttempted && tables.length > 0 && occupiedTableIds.size === tables.length ? (
+                <Text style={styles.errorText}>Bu tarih ve saat için uygun masa bulunamadı. Lütfen başka bir saat seçin.</Text>
+              ) : null}
               <View style={styles.chipRow}>
                 <TouchableOpacity style={[styles.chip, tableId === null && styles.chipActive]} onPress={() => setTableId(null)}>
                   <Text style={[styles.chipText, tableId === null && styles.chipTextActive]}>İşletme belirlesin</Text>
@@ -635,10 +642,23 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
             numberOfLines={3}
           />
 
+          {tables.length > 0 && tablesLoadAttempted && !tableId ? (
+            <Text style={styles.errorText}>Rezervasyon için müsait bir masa seçin.</Text>
+          ) : null}
           <TouchableOpacity
-            style={[styles.submitButton, (saving || capacityExceeded || exceedsMaxCapacity) && styles.submitDisabled]}
+            style={[
+              styles.submitButton,
+              (saving || capacityExceeded || exceedsMaxCapacity || (tables.length > 0 && (!tableId || occupiedTableIds.has(tableId)))) && styles.submitDisabled,
+            ]}
             onPress={handleSubmit}
-            disabled={saving || !reservationDate || !reservationTime || capacityExceeded || exceedsMaxCapacity}
+            disabled={
+              saving ||
+              !reservationDate ||
+              !reservationTime ||
+              capacityExceeded ||
+              exceedsMaxCapacity ||
+              (tables.length > 0 && (!tableId || occupiedTableIds.has(tableId)))
+            }
           >
             {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitButtonText}>Rezervasyonu oluştur</Text>}
           </TouchableOpacity>

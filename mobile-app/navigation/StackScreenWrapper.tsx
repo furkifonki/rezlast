@@ -8,9 +8,10 @@ const SWIPE_THRESHOLD = 50;
 type StackScreenWrapperProps = {
   children: React.ReactNode;
   onGoBack: () => void;
+  noTopPadding?: boolean;
 };
 
-export function StackScreenWrapper({ children, onGoBack }: StackScreenWrapperProps) {
+export function StackScreenWrapper({ children, onGoBack, noTopPadding = false }: StackScreenWrapperProps) {
   const insets = useSafeAreaInsets();
   const startX = useRef(0);
 
@@ -42,7 +43,7 @@ export function StackScreenWrapper({ children, onGoBack }: StackScreenWrapperPro
   );
 
   return (
-    <View style={[styles.wrapper, { paddingTop: insets.top }]} {...panResponder.panHandlers}>
+    <View style={[styles.wrapper, !noTopPadding && { paddingTop: insets.top }]} {...panResponder.panHandlers}>
       {children}
     </View>
   );

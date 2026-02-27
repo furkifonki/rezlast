@@ -1,8 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { markConversationAsReadByUser } from '../lib/messaging';
+import { markConversationAsReadByUser, sendMessage as sendMessageApi } from '../lib/messaging';
 import type { Message } from '../types/messaging';
+
+const PENDING_PREFIX = 'pending-';
 
 export function useMessages(conversationId: string | null) {
   const { session } = useAuth();
@@ -50,7 +52,13 @@ export function useMessages(conversationId: string | null) {
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
-          setMessages((prev) => [...prev, payload.new as Message]);
+          const newMsg = payload.new as Message;
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg].sort(
+              (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            );
+          });
         }
       )
       .subscribe();
@@ -64,5 +72,40 @@ export function useMessages(conversationId: string | null) {
     markConversationAsReadByUser(conversationId);
   }, [conversationId]);
 
-  return { messages, loading, error, refetch: load };
+  const sendMessage = useCallback(
+    async (text: string): Promise<Message> => {
+      if (!conversationId || !session?.user?.id) throw new Error('Oturum veya sohbet yok');
+      const pendingId = PENDING_PREFIX + Date.now();
+      const now = new Date().toISOString();
+      const optimistic: Message = {
+        id: pendingId,
+        conversation_id: conversationId,
+        sender_type: 'user',
+        sender_id: session.user.id,
+        text: text.trim(),
+        created_at: now,
+        read_at_user: null,
+        read_at_restaurant: null,
+      };
+      setMessages((prev) => [...prev, optimistic]);
+      try {
+        const created = await sendMessageApi(
+          conversationId,
+          text,
+          'user',
+          session.user.id
+        );
+        setMessages((prev) =>
+          prev.map((m) => (m.id === pendingId ? created : m))
+        );
+        return created;
+      } catch (e) {
+        setMessages((prev) => prev.filter((m) => m.id !== pendingId));
+        throw e;
+      }
+    },
+    [conversationId, session?.user?.id]
+  );
+
+  return { messages, loading, error, refetch: load, sendMessage };
 }

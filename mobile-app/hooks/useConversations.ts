@@ -114,6 +114,43 @@ export function useConversations() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (!supabase || conversations.length === 0) return;
+    const channel = supabase
+      .channel('conversations-messages-update')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        (payload) => {
+          const row = payload.new as { conversation_id: string; text: string; created_at: string };
+          setConversations((prev) => {
+            const idx = prev.findIndex((c) => c.id === row.conversation_id);
+            if (idx === -1) return prev;
+            const next = [...prev];
+            const c = next[idx];
+            next[idx] = {
+              ...c,
+              last_message_at: row.created_at,
+              lastMessageText: row.text,
+            };
+            return next.sort(
+              (a, b) =>
+                new Date(b.last_message_at ?? 0).getTime() -
+                new Date(a.last_message_at ?? 0).getTime()
+            );
+          });
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [conversations.length]);
+
   return { conversations, loading, error, totalUnread, refetch: load };
 }
 

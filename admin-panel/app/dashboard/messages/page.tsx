@@ -72,8 +72,13 @@ export default function MessagesPage() {
       setBusinessIds([]);
       return;
     }
-    const { data: myBusinesses } = await supabase.from('businesses').select('id').eq('owner_id', user.id);
-    const ids = (myBusinesses ?? []).map((b) => b.id);
+    const [ownerRes, staffRes] = await Promise.all([
+      supabase.from('businesses').select('id').eq('owner_id', user.id),
+      supabase.from('restaurant_staff').select('restaurant_id').eq('user_id', user.id),
+    ]);
+    const ownerIds = (ownerRes.data ?? []).map((b: { id: string }) => b.id);
+    const staffIds = (staffRes.data ?? []).map((s: { restaurant_id: string }) => s.restaurant_id).filter(Boolean);
+    const ids = [...new Set([...ownerIds, ...staffIds])];
     setBusinessIds(ids);
     if (ids.length === 0) {
       setConversations([]);
@@ -190,7 +195,13 @@ export default function MessagesPage() {
           filter: `conversation_id=eq.${selectedId}`,
         },
         (payload) => {
-          setMessages((prev) => [...prev, payload.new as Message]);
+          const newMsg = payload.new as Message;
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg].sort(
+              (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            );
+          });
           loadConversations();
         }
       )
@@ -206,18 +217,37 @@ export default function MessagesPage() {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    setSending(true);
-    const { error } = await supabase.from('messages').insert({
+    const tempId = `temp-${Date.now()}`;
+    const optimistic: Message = {
+      id: tempId,
       conversation_id: selectedId,
       sender_type: 'restaurant',
       sender_id: user.id,
       text,
-    });
+      created_at: new Date().toISOString(),
+      read_at_user: null,
+      read_at_restaurant: null,
+    };
+    setMessages((prev) => [...prev, optimistic]);
+    setReplyText('');
+    setSending(true);
+    const { data: created, error } = await supabase
+      .from('messages')
+      .insert({
+        conversation_id: selectedId,
+        sender_type: 'restaurant',
+        sender_id: user.id,
+        text,
+      })
+      .select()
+      .single();
     setSending(false);
-    if (!error) {
-      setReplyText('');
-      loadConversations();
+    if (error) {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      return;
     }
+    setMessages((prev) => prev.map((m) => (m.id === tempId ? (created as Message) : m)));
+    loadConversations();
   };
 
   const selected = conversations.find((c) => c.id === selectedId);

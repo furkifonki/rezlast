@@ -405,7 +405,67 @@ function EditBusinessContent() {
           </div>
           <div>
             <p className="text-sm font-medium text-zinc-700 mb-1">Harita konumu (uygulama harita görünümü için)</p>
-            <p className="text-xs text-zinc-500 mb-2">Google Maps’te işletmeyi bulup sağ tık → koordinatları kopyalayabilirsiniz. Örn: 41.0082, 28.9784</p>
+            <p className="text-xs text-zinc-500 mb-2">Google Maps’te işletmeyi bulup sağ tık → koordinatları kopyalayabilirsiniz. Örn: 41.0082, 28.9784 Veya adres doluysa aşağıdaki butonla otomatik alın.</p>
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!form) return;
+                  setError(null);
+                  const tryQuery = async (q: string): Promise<{ lat: number; lon: number } | null> => {
+                    if (!q.trim()) return null;
+                    const res = await fetch(
+                      `https://nominatim.openstreetmap.org/search?${new URLSearchParams({
+                        q: q.trim() + (q.includes('Turkey') ? '' : ', Turkey'),
+                        format: 'json',
+                        limit: '1',
+                      })}`,
+                      { headers: { 'User-Agent': 'RezvioAdmin/1.0' } }
+                    );
+                    const data = await res.json();
+                    if (Array.isArray(data) && data.length > 0) {
+                      const lat = parseFloat(data[0].lat);
+                      const lon = parseFloat(data[0].lon);
+                      if (!Number.isNaN(lat) && !Number.isNaN(lon)) return { lat, lon };
+                    }
+                    return null;
+                  };
+
+                  const address = (form.address || '').trim();
+                  const city = (form.city || '').trim();
+                  const district = (form.district || '').trim();
+
+                  const queries: string[] = [];
+                  if (address) queries.push([address, city, district].filter(Boolean).join(', '));
+                  if (district || city) queries.push([district, city].filter(Boolean).join(', '));
+                  if (address && !district && !city) {
+                    const lastPart = address.split(',').map((s) => s.trim()).filter(Boolean).pop();
+                    if (lastPart && (lastPart.includes('/') || /[\d]{5}/.test(lastPart))) {
+                      const placePart = lastPart.replace(/^\d+\s*/, '').trim();
+                      if (placePart) queries.push(placePart);
+                    }
+                  }
+                  if (city) queries.push(city);
+
+                  try {
+                    for (const q of queries) {
+                      const coords = await tryQuery(q);
+                      if (coords) {
+                        setForm((f) => (f ? { ...f, latitude: coords.lat, longitude: coords.lon } : f));
+                        showSuccess('Konum adresten alındı. Kaydet butonuna basarak kaydedin.');
+                        return;
+                      }
+                    }
+                    setError('Bu adres için koordinat bulunamadı. İlçe ve şehir alanlarını doldurup tekrar deneyin.');
+                  } catch {
+                    setError('Konum alınamadı. İnternet bağlantısını kontrol edin.');
+                  }
+                }}
+                className="rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
+              >
+                Adresten konum al
+              </button>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-zinc-600 mb-1">Enlem (latitude)</label>
