@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "Rezvio Admin",
+    "slug": "rezvio-admin",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/logo.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#18181b"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.rezervio.admin",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logo.png",
+        "backgroundColor": "#18181b"
+      },
+      "package": "com.rezervio.admin"
+    },
+    "web": {
+      "favicon": "./assets/logo.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "d6d6a8cb-fed7-4f80-9ad4-857a2f767026"
+      }
+    },
+    "owner": "furkifonki"
+  }
+}
