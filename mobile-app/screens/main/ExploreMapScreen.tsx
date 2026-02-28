@@ -131,9 +131,9 @@ export default function ExploreMapScreen({ onBack }: Props) {
   if (loading && businesses.length === 0) {
     return (
       <View style={styles.container}>
-        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-          <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
-            <Text style={styles.backBtnText}>←</Text>
+        <View style={[styles.header, { paddingTop: Math.max(insets.top, 4) }]}>
+          <TouchableOpacity onPress={onBack} style={styles.backBtnRound} activeOpacity={0.7}>
+            <Text style={styles.backBtnIcon}>←</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Harita görünümü</Text>
         </View>
@@ -148,9 +148,9 @@ export default function ExploreMapScreen({ onBack }: Props) {
   if (error) {
     return (
       <View style={styles.container}>
-        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-          <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
-            <Text style={styles.backBtnText}>←</Text>
+        <View style={[styles.header, { paddingTop: Math.max(insets.top, 4) }]}>
+          <TouchableOpacity onPress={onBack} style={styles.backBtnRound} activeOpacity={0.7}>
+            <Text style={styles.backBtnIcon}>←</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Harita görünümü</Text>
         </View>
@@ -164,9 +164,9 @@ export default function ExploreMapScreen({ onBack }: Props) {
   if (isExpoGo || !MapView || !Marker) {
     return (
       <View style={styles.container}>
-        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-          <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
-            <Text style={styles.backBtnText}>←</Text>
+        <View style={[styles.header, { paddingTop: Math.max(insets.top, 4) }]}>
+          <TouchableOpacity onPress={onBack} style={styles.backBtnRound} activeOpacity={0.7}>
+            <Text style={styles.backBtnIcon}>←</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Harita görünümü</Text>
         </View>
@@ -217,11 +217,16 @@ export default function ExploreMapScreen({ onBack }: Props) {
     );
   }
 
+  const sortedByLng = [...businesses].sort((a, b) => a.longitude - b.longitude);
+  const currentIndex = selected ? sortedByLng.findIndex((b) => b.id === selected.id) : -1;
+  const prevBusiness = currentIndex > 0 ? sortedByLng[currentIndex - 1] : null;
+  const nextBusiness = currentIndex >= 0 && currentIndex < sortedByLng.length - 1 ? sortedByLng[currentIndex + 1] : null;
+
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
-          <Text style={styles.backBtnText}>←</Text>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 4) }]}>
+        <TouchableOpacity onPress={onBack} style={styles.backBtnRound} activeOpacity={0.7}>
+          <Text style={styles.backBtnIcon}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Harita görünümü</Text>
       </View>
@@ -261,38 +266,56 @@ export default function ExploreMapScreen({ onBack }: Props) {
       </MapView>
 
       {selected && (
-        <TouchableOpacity
-          style={styles.card}
-          activeOpacity={1}
-          onPress={() => {}}
-        >
-          <View style={styles.cardInner}>
-            {photoMap[selected.id] ? (
-              <Image
-                source={{ uri: photoMap[selected.id] }}
-                style={styles.cardImage}
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={styles.cardImagePlaceholder}>
-                <Text style={styles.cardImagePlaceholderText}>📷</Text>
+        <View style={styles.card}>
+          <TouchableOpacity
+            style={[styles.cardArrow, !prevBusiness && styles.cardArrowDisabled]}
+            onPress={() => prevBusiness && setSelectedId(prevBusiness.id)}
+            disabled={!prevBusiness}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.cardArrowText, !prevBusiness && styles.cardArrowTextDisabled]}>‹</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.cardTouchable}
+            activeOpacity={1}
+            onPress={() => {}}
+          >
+            <View style={styles.cardInner}>
+              {photoMap[selected.id] ? (
+                <Image
+                  source={{ uri: photoMap[selected.id] }}
+                  style={styles.cardImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={styles.cardImagePlaceholder}>
+                  <Text style={styles.cardImagePlaceholderText}>📷</Text>
+                </View>
+              )}
+              <View style={styles.cardBody}>
+                <Text style={styles.cardName} numberOfLines={1}>{selected.name}</Text>
+                <Text style={styles.cardMeta}>
+                  ★ {ratingStr} • {categoryName}
+                </Text>
+                <TouchableOpacity
+                  style={styles.cardButton}
+                  onPress={() => navigate('BusinessDetail', { businessId: selected.id })}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.cardButtonText}>Detay</Text>
+                </TouchableOpacity>
               </View>
-            )}
-            <View style={styles.cardBody}>
-              <Text style={styles.cardName} numberOfLines={1}>{selected.name}</Text>
-              <Text style={styles.cardMeta}>
-                ★ {ratingStr} • {categoryName}
-              </Text>
-              <TouchableOpacity
-                style={styles.cardButton}
-                onPress={() => navigate('BusinessDetail', { businessId: selected.id })}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.cardButtonText}>Detay</Text>
-              </TouchableOpacity>
             </View>
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.cardArrow, !nextBusiness && styles.cardArrowDisabled]}
+            onPress={() => nextBusiness && setSelectedId(nextBusiness.id)}
+            disabled={!nextBusiness}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.cardArrowText, !nextBusiness && styles.cardArrowTextDisabled]}>›</Text>
+          </TouchableOpacity>
+        </View>
       )}
     </View>
   );
@@ -304,22 +327,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingBottom: 10,
+    paddingTop: 6,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f1f5f9',
+  backBtnRound: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 14,
+    borderWidth: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  backBtnText: { fontSize: 22, color: '#15803d', fontWeight: '600' },
-  headerTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: '#0f172a' },
+  backBtnIcon: { fontSize: 22, color: '#15803d', fontWeight: '700' },
+  headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: '#0f172a' },
   map: {
     flex: 1,
     width: '100%',
@@ -351,8 +381,30 @@ const styles = StyleSheet.create({
   card: {
     position: 'absolute',
     bottom: 24,
-    left: 16,
-    right: 16,
+    left: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cardArrow: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  cardArrowDisabled: { backgroundColor: '#f1f5f9', opacity: 0.6 },
+  cardArrowText: { fontSize: 24, color: '#15803d', fontWeight: '700' },
+  cardArrowTextDisabled: { color: '#94a3b8' },
+  cardTouchable: {
+    flex: 1,
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 12,

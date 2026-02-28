@@ -1,5 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
+import { useAuth } from '../contexts/AuthContext';
+import { registerForPushNotificationsAsync, savePushTokenToSupabase } from '../lib/pushNotifications';
 import type { StackEntry } from './SimpleStackContext';
 import { SimpleStackProvider } from './SimpleStackContext';
 import { StackScreenWrapper } from './StackScreenWrapper';
@@ -22,9 +24,22 @@ import ReservationDetailScreen from '../screens/main/ReservationDetailScreen';
 const initialStack: StackEntry[] = [{ screen: 'Main', params: undefined }];
 
 function MainStackContent() {
+  const auth = useAuth();
   const [stack, setStack] = useState<StackEntry[]>(initialStack);
   const [mainTab, setMainTab] = useState<TabName>('Explore');
   const current = stack[stack.length - 1];
+
+  useEffect(() => {
+    const userId = auth?.session?.user?.id;
+    if (!userId) return;
+    let cancelled = false;
+    (async () => {
+      const token = await registerForPushNotificationsAsync();
+      if (cancelled || !token) return;
+      await savePushTokenToSupabase(userId, token);
+    })();
+    return () => { cancelled = true; };
+  }, [auth?.session?.user?.id]);
   const goBack = useCallback(
     () => setStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev)),
     []

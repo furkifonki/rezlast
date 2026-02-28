@@ -31,6 +31,7 @@ export default function BusinessReviewsScreen({ businessId, businessName, onBack
   const [reviewComment, setReviewComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [hasCompletedReservation, setHasCompletedReservation] = useState<boolean | null>(null);
 
   const loadReviews = async () => {
     if (!supabase || !businessId) return;
@@ -48,6 +49,23 @@ export default function BusinessReviewsScreen({ businessId, businessName, onBack
     loadReviews().finally(() => setLoading(false));
   }, [businessId, reviewSort]);
 
+  useEffect(() => {
+    if (!supabase || !businessId || !session?.user?.id) {
+      setHasCompletedReservation(null);
+      return;
+    }
+    (async () => {
+      const { data } = await supabase
+        .from('reservations')
+        .select('id')
+        .eq('business_id', businessId)
+        .eq('user_id', session.user.id)
+        .eq('status', 'completed')
+        .limit(1);
+      setHasCompletedReservation((data?.length ?? 0) > 0);
+    })();
+  }, [businessId, session?.user?.id]);
+
   const myReview = useMemo(() => (session?.user?.id ? reviews.find((r) => r.user_id === session.user.id) : null), [reviews, session?.user?.id]);
 
   const submitReview = async () => {
@@ -64,7 +82,10 @@ export default function BusinessReviewsScreen({ businessId, businessName, onBack
     );
     setSubmittingReview(false);
     if (err) {
-      toast.error(err.message);
+      const msg = err.message?.includes('policy') || err.message?.toLowerCase().includes('reservation')
+        ? 'Yorum yapmak için tamamlanmış bir rezervasyonunuz gerekiyor.'
+        : err.message;
+      toast.error(msg);
       return;
     }
     setShowWriteReview(false);
@@ -130,7 +151,16 @@ export default function BusinessReviewsScreen({ businessId, businessName, onBack
                 <Text style={styles.writeReviewButtonText}>Yorumunuzu düzenle</Text>
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity style={styles.writeReviewButton} onPress={() => setShowWriteReview(true)}>
+              <TouchableOpacity
+                style={styles.writeReviewButton}
+                onPress={() => {
+                  if (hasCompletedReservation === false) {
+                    toast.warning('Yorum yapmak için tamamlanmış bir rezervasyonunuz gerekiyor.');
+                    return;
+                  }
+                  setShowWriteReview(true);
+                }}
+              >
                 <Text style={styles.writeReviewButtonText}>Yorum yaz</Text>
               </TouchableOpacity>
             )

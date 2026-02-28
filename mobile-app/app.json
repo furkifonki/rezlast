@@ -2,7 +2,7 @@
   "expo": {
     "name": "rezvio",
     "slug": "rezvio",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.rezervio.app",
-      "buildNumber": "2",
+      "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -35,6 +35,7 @@
       "eas": {
         "projectId": "1cbdfc90-09ac-455f-bcc0-05019cbca6e5"
       }
-    }
+    },
+    "plugins": ["expo-notifications"]
   }
 }

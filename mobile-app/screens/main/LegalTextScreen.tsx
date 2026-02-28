@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   backBtnIcon: { fontSize: 22, color: '#15803d', fontWeight: '600' },
-  headerTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: '#0f172a' },
+  headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: '#0f172a' },
   body: { fontSize: 14, color: '#475569', lineHeight: 22 },
   acceptButton: { marginTop: 24, backgroundColor: '#15803d', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   acceptButtonText: { fontSize: 16, fontWeight: '600', color: '#fff' },

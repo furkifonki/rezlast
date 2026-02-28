@@ -11,6 +11,7 @@ import {
   TextInput,
   Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/NotificationContext';
@@ -180,6 +181,7 @@ type Props = {
 export default function ReservationFlowScreen({ businessId, businessName, onBack, onDone }: Props) {
   const { session } = useAuth();
   const toast = useToast();
+  const insets = useSafeAreaInsets();
   const [services, setServices] = useState<Service[]>([]);
   const [hours, setHours] = useState<HourRow[]>([]);
   const [closures, setClosures] = useState<ClosureRow[]>([]);
@@ -463,7 +465,11 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: 24 + 56 + 16 + Math.max(insets.bottom, 12) }]}
+          showsVerticalScrollIndicator={false}
+        >
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <Text style={styles.label}>Hizmet (opsiyonel)</Text>
@@ -641,7 +647,7 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
             <TouchableOpacity style={styles.noteToggleInline} onPress={() => setShowNoteInput(true)}>
               <Text style={styles.noteToggleInlineText}>+ Not ekle</Text>
             </TouchableOpacity>
-          ) : (
+          ) : showNoteInput ? (
             <>
               <Text style={styles.label}>Not (işletmeye iletilecek)</Text>
               <TextInput
@@ -653,14 +659,37 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
                 multiline
                 numberOfLines={3}
               />
-              {!specialRequests.trim() && (
-                <TouchableOpacity onPress={() => setShowNoteInput(false)}>
-                  <Text style={styles.noteToggleHide}>Gizle</Text>
-                </TouchableOpacity>
-              )}
+              <View style={styles.noteActionsRow}>
+                {!specialRequests.trim() ? (
+                  <TouchableOpacity onPress={() => setShowNoteInput(false)}>
+                    <Text style={styles.noteToggleHide}>Gizle</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.noteSaveButton}
+                    onPress={() => {
+                      setShowNoteInput(false);
+                      toast.success('Notunuz kaydedildi.');
+                    }}
+                  >
+                    <Text style={styles.noteSaveButtonText}>Kaydet</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </>
+          ) : (
+            <View style={styles.noteSavedBlock}>
+              <Text style={styles.label}>Not (işletmeye iletilecek)</Text>
+              <View style={styles.noteSavedContent}>
+                <Text style={styles.noteSavedText} numberOfLines={4}>{specialRequests.trim()}</Text>
+                <TouchableOpacity onPress={() => setShowNoteInput(true)} style={styles.noteEditLink}>
+                  <Text style={styles.noteEditLinkText}>Düzenle</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           )}
-
+        </ScrollView>
+        <View style={[styles.stickyFooter, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>
           <TouchableOpacity
             style={[
               styles.submitButton,
@@ -685,7 +714,7 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
           >
             {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitButtonText}>Rezervasyonu oluştur</Text>}
           </TouchableOpacity>
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
     </View>
   );
@@ -698,7 +727,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
@@ -714,10 +743,17 @@ const styles = StyleSheet.create({
   },
   backBtnIcon: { fontSize: 22, color: '#15803d', fontWeight: '600' },
   headerCenter: { flex: 1, justifyContent: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a', flex: 1 },
   headerSubtitle: { fontSize: 13, color: '#64748b', marginTop: 2 },
   scroll: { flex: 1 },
-  scrollContent: { padding: 16, paddingBottom: 32 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 16 },
+  stickyFooter: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    backgroundColor: '#f8fafc',
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
   label: { fontSize: 12, fontWeight: '600', color: '#64748b', marginTop: 16, marginBottom: 6 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   chip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20, backgroundColor: '#f1f5f9' },
@@ -726,7 +762,7 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 14, color: '#64748b' },
   chipTextActive: { color: '#fff', fontWeight: '600' },
   chipTextOccupied: { color: '#6b7280' },
-  dateScroll: { marginHorizontal: -16, paddingHorizontal: 16, marginTop: 4 },
+  dateScroll: { marginHorizontal: -20, paddingHorizontal: 20, marginTop: 4 },
   chipRowScroll: { flexDirection: 'row', paddingBottom: 4 },
   dateChip: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, backgroundColor: '#f1f5f9', marginRight: 8, minWidth: 80, alignItems: 'center' },
   dateChipText: { fontSize: 14, color: '#64748b' },
@@ -761,7 +797,7 @@ const styles = StyleSheet.create({
   buttonDisabled: { opacity: 0.6 },
   secondaryButtonText: { fontSize: 16, color: '#fff', fontWeight: '600' },
   loader: { marginVertical: 8 },
-  submitButton: { marginTop: 24, backgroundColor: '#15803d', borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
+  submitButton: { backgroundColor: '#15803d', borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
   submitDisabled: { opacity: 0.7 },
   submitButtonText: { fontSize: 16, fontWeight: '600', color: '#fff' },
   errorText: { fontSize: 14, color: '#dc2626', marginBottom: 8 },
@@ -793,6 +829,22 @@ const styles = StyleSheet.create({
   noteToggleInlineText: { fontSize: 15, color: '#15803d', fontWeight: '500' },
   noteToggleText: { fontSize: 15, color: '#15803d', fontWeight: '500' },
   noteToggleHide: { fontSize: 13, color: '#64748b', marginTop: 6 },
+  noteActionsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+  noteSaveButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10, backgroundColor: '#15803d' },
+  noteSaveButtonText: { fontSize: 15, fontWeight: '600', color: '#fff' },
+  noteSavedBlock: { marginTop: 4 },
+  noteSavedContent: {
+    marginTop: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  noteSavedText: { fontSize: 14, color: '#0f172a', lineHeight: 20 },
+  noteEditLink: { marginTop: 8, alignSelf: 'flex-start' },
+  noteEditLinkText: { fontSize: 14, color: '#15803d', fontWeight: '500' },
   specialInput: {
     borderWidth: 1,
     borderColor: '#e2e8f0',

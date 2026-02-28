@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -34,6 +34,8 @@ export default function ProfileAccountScreen() {
   const [emailConsent, setEmailConsent] = useState(false);
   const [smsConsent, setSmsConsent] = useState(false);
   const [consentSaving, setConsentSaving] = useState(false);
+  const [detailsCollapsed, setDetailsCollapsed] = useState(false);
+  const userExpandedRef = useRef(false);
 
   useEffect(() => {
     if (profile) {
@@ -44,6 +46,13 @@ export default function ProfileAccountScreen() {
       setSmsConsent(!!profile.sms_marketing_consent);
     }
   }, [profile]);
+
+  const hasValidProfile = Boolean(
+    profile?.first_name?.trim() && profile?.last_name?.trim() && profile?.phone && String(profile.phone).replace(/\D/g, '').length >= 10
+  );
+  useEffect(() => {
+    if (hasValidProfile && !userExpandedRef.current) setDetailsCollapsed(true);
+  }, [hasValidProfile]);
 
   const saveConsent = async (email: boolean, sms: boolean, setEtkAccepted?: string | null) => {
     if (!supabase || !session?.user?.id) return;
@@ -108,6 +117,8 @@ export default function ProfileAccountScreen() {
       return;
     }
     refetch();
+    userExpandedRef.current = false;
+    setDetailsCollapsed(true);
     toast.success('Profil bilgileriniz güncellendi.', 'Kaydedildi');
   };
 
@@ -120,59 +131,81 @@ export default function ProfileAccountScreen() {
         <Text style={styles.headerTitle}>Hesap</Text>
       </View>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {profile && (!(profile.first_name ?? '').trim() || !(profile.last_name ?? '').trim()) && (
+        {profile && (!(profile.first_name ?? '').trim() || !(profile.last_name ?? '').trim()) && !detailsCollapsed && (
           <View style={styles.emptyNameBanner}>
             <Text style={styles.emptyNameText}>Ad ve soyad bilginiz eksik. Lütfen aşağıdaki alanları doldurup kaydedin.</Text>
           </View>
         )}
         <View style={styles.card}>
-          <Text style={styles.label}>Ad *</Text>
-          <TextInput
-            style={styles.input}
-            value={firstName}
-            onChangeText={setFirstName}
-            placeholder="Adınız"
-            placeholderTextColor="#94a3b8"
-            editable={!loading}
-          />
-          <Text style={styles.label}>Soyad *</Text>
-          <TextInput
-            style={styles.input}
-            value={lastName}
-            onChangeText={setLastName}
-            placeholder="Soyadınız"
-            placeholderTextColor="#94a3b8"
-            editable={!loading}
-          />
-          <Text style={styles.label}>Telefon *</Text>
-          <TextInput
-            style={styles.input}
-            value={phone}
-            onChangeText={(t) => setPhone(normalizePhone(t))}
-            placeholder="5XX XXX XX XX"
-            placeholderTextColor="#94a3b8"
-            keyboardType="phone-pad"
-            maxLength={15}
-            editable={!loading}
-          />
-          <Text style={styles.label}>E-posta</Text>
-          <TextInput
-            style={[styles.input, styles.inputReadOnly]}
-            value={session?.user?.email ?? ''}
-            editable={false}
-            placeholder="E-posta"
-          />
-          {fieldError ? <Text style={styles.fieldError}>{fieldError}</Text> : null}
-          {loading ? (
-            <ActivityIndicator size="small" color="#15803d" style={styles.loader} />
+          {detailsCollapsed && hasValidProfile ? (
+            <View style={styles.detailsSummary}>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Ad Soyad</Text>
+                <Text style={styles.summaryValue}>{[profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim() || '—'}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Telefon</Text>
+                <Text style={styles.summaryValue}>{profile?.phone ?? '—'}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>E-posta</Text>
+                <Text style={styles.summaryValue} numberOfLines={1}>{session?.user?.email ?? '—'}</Text>
+              </View>
+              <TouchableOpacity onPress={() => { userExpandedRef.current = true; setDetailsCollapsed(false); }} style={styles.summaryEditLink}>
+                <Text style={styles.summaryEditLinkText}>Düzenle</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
-            <TouchableOpacity
-              style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-              onPress={handleSave}
-              disabled={saving}
-            >
-              <Text style={styles.saveButtonText}>{saving ? 'Kaydediliyor...' : 'Kaydet'}</Text>
-            </TouchableOpacity>
+            <>
+              <Text style={styles.label}>Ad *</Text>
+              <TextInput
+                style={styles.input}
+                value={firstName}
+                onChangeText={setFirstName}
+                placeholder="Adınız"
+                placeholderTextColor="#94a3b8"
+                editable={!loading}
+              />
+              <Text style={styles.label}>Soyad *</Text>
+              <TextInput
+                style={styles.input}
+                value={lastName}
+                onChangeText={setLastName}
+                placeholder="Soyadınız"
+                placeholderTextColor="#94a3b8"
+                editable={!loading}
+              />
+              <Text style={styles.label}>Telefon *</Text>
+              <TextInput
+                style={styles.input}
+                value={phone}
+                onChangeText={(t) => setPhone(normalizePhone(t))}
+                placeholder="5XX XXX XX XX"
+                placeholderTextColor="#94a3b8"
+                keyboardType="phone-pad"
+                maxLength={15}
+                editable={!loading}
+              />
+              <Text style={styles.label}>E-posta</Text>
+              <TextInput
+                style={[styles.input, styles.inputReadOnly]}
+                value={session?.user?.email ?? ''}
+                editable={false}
+                placeholder="E-posta"
+              />
+              {fieldError ? <Text style={styles.fieldError}>{fieldError}</Text> : null}
+              {loading ? (
+                <ActivityIndicator size="small" color="#15803d" style={styles.loader} />
+              ) : (
+                <TouchableOpacity
+                  style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+                  onPress={handleSave}
+                  disabled={saving}
+                >
+                  <Text style={styles.saveButtonText}>{saving ? 'Kaydediliyor...' : 'Kaydet'}</Text>
+                </TouchableOpacity>
+              )}
+            </>
           )}
         </View>
 
@@ -235,8 +268,14 @@ const styles = StyleSheet.create({
   },
   backBtn: { marginRight: 12 },
   backText: { fontSize: 16, color: '#15803d', fontWeight: '600' },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: '#0f172a' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
   scroll: { flex: 1 },
+  detailsSummary: { paddingVertical: 4 },
+  summaryRow: { marginBottom: 12 },
+  summaryLabel: { fontSize: 12, fontWeight: '700', color: '#94a3b8', marginBottom: 4, textTransform: 'uppercase' },
+  summaryValue: { fontSize: 16, color: '#0f172a', lineHeight: 22 },
+  summaryEditLink: { marginTop: 16, alignSelf: 'flex-start' },
+  summaryEditLinkText: { fontSize: 16, color: '#15803d', fontWeight: '700' },
   content: { padding: 20, paddingBottom: 48 },
   card: { backgroundColor: '#fff', borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#e2e8f0' },
   label: { fontSize: 12, fontWeight: '600', color: '#64748b', marginBottom: 6 },

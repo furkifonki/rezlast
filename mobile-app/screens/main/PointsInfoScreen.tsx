@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   backBtnIcon: { fontSize: 22, color: '#15803d', fontWeight: '600' },
-  headerTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: '#0f172a' },
+  headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: '#0f172a' },
   intro: { fontSize: 15, color: '#475569', lineHeight: 22, marginBottom: 24 },
   loader: { marginVertical: 24 },
   tierList: { gap: 12 },

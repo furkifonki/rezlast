@@ -32,7 +32,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { marginRight: 12 },
   backText: { fontSize: 16, color: '#15803d', fontWeight: '600' },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: '#0f172a' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
   scroll: { flex: 1 },
   content: { padding: 20 },
   placeholder: { fontSize: 14, color: '#64748b' },

@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   backBtnIcon: { fontSize: 22, color: '#15803d', fontWeight: '600' },
-  headerTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: '#0f172a' },
+  headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: '#0f172a' },
   summaryCard: {
     backgroundColor: '#fff',
     borderRadius: 16,

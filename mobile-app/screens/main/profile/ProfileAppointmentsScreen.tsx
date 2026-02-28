@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { marginRight: 12 },
   backText: { fontSize: 16, color: '#15803d', fontWeight: '600' },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: '#0f172a' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
   listContent: { padding: 16, paddingBottom: 24 },
   emptyList: { flex: 1 },
   tabRow: {

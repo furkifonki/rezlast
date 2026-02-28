@@ -65,10 +65,10 @@ export function TabContainer({ initialTab = 'Explore', onTabChange }: TabContain
             activeOpacity={0.7}
           >
             <Text
-              style={[
-                styles.tabLabel,
-                tab === t.key && styles.tabLabelActive,
-              ]}
+              style={[styles.tabLabel, tab === t.key && styles.tabLabelActive]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
             >
               {t.label}
             </Text>
@@ -82,21 +82,25 @@ export function TabContainer({ initialTab = 'Explore', onTabChange }: TabContain
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#f1f5f9',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    borderBottomWidth: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  headerLogo: { width: 32, height: 32, marginRight: 10 },
+  headerLogo: { width: 36, height: 36, marginRight: 12, borderRadius: 10 },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: '#0f172a',
     flex: 1,
   },
@@ -106,26 +110,36 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-    paddingTop: 8,
+    paddingTop: 10,
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+    borderTopWidth: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 8,
   },
   tab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 2,
+    borderRadius: 14,
+    marginHorizontal: 1,
+    minWidth: 0,
   },
   tabActive: {
-    borderTopWidth: 2,
-    borderTopColor: '#15803d',
+    backgroundColor: '#f0fdf4',
   },
   tabLabel: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#64748b',
+    fontWeight: '500',
   },
   tabLabelActive: {
     color: '#15803d',
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });
