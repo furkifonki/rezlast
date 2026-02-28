@@ -89,7 +89,7 @@ function MainStack() {
   return (
     <Stack.Navigator
       initialRouteName="Dashboard"
-      screenOptions={({ route }) => {
+      screenOptions={({ route, navigation }) => {
         const config = MAIN_SCREENS.find((s) => s.name === route.name);
         const headerShown = config ? config.headerShown : true;
         const isRoot = ROOT_SCREENS.includes(route.name as keyof MainStackParamList);
@@ -98,8 +98,14 @@ function MainStack() {
           headerTintColor: '#18181b',
           headerTitleStyle: { fontSize: 16, fontWeight: '600' },
           headerShown,
-          fullScreenGestureEnabled: false,
-          headerLeft: isRoot ? () => <MenuButton /> : undefined,
+          fullScreenGestureEnabled: true,
+          headerLeft: isRoot
+            ? () => <MenuButton />
+            : () => (
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} hitSlop={12}>
+                  <Text style={styles.backButtonText}>← Geri</Text>
+                </TouchableOpacity>
+              ),
         };
       }}
     >
@@ -146,4 +152,6 @@ const styles = StyleSheet.create({
   mainWrap: { flex: 1 },
   menuButton: { marginLeft: 4, padding: 8 },
   menuButtonText: { fontSize: 22, fontWeight: '600', color: '#18181b' },
+  backButton: { marginLeft: 4, padding: 8 },
+  backButtonText: { fontSize: 17, color: '#15803d', fontWeight: '600' },
 });

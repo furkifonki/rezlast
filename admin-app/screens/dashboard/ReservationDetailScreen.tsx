@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
+import { RESERVATION_STATUS_LABELS, getReservationStatusStyle } from '../../constants/statusColors';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from './MenuScreen';
 
@@ -17,13 +18,7 @@ type Props = NativeStackScreenProps<MainStackParamList, 'ReservationDetail'>;
 
 type PaymentMethod = { id: string; name: string };
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Beklemede',
-  confirmed: 'Onaylandı',
-  cancelled: 'İptal',
-  completed: 'Tamamlandı',
-  no_show: 'Gelmedi',
-};
+const STATUS_LABELS = RESERVATION_STATUS_LABELS;
 
 const DURATION_DISPLAY_LABELS: Record<string, string> = {
   no_limit: 'Süre sınırı yok',
@@ -189,7 +184,9 @@ export default function ReservationDetailScreen({ route }: Props) {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.card}>
         <Text style={styles.label}>Durum</Text>
-        <View style={styles.statusBadge}><Text style={styles.statusBadgeText}>{STATUS_LABELS[reservation.status] ?? reservation.status}</Text></View>
+        <View style={[styles.statusBadge, { backgroundColor: getReservationStatusStyle(reservation.status).bg }]}>
+          <Text style={[styles.statusBadgeText, { color: getReservationStatusStyle(reservation.status).text }]}>{STATUS_LABELS[reservation.status] ?? reservation.status}</Text>
+        </View>
       </View>
       <View style={styles.card}>
         <Text style={styles.label}>İşletme</Text>
@@ -285,8 +282,8 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 12, fontWeight: '600', color: '#71717a', marginBottom: 8, textTransform: 'uppercase' },
   value: { fontSize: 15, color: '#18181b' },
   valueSmall: { fontSize: 13, color: '#71717a', marginTop: 4 },
-  statusBadge: { alignSelf: 'flex-start', backgroundColor: '#dcfce7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  statusBadgeText: { fontSize: 13, fontWeight: '600', color: '#166534' },
+  statusBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  statusBadgeText: { fontSize: 13, fontWeight: '600' },
   revenueMsg: { padding: 10, borderRadius: 8, marginBottom: 8 },
   revenueMsgSuccess: { backgroundColor: '#dcfce7', borderWidth: 1, borderColor: '#86efac' },
   revenueMsgError: { backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca' },

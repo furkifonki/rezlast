@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -30,6 +30,13 @@ export default function NewTableScreen({ navigation, route }: Props) {
   const [floorNumber, setFloorNumber] = useState(1);
   const [tableType, setTableType] = useState('indoor');
   const [isActive, setIsActive] = useState(true);
+  const [businessSearch, setBusinessSearch] = useState('');
+
+  const filteredBusinesses = useMemo(() => {
+    const q = businessSearch.trim().toLowerCase();
+    if (!q) return businesses;
+    return businesses.filter((b) => b.name.toLowerCase().includes(q));
+  }, [businesses, businessSearch]);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,8 +100,9 @@ export default function NewTableScreen({ navigation, route }: Props) {
       {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
       <View style={styles.field}>
         <Text style={styles.label}>İşletme *</Text>
+        <TextInput style={styles.searchInput} value={businessSearch} onChangeText={setBusinessSearch} placeholder="İşletme ara..." placeholderTextColor="#a1a1aa" />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-          {businesses.map((b) => (
+          {filteredBusinesses.map((b) => (
             <TouchableOpacity key={b.id} onPress={() => setBusinessId(b.id)} style={[styles.chip, businessId === b.id && styles.chipActive]}>
               <Text style={[styles.chipText, businessId === b.id && styles.chipTextActive]}>{b.name}</Text>
             </TouchableOpacity>
@@ -146,6 +154,7 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 14, color: '#b91c1c' },
   field: { marginBottom: 16 },
   label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 6 },
+  searchInput: { backgroundColor: '#fff', borderRadius: 10, padding: 12, fontSize: 15, color: '#18181b', borderWidth: 1, borderColor: '#e4e4e7', marginBottom: 10 },
   input: { backgroundColor: '#fff', borderRadius: 10, padding: 14, fontSize: 16, color: '#18181b', borderWidth: 1, borderColor: '#e4e4e7' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap' },
   chip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e4e4e7', marginRight: 8, marginBottom: 8 },

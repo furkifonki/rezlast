@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -40,6 +40,13 @@ export default function NewServiceScreen() {
     price: '' as string,
     is_active: true,
   });
+  const [businessSearch, setBusinessSearch] = useState('');
+
+  const filteredBusinesses = useMemo(() => {
+    const q = businessSearch.trim().toLowerCase();
+    if (!q) return businesses;
+    return businesses.filter((b) => b.name.toLowerCase().includes(q));
+  }, [businesses, businessSearch]);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,9 +108,10 @@ export default function NewServiceScreen() {
       {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
       <View style={styles.card}>
         <Text style={styles.label}>İşletme *</Text>
+        <TextInput style={styles.searchInput} value={businessSearch} onChangeText={setBusinessSearch} placeholder="İşletme ara..." placeholderTextColor="#a1a1aa" />
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.chipRow}>
-            {businesses.map((b) => (
+            {filteredBusinesses.map((b) => (
               <TouchableOpacity key={b.id} style={[styles.chip, form.business_id === b.id && styles.chipActive]} onPress={() => setForm((f) => ({ ...f, business_id: b.id }))}>
                 <Text style={[styles.chipText, form.business_id === b.id && styles.chipTextActive]} numberOfLines={1}>{b.name}</Text>
               </TouchableOpacity>
@@ -165,6 +173,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#e4e4e7' },
   cardRow: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#e4e4e7', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   label: { fontSize: 12, fontWeight: '600', color: '#71717a', marginBottom: 6, textTransform: 'uppercase' },
+  searchInput: { backgroundColor: '#f4f4f5', borderRadius: 10, padding: 12, fontSize: 15, color: '#18181b', marginBottom: 10 },
   input: { backgroundColor: '#f4f4f5', borderRadius: 10, padding: 12, fontSize: 16, color: '#18181b' },
   textArea: { minHeight: 60, textAlignVertical: 'top' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

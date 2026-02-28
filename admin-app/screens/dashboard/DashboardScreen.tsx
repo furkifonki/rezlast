@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, PanResponder } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useMenu } from '../../contexts/MenuContext';
 import { supabase } from '../../lib/supabase';
+import { RESERVATION_STATUS_LABELS, getReservationStatusStyle } from '../../constants/statusColors';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from './MenuScreen';
 
@@ -17,22 +19,27 @@ type Reservation = {
   businesses: { name: string } | null;
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Beklemede',
-  confirmed: 'Onaylandı',
-  cancelled: 'İptal',
-  completed: 'Tamamlandı',
-  no_show: 'Gelmedi',
-};
+const STATUS_LABELS = RESERVATION_STATUS_LABELS;
 
 export default function DashboardScreen() {
   const navigation = useNavigation<Nav>();
+  const { open: openMenu } = useMenu();
   const [businessCount, setBusinessCount] = useState(0);
   const [reservationCount, setReservationCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
   const [todayCount, setTodayCount] = useState(0);
+  const [messagesUnread, setMessagesUnread] = useState(0);
   const [recentReservations, setRecentReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
+  const panStartX = useRef(0);
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, g) => g.dx > 50,
+      onPanResponderGrant: (e) => { panStartX.current = e.nativeEvent.pageX; },
+      onPanResponderRelease: (_, g) => { if (g.dx > 60 && panStartX.current < 40) openMenu(); },
+    })
+  ).current;
 
   useEffect(() => {
     let cancelled = false;
@@ -47,6 +54,22 @@ export default function DashboardScreen() {
         return;
       }
       const today = new Date().toISOString().slice(0, 10);
+      const [ownerRes, staffRes] = await Promise.all([
+        supabase.from('businesses').select('id').eq('owner_id', user.id),
+        supabase.from('restaurant_staff').select('restaurant_id').eq('user_id', user.id),
+      ]);
+      const ownerIds = (ownerRes.data ?? []).map((b: { id: string }) => b.id);
+      const staffIds = (staffRes.data ?? []).map((s: { restaurant_id: string }) => s.restaurant_id).filter(Boolean);
+      const ids = [...new Set([...ownerIds, ...staffIds])];
+      let messagesUnreadCount = 0;
+      if (ids.length > 0) {
+        const { data: convData } = await supabase.from('conversations').select('id').in('restaurant_id', ids);
+        const convIds = (convData ?? []).map((c: { id: string }) => c.id);
+        if (convIds.length > 0) {
+          const { count } = await supabase.from('messages').select('*', { count: 'exact', head: true }).in('conversation_id', convIds).eq('sender_type', 'user').is('read_at_restaurant', null);
+          messagesUnreadCount = count ?? 0;
+        }
+      }
       const [bRes, rRes, pRes, tRes, recentRes] = await Promise.all([
         supabase.from('businesses').select('id', { count: 'exact', head: true }).eq('owner_id', user.id),
         supabase.from('reservations').select('id', { count: 'exact', head: true }).in('business_id', businessIds),
@@ -59,6 +82,7 @@ export default function DashboardScreen() {
       setReservationCount(rRes.count ?? 0);
       setPendingCount(pRes.count ?? 0);
       setTodayCount(tRes.count ?? 0);
+      setMessagesUnread(messagesUnreadCount);
       const raw = (recentRes.data ?? []) as Array<Record<string, unknown>>;
       setRecentReservations(raw.map((r) => {
         const b = r.businesses;
@@ -80,11 +104,30 @@ export default function DashboardScreen() {
   }
 
   return (
-    <View style={styles.root}>
+    <View style={styles.root} {...panResponder.panHandlers}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {(messagesUnread > 0 || pendingCount > 0 || todayCount > 0) && (
+          <View style={styles.notifStrip}>
+            {messagesUnread > 0 && (
+              <TouchableOpacity style={styles.notifChip} onPress={() => navigation.navigate('Messages')} activeOpacity={0.8}>
+                <Text style={styles.notifChipText}>💬 {messagesUnread} okunmamış mesaj</Text>
+              </TouchableOpacity>
+            )}
+            {pendingCount > 0 && (
+              <TouchableOpacity style={[styles.notifChip, styles.notifChipWarning]} onPress={() => navigation.navigate('ReservationsList')} activeOpacity={0.8}>
+                <Text style={styles.notifChipTextWarning}>⏳ {pendingCount} bekleyen onay</Text>
+              </TouchableOpacity>
+            )}
+            {todayCount > 0 && (
+              <TouchableOpacity style={styles.notifChip} onPress={() => navigation.navigate('ReservationsList')} activeOpacity={0.8}>
+                <Text style={styles.notifChipText}>📅 Bugün {todayCount} rezervasyon</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
         <View style={styles.welcomeBlock}>
           <Text style={styles.h1}>Ana Sayfa</Text>
-          <Text style={styles.subtitle}>İşletme ve rezervasyon özetiniz. Sol üst menüden diğer bölümlere geçebilirsiniz.</Text>
+          <Text style={styles.subtitle}>İşletme ve rezervasyon özetiniz. Sol üst menüden veya soldan sağa kaydırarak diğer bölümlere geçebilirsiniz.</Text>
         </View>
 
         <View style={styles.cardRow}>
@@ -132,7 +175,9 @@ export default function DashboardScreen() {
                 <Text style={styles.rowText}>{r.reservation_date} · {String(r.reservation_time).slice(0, 5)}</Text>
                 <Text style={styles.rowText}>{(r.businesses as { name: string } | null)?.name ?? '—'}</Text>
                 <Text style={styles.rowText}>{r.customer_name ?? '—'} · {r.party_size} kişi</Text>
-                <Text style={styles.rowBadge}>{STATUS_LABELS[r.status] ?? r.status}</Text>
+                <View style={[styles.rowBadgeWrap, { backgroundColor: getReservationStatusStyle(r.status).bg }]}>
+                  <Text style={[styles.rowBadge, { color: getReservationStatusStyle(r.status).text }]}>{STATUS_LABELS[r.status] ?? r.status}</Text>
+                </View>
               </TouchableOpacity>
             ))
           )}
@@ -146,6 +191,11 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#f4f4f5' },
   scroll: { flex: 1 },
   content: { padding: 20, paddingBottom: 40 },
+  notifStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  notifChip: { backgroundColor: '#dbeafe', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20 },
+  notifChipWarning: { backgroundColor: '#fef3c7' },
+  notifChipText: { fontSize: 13, fontWeight: '600', color: '#1e40af' },
+  notifChipTextWarning: { fontSize: 13, fontWeight: '600', color: '#92400e' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   loadingText: { marginTop: 12, fontSize: 14, color: '#71717a' },
   welcomeBlock: { marginBottom: 24 },
@@ -188,5 +238,6 @@ const styles = StyleSheet.create({
   empty: { fontSize: 14, color: '#71717a', textAlign: 'center', paddingVertical: 28 },
   row: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f4f4f5' },
   rowText: { fontSize: 13, color: '#52525b' },
-  rowBadge: { fontSize: 12, color: '#15803d', fontWeight: '600', marginTop: 4 },
+  rowBadgeWrap: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginTop: 4 },
+  rowBadge: { fontSize: 12, fontWeight: '600' },
 });

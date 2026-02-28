@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Oturum gerekli.' }, { status: 401 });
   }
 
-  let body: { title?: string; body?: string };
+  let body: { title?: string; body?: string; mode?: string; user_id?: string };
   try {
     body = await request.json();
   } catch {
@@ -44,11 +44,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Başlık gerekli.' }, { status: 400 });
   }
   const messageBody = typeof body.body === 'string' ? body.body.trim() : title;
+  const mode = typeof body.mode === 'string' && body.mode === 'single' ? 'single' : 'bulk';
+  const targetUserId = mode === 'single' && typeof body.user_id === 'string' ? body.user_id.trim() : null;
 
-  const { data: tokens, error: fetchErr } = await supabase
+  let query = supabase
     .from('push_tokens')
     .select('expo_push_token')
     .not('expo_push_token', 'is', null);
+  if (mode === 'single' && targetUserId) {
+    query = query.eq('user_id', targetUserId);
+  }
+  const { data: tokens, error: fetchErr } = await query;
   if (fetchErr) {
     return NextResponse.json(
       { error: fetchErr.message || 'Token listesi alınamadı.' },

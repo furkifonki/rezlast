@@ -16,6 +16,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/NotificationContext';
 import { useSimpleStack } from '../../navigation/SimpleStackContext';
 import { getOrCreateConversation } from '../../lib/messaging';
+import { RESERVATION_STATUS_LABELS, getReservationStatusStyle } from '../../constants/statusColors';
 
 type PaymentMethod = { id: string; name: string };
 type ReservationDetail = {
@@ -28,22 +29,6 @@ type ReservationDetail = {
   payment_method_id: string | null;
   businesses: { name: string } | null;
   payment_methods: PaymentMethod | null;
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Beklemede',
-  confirmed: 'Onaylandı',
-  cancelled: 'İptal',
-  completed: 'Tamamlandı',
-  no_show: 'Gelmedi',
-};
-
-const STATUS_COLOR: Record<string, string> = {
-  pending: '#f59e0b',
-  confirmed: '#15803d',
-  cancelled: '#64748b',
-  completed: '#0ea5e9',
-  no_show: '#dc2626',
 };
 
 type Props = {
@@ -229,9 +214,9 @@ export default function ReservationDetailScreen({ reservationId, onBack, onUpdat
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Rezervasyon detayı</Text>
-          <View style={[styles.statusBadge, { backgroundColor: `${STATUS_COLOR[reservation.status] ?? '#64748b'}20` }]}>
-            <Text style={[styles.statusText, { color: STATUS_COLOR[reservation.status] ?? '#64748b' }]}>
-              {STATUS_LABELS[reservation.status] ?? reservation.status}
+          <View style={[styles.statusBadge, { backgroundColor: getReservationStatusStyle(reservation.status).bg }]}>
+            <Text style={[styles.statusText, { color: getReservationStatusStyle(reservation.status).text }]}>
+              {RESERVATION_STATUS_LABELS[reservation.status] ?? reservation.status}
             </Text>
           </View>
         </View>

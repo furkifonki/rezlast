@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { RESERVATION_STATUS_LABELS, getReservationStatusStyle } from '@/lib/statusColors';
 
 type ReservationDetail = {
   id: string;
@@ -14,21 +15,6 @@ type ReservationDetail = {
   status: string;
   special_requests: string | null;
   businesses: { name: string } | null;
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Beklemede',
-  confirmed: 'Onaylandı',
-  cancelled: 'İptal',
-  completed: 'Tamamlandı',
-  no_show: 'Gelmedi',
-};
-const STATUS_COLOR: Record<string, string> = {
-  pending: '#f59e0b',
-  confirmed: '#15803d',
-  cancelled: '#64748b',
-  completed: '#0ea5e9',
-  no_show: '#dc2626',
 };
 
 export default function ReservationDetailPage() {
@@ -125,9 +111,9 @@ export default function ReservationDetailPage() {
             <h1 className="text-lg font-bold text-[#0f172a]">{businessName}</h1>
             <span
               className="text-xs font-semibold px-2.5 py-1 rounded-xl"
-              style={{ backgroundColor: `${STATUS_COLOR[reservation.status] ?? '#64748b'}20`, color: STATUS_COLOR[reservation.status] ?? '#64748b' }}
+              style={{ backgroundColor: getReservationStatusStyle(reservation.status).bg, color: getReservationStatusStyle(reservation.status).text }}
             >
-              {STATUS_LABELS[reservation.status] ?? reservation.status}
+              {RESERVATION_STATUS_LABELS[reservation.status] ?? reservation.status}
             </span>
           </div>
           <p className="text-sm text-[#64748b]">{reservation.reservation_date} · {String(reservation.reservation_time).slice(0, 5)}</p>

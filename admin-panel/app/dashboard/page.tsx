@@ -36,6 +36,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [revenueTooltip, setRevenueTooltip] = useState<{ label: string; value: string } | null>(null);
   const [reservationTooltip, setReservationTooltip] = useState<{ label: string; total: number; completed: number } | null>(null);
+  const [messagesUnread, setMessagesUnread] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,6 +53,7 @@ export default function DashboardPage() {
           setReservationCount(0);
           setPendingCount(0);
           setTodayCount(0);
+          setMessagesUnread(0);
           setRecentReservations([]);
           setAllReservationsForChart([]);
           setRevenueRows([]);
@@ -61,7 +63,7 @@ export default function DashboardPage() {
         const today = new Date().toISOString().slice(0, 10);
         const start4w = new Date();
         start4w.setDate(start4w.getDate() - 27);
-        const [businessesRes, reservationsRes, pendingRes, todayRes, recentRes, chartRes] = await Promise.all([
+        const [businessesRes, reservationsRes, pendingRes, todayRes, recentRes, chartRes, convRes] = await Promise.all([
           supabase.from('businesses').select('id', { count: 'exact', head: true }).eq('owner_id', user.id),
           supabase.from('reservations').select('id', { count: 'exact', head: true }).in('business_id', businessIds),
           supabase.from('reservations').select('id', { count: 'exact', head: true }).in('business_id', businessIds).eq('status', 'pending'),
@@ -79,8 +81,19 @@ export default function DashboardPage() {
             .in('business_id', businessIds)
             .gte('reservation_date', start4w.toISOString().slice(0, 10))
             .lte('reservation_date', today),
+          supabase.from('conversations').select('id').in('restaurant_id', businessIds),
         ]);
         if (cancelled) return;
+        const convIds = (convRes.data ?? []).map((c: { id: string }) => c.id);
+        if (convIds.length > 0) {
+          const { count } = await supabase
+            .from('messages')
+            .select('*', { count: 'exact', head: true })
+            .in('conversation_id', convIds)
+            .eq('sender_type', 'user')
+            .is('read_at_restaurant', null);
+          if (!cancelled) setMessagesUnread(count ?? 0);
+        } else if (!cancelled) setMessagesUnread(0);
         setBusinessCount(businessesRes.count ?? 0);
         setReservationCount(reservationsRes.count ?? 0);
         setPendingCount(pendingRes.count ?? 0);
@@ -215,6 +228,35 @@ export default function DashboardPage() {
       <p className="text-zinc-600 mb-6">
         Hoş geldiniz. İşletmelerinizi ve rezervasyonları sol menüden yönetebilirsiniz.
       </p>
+
+      {(messagesUnread > 0 || pendingCount > 0 || todayCount > 0) && (
+        <div className="flex flex-wrap gap-3 mb-6 p-3 rounded-xl bg-white border border-zinc-200">
+          {messagesUnread > 0 && (
+            <Link
+              href="/dashboard/messages"
+              className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 text-blue-800 px-4 py-2 text-sm font-semibold hover:bg-blue-200"
+            >
+              💬 {messagesUnread} okunmamış mesaj
+            </Link>
+          )}
+          {pendingCount > 0 && (
+            <Link
+              href="/dashboard/reservations?status=pending"
+              className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-800 px-4 py-2 text-sm font-semibold hover:bg-amber-200"
+            >
+              ⏳ {pendingCount} bekleyen onay
+            </Link>
+          )}
+          {todayCount > 0 && (
+            <Link
+              href="/dashboard/reservations"
+              className="inline-flex items-center gap-1.5 rounded-full bg-green-100 text-green-800 px-4 py-2 text-sm font-semibold hover:bg-green-200"
+            >
+              📅 Bugün {todayCount} rezervasyon
+            </Link>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   PanResponder,
   Dimensions,
+  TextInput,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
@@ -27,18 +28,18 @@ type TableRow = {
   table_type: string | null;
 };
 
-const REF_W = 1000;
-const REF_H = 700;
-const TABLE_W = 72;
-const TABLE_H = 56;
+const REF_W = 800;
+const REF_H = 560;
+const TABLE_W = 110;
+const TABLE_H = 88;
 
-const AREA_COLORS: Record<string, { bg: string; border: string }> = {
-  indoor: { bg: '#f0fdf4', border: '#22c55e' },
-  outdoor: { bg: '#fef3c7', border: '#f59e0b' },
-  terrace: { bg: '#e0e7ff', border: '#6366f1' },
-  seaside: { bg: '#e0f2fe', border: '#0ea5e9' },
-  vip: { bg: '#fce7f3', border: '#ec4899' },
-  bar: { bg: '#f3e8ff', border: '#a855f7' },
+const AREA_COLORS: Record<string, { bg: string; border: string; label: string }> = {
+  indoor: { bg: '#f0fdf4', border: '#22c55e', label: 'İç Mekân' },
+  outdoor: { bg: '#fef3c7', border: '#f59e0b', label: 'Dış Mekân' },
+  terrace: { bg: '#e0e7ff', border: '#6366f1', label: 'Teras' },
+  seaside: { bg: '#e0f2fe', border: '#0ea5e9', label: 'Deniz Kenarı' },
+  vip: { bg: '#fce7f3', border: '#ec4899', label: 'VIP' },
+  bar: { bg: '#f3e8ff', border: '#a855f7', label: 'Bar' },
 };
 
 function getStyle(type: string | null) {
@@ -46,10 +47,13 @@ function getStyle(type: string | null) {
   return AREA_COLORS[key] ?? AREA_COLORS.indoor;
 }
 
+const TABLE_TYPE_ENTRIES = Object.entries(AREA_COLORS);
+
 export default function TablePlanScreen() {
   const navigation = useNavigation<Nav>();
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [selectedBusinessId, setSelectedBusinessId] = useState<string>('');
+  const [businessSearch, setBusinessSearch] = useState('');
   const [tables, setTables] = useState<TableRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -58,6 +62,12 @@ export default function TablePlanScreen() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const dragOffsetRef = React.useRef<Record<string, { x: number; y: number }>>({});
   useEffect(() => { dragOffsetRef.current = dragOffset; }, [dragOffset]);
+
+  const filteredBusinesses = useMemo(() => {
+    const q = businessSearch.trim().toLowerCase();
+    if (!q) return businesses;
+    return businesses.filter((b) => b.name.toLowerCase().includes(q));
+  }, [businesses, businessSearch]);
 
   const loadBusinesses = useCallback(async () => {
     const { data: { user } } = await supabase?.auth.getUser() ?? { data: { user: null } };
@@ -90,12 +100,12 @@ export default function TablePlanScreen() {
       const rows = (data ?? []) as TableRow[];
       setTables(rows.map((t, i) => {
         if (t.position_x != null && t.position_y != null) return t;
-        const col = i % 10;
-        const row = Math.floor(i / 10);
+        const col = i % 6;
+        const row = Math.floor(i / 6);
         return {
           ...t,
-          position_x: 80 + col * (TABLE_W + 28),
-          position_y: 80 + row * (TABLE_H + 28),
+          position_x: 60 + col * (TABLE_W + 24),
+          position_y: 60 + row * (TABLE_H + 24),
         };
       }));
     }
@@ -115,8 +125,10 @@ export default function TablePlanScreen() {
     else setTables((prev) => prev.map((t) => (t.id === id ? { ...t, position_x: x, position_y: y } : t)));
   }, []);
 
-  const screenWidth = Dimensions.get('window').width - 32;
-  const scale = Math.min(1, screenWidth / REF_W);
+  const { width: screenWidth } = Dimensions.get('window');
+  const padding = 24;
+  const availableW = screenWidth - padding * 2;
+  const scale = Math.min(1.4, availableW / REF_W);
   const canvasW = REF_W * scale;
   const canvasH = REF_H * scale;
   const tableW = TABLE_W * scale;
@@ -128,19 +140,26 @@ export default function TablePlanScreen() {
     return (
       <View style={styles.centered}>
         <Text style={styles.helper}>Önce bir işletme ekleyin.</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('BusinessesList')} style={styles.link}><Text style={styles.linkText}>İşletmelerim</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.link}><Text style={styles.linkText}>Geri</Text></TouchableOpacity>
       </View>
     );
   }
 
   return (
     <View style={styles.root}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.card}>
-          <Text style={styles.label}>İşletme</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <Text style={styles.label}>İşletme seçin</Text>
+          <TextInput
+            style={styles.searchInput}
+            value={businessSearch}
+            onChangeText={setBusinessSearch}
+            placeholder="İşletme ara..."
+            placeholderTextColor="#a1a1aa"
+          />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
             <View style={styles.chipRow}>
-              {businesses.map((b) => (
+              {filteredBusinesses.map((b) => (
                 <TouchableOpacity
                   key={b.id}
                   style={[styles.chip, selectedBusinessId === b.id && styles.chipActive]}
@@ -152,15 +171,28 @@ export default function TablePlanScreen() {
             </View>
           </ScrollView>
         </View>
+
+        <View style={styles.legendCard}>
+          <Text style={styles.legendTitle}>Masa tipleri</Text>
+          <View style={styles.legendRow}>
+            {TABLE_TYPE_ENTRIES.map(([key, { bg, border, label }]) => (
+              <View key={key} style={[styles.legendItem, { backgroundColor: bg, borderColor: border }]}>
+                <View style={[styles.legendDot, { backgroundColor: border }]} />
+                <Text style={styles.legendText}>{label}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
         {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
         {saving ? <Text style={styles.saving}>Konum kaydediliyor...</Text> : null}
         {!selectedBusinessId ? (
-          <Text style={styles.helper}>Yukarıdan işletme seçin.</Text>
+          <Text style={styles.helper}>Yukarıdan bir işletme seçin.</Text>
         ) : loading ? (
           <View style={styles.centered}><ActivityIndicator size="large" color="#15803d" /><Text style={styles.loadingText}>Yükleniyor...</Text></View>
         ) : (
           <>
-            <Text style={styles.hint}>Masaları sürükleyip bırakarak konumlandırın. Bırakınca konum kaydedilir.</Text>
+            <Text style={styles.hint}>Masayı tutup sürükleyin; bırakınca konum kaydedilir.</Text>
             <View style={[styles.canvasWrap, { width: canvasW, height: canvasH }]}>
               <View style={styles.canvas} collapsable={false}>
                 {tables.map((t) => {
@@ -219,13 +251,14 @@ export default function TablePlanScreen() {
                     >
                       <Text style={styles.tableNum}>{t.table_number}</Text>
                       <Text style={styles.tableCap}>{t.capacity} kişi</Text>
+                      <Text style={[styles.tableType, { color: style.border }]} numberOfLines={1}>{style.label}</Text>
                     </View>
                   );
                 })}
               </View>
             </View>
-            <TouchableOpacity style={styles.backToList} onPress={() => navigation.navigate('Tables')}>
-              <Text style={styles.backToListText}>← Masa listesine dön</Text>
+            <TouchableOpacity style={styles.backToList} onPress={() => navigation.goBack()}>
+              <Text style={styles.backToListText}>← Geri</Text>
             </TouchableOpacity>
           </>
         )}
@@ -241,11 +274,27 @@ const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   loadingText: { marginTop: 12, fontSize: 14, color: '#71717a' },
   label: { fontSize: 12, fontWeight: '600', color: '#71717a', marginBottom: 6, textTransform: 'uppercase' },
+  searchInput: {
+    backgroundColor: '#f4f4f5',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: '#18181b',
+    marginBottom: 10,
+  },
+  chipScroll: { marginHorizontal: -4 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f4f4f5', borderWidth: 1, borderColor: '#e4e4e7', maxWidth: 160 },
+  chip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20, backgroundColor: '#f4f4f5', borderWidth: 1, borderColor: '#e4e4e7', maxWidth: 200 },
   chipActive: { backgroundColor: '#15803d', borderColor: '#15803d' },
-  chipText: { fontSize: 13, color: '#52525b' },
+  chipText: { fontSize: 14, color: '#52525b' },
   chipTextActive: { color: '#fff', fontWeight: '600' },
+  legendCard: { backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#e4e4e7' },
+  legendTitle: { fontSize: 12, fontWeight: '600', color: '#71717a', marginBottom: 8, textTransform: 'uppercase' },
+  legendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, borderWidth: 2, marginRight: 4, marginBottom: 4 },
+  legendDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
+  legendText: { fontSize: 12, fontWeight: '600', color: '#374151' },
   card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#e4e4e7' },
   errorBox: { backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca', borderRadius: 10, padding: 12, marginBottom: 12 },
   errorText: { fontSize: 14, color: '#b91c1c' },
@@ -256,9 +305,10 @@ const styles = StyleSheet.create({
   hint: { fontSize: 13, color: '#52525b', marginBottom: 12 },
   canvasWrap: { alignSelf: 'center', borderRadius: 12, overflow: 'hidden', backgroundColor: '#f8fafc', borderWidth: 2, borderColor: 'rgba(148,163,184,0.3)' },
   canvas: { flex: 1, position: 'relative', width: '100%', height: '100%' },
-  tableBox: { position: 'absolute', borderRadius: 12, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },
-  tableNum: { fontSize: 14, fontWeight: '700', color: '#18181b' },
-  tableCap: { fontSize: 10, color: '#52525b', marginTop: 2 },
+  tableBox: { position: 'absolute', borderRadius: 14, borderWidth: 2, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
+  tableNum: { fontSize: 16, fontWeight: '700', color: '#18181b' },
+  tableCap: { fontSize: 11, color: '#52525b', marginTop: 2 },
+  tableType: { fontSize: 9, marginTop: 2, fontWeight: '600' },
   backToList: { marginTop: 16, padding: 12 },
   backToListText: { fontSize: 15, color: '#15803d', fontWeight: '500' },
 });

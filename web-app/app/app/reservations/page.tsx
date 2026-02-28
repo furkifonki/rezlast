@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { RESERVATION_STATUS_LABELS, getReservationStatusStyle } from '@/lib/statusColors';
 
 type Reservation = {
   id: string;
@@ -30,21 +31,6 @@ function isUpcoming(reservation_date: string, reservation_time: string): boolean
     return reservation_date >= new Date().toISOString().slice(0, 10);
   }
 }
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Beklemede',
-  confirmed: 'Onaylandı',
-  cancelled: 'İptal',
-  completed: 'Tamamlandı',
-  no_show: 'Gelmedi',
-};
-const STATUS_COLOR: Record<string, string> = {
-  pending: '#f59e0b',
-  confirmed: '#15803d',
-  cancelled: '#64748b',
-  completed: '#0ea5e9',
-  no_show: '#dc2626',
-};
 
 export default function ReservationsPage() {
   const { session } = useAuth();
@@ -166,9 +152,9 @@ export default function ReservationsPage() {
             </h3>
             <span
               className="text-xs font-semibold px-2.5 py-1 rounded-xl"
-              style={{ backgroundColor: `${STATUS_COLOR[item.status] ?? '#64748b'}20`, color: STATUS_COLOR[item.status] ?? '#64748b' }}
+              style={{ backgroundColor: getReservationStatusStyle(item.status).bg, color: getReservationStatusStyle(item.status).text }}
             >
-              {STATUS_LABELS[item.status] ?? item.status}
+              {RESERVATION_STATUS_LABELS[item.status] ?? item.status}
             </span>
           </div>
           <p className="text-sm text-[#64748b]">{item.reservation_date} · {String(item.reservation_time).slice(0, 5)}</p>

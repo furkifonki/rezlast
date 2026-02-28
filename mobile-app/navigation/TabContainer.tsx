@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, createContext, useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ExploreScreen from '../screens/main/ExploreScreen';
@@ -7,6 +7,11 @@ import ReservationsScreen from '../screens/main/ReservationsScreen';
 import ProfileHomeScreen from '../screens/main/ProfileHomeScreen';
 
 export type TabName = 'Explore' | 'Favorites' | 'Reservations' | 'Profile';
+
+const TabContext = createContext<{ setTab: (t: TabName) => void } | null>(null);
+export function useTabSet() {
+  return useContext(TabContext);
+}
 
 const TABS: { key: TabName; label: string }[] = [
   { key: 'Explore', label: 'Keşfet' },
@@ -40,7 +45,10 @@ export function TabContainer({ initialTab = 'Explore', onTabChange }: TabContain
     }
   };
 
+  const tabContextValue = { setTab: (t: TabName) => { setTab(t); onTabChange?.(t); } };
+
   return (
+    <TabContext.Provider value={tabContextValue}>
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity onPress={() => handleTabPress('Explore')} activeOpacity={0.7} accessibilityLabel="Keşfet sayfasına git">
@@ -76,6 +84,7 @@ export function TabContainer({ initialTab = 'Explore', onTabChange }: TabContain
         ))}
       </View>
     </View>
+    </TabContext.Provider>
   );
 }
 

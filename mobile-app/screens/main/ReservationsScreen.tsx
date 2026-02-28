@@ -11,6 +11,7 @@ import {
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSimpleStack } from '../../navigation/SimpleStackContext';
+import { RESERVATION_STATUS_LABELS, getReservationStatusStyle } from '../../constants/statusColors';
 
 type Reservation = {
   id: string;
@@ -20,22 +21,6 @@ type Reservation = {
   status: string;
   special_requests: string | null;
   businesses: { name: string } | null;
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Beklemede',
-  confirmed: 'Onaylandı',
-  cancelled: 'İptal',
-  completed: 'Tamamlandı',
-  no_show: 'Gelmedi',
-};
-
-const STATUS_COLOR: Record<string, string> = {
-  pending: '#f59e0b',
-  confirmed: '#15803d',
-  cancelled: '#dc2626',
-  completed: '#0ea5e9',
-  no_show: '#dc2626',
 };
 
 const TZ = 'Europe/Istanbul';
@@ -209,9 +194,9 @@ export default function ReservationsScreen({ popToRootRef }: ReservationsScreenP
               <Text style={styles.cardTitle}>
                 {(item.businesses as { name: string } | null)?.name ?? '—'}
               </Text>
-              <View style={[styles.statusBadge, { backgroundColor: `${STATUS_COLOR[item.status] ?? '#64748b'}20` }]}>
-                <Text style={[styles.statusText, { color: STATUS_COLOR[item.status] ?? '#64748b' }]}>
-                  {STATUS_LABELS[item.status] ?? item.status}
+              <View style={[styles.statusBadge, { backgroundColor: getReservationStatusStyle(item.status).bg }]}>
+                <Text style={[styles.statusText, { color: getReservationStatusStyle(item.status).text }]}>
+                  {RESERVATION_STATUS_LABELS[item.status] ?? item.status}
                 </Text>
               </View>
             </View>

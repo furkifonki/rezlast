@@ -2,6 +2,30 @@
 
 **Rezvio Admin**, müşteri uygulaması **Rezvio**’dan tamamen ayrı bir uygulamadır. Aynı Apple Developer / App Store Connect hesabını kullanırsınız; App Store Connect’te **yeni bir uygulama** olarak tanımlanır (karışıklık olmasın).
 
+## "Supabase yok" hatası (TestFlight / EAS build)
+
+Uygulamayı **TestFlight’tan** veya **EAS ile aldığınız build’den** açtığınızda "Supabase yok" veya benzeri bir hata alıyorsanız sebep şudur:
+
+- Build, **Expo’nun sunucularında** (EAS) alınır; bilgisayarınızdaki **`.env` dosyası build’e gönderilmez** (güvenlik nedeniyle).
+- Bu yüzden build sırasında `EXPO_PUBLIC_SUPABASE_URL` ve `EXPO_PUBLIC_SUPABASE_ANON_KEY` tanımlı değilse uygulama Supabase’e bağlanamaz.
+
+**Çözüm: EAS Secrets tanımlayın**
+
+1. [expo.dev](https://expo.dev) → Projenizi seçin (Rezvio Admin) → **Secrets** (veya Project settings → Environment variables).
+2. Şu iki secret’ı ekleyin (değerleri Supabase Dashboard → Project Settings → API’den alın; local `.env` ile aynı olsun):
+   - **EXPO_PUBLIC_SUPABASE_URL** → `https://xxxxx.supabase.co`
+   - **EXPO_PUBLIC_SUPABASE_ANON_KEY** → anon/public key
+
+   Veya terminalden:
+   ```bash
+   cd admin-app
+   eas secret:create --name EXPO_PUBLIC_SUPABASE_URL --value "https://YOUR_PROJECT.supabase.co" --type string
+   eas secret:create --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value "YOUR_ANON_KEY" --type string
+   ```
+3. Sonrasında **yeni bir build** alın (`eas build --platform ios --profile production`). Eski build’ler bu secret’ları içermez; yeni build’de hata kaybolur.
+
+**Not:** Sadece `expo start` ile çalıştırıyorsanız (development) bilgisayarınızdaki `.env` kullanılır; bu durumda "Supabase yok" genelde görülmez. Sorun neredeyse her zaman **TestFlight / EAS production build** kullanırken ortaya çıkar.
+
 ## Önemli farklar
 
 | | Rezvio (müşteri) | Rezvio Admin |
@@ -38,6 +62,8 @@ Bunu sadece ilk kez yaparsınız. Sonraki build’lerde aynı uygulama kaydına 
 ---
 
 ## 2. iOS build al
+
+**Önce:** "Supabase yok" almamak için EAS Secrets’ta `EXPO_PUBLIC_SUPABASE_URL` ve `EXPO_PUBLIC_SUPABASE_ANON_KEY` tanımlı olsun (yukarıdaki "Supabase yok hatası" bölümüne bakın).
 
 ```bash
 cd admin-app

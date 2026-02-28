@@ -43,6 +43,9 @@ export default function ExplorePage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [messagesUnread, setMessagesUnread] = useState(0);
+  const [pendingReservations, setPendingReservations] = useState(0);
+  const [todayReservations, setTodayReservations] = useState(0);
 
   const loadFavorites = useCallback(async () => {
     if (!supabase || !session?.user?.id) {
@@ -154,6 +157,46 @@ export default function ExplorePage() {
   }, [loadCategories, loadSponsored, loadFavorites]);
 
   useEffect(() => {
+    if (!supabase || !session?.user?.id) {
+      setMessagesUnread(0);
+      setPendingReservations(0);
+      setTodayReservations(0);
+      return;
+    }
+    let cancelled = false;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    (async () => {
+      const [convRes, resRes] = await Promise.all([
+        supabase.from('conversations').select('id').eq('user_id', session.user.id),
+        supabase
+          .from('reservations')
+          .select('id, status, reservation_date')
+          .eq('user_id', session.user.id)
+          .in('status', ['pending', 'confirmed', 'completed']),
+      ]);
+      if (cancelled) return;
+      const convIds = (convRes.data ?? []).map((c: { id: string }) => c.id);
+      let unread = 0;
+      if (convIds.length > 0) {
+        const { count } = await supabase
+          .from('messages')
+          .select('*', { count: 'exact', head: true })
+          .in('conversation_id', convIds)
+          .eq('sender_type', 'restaurant')
+          .is('read_at_user', null);
+        unread = count ?? 0;
+      }
+      const list = (resRes.data ?? []) as { status: string; reservation_date: string }[];
+      const pending = list.filter((r) => r.status === 'pending').length;
+      const todayCount = list.filter((r) => r.reservation_date === todayStr).length;
+      setMessagesUnread(unread);
+      setPendingReservations(pending);
+      setTodayReservations(todayCount);
+    })();
+    return () => { cancelled = true; };
+  }, [session?.user?.id]);
+
+  useEffect(() => {
     setLoading(true);
     loadBusinesses();
   }, [loadBusinesses]);
@@ -215,6 +258,25 @@ export default function ExplorePage() {
 
   return (
     <div className="pb-4 md:pb-0">
+      {(messagesUnread > 0 || pendingReservations > 0 || todayReservations > 0) && (
+        <div className="flex flex-wrap gap-3 mb-4 p-3 rounded-xl bg-white border border-[#e2e8f0]">
+          {messagesUnread > 0 && (
+            <Link href="/app/messages" className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 text-blue-800 px-4 py-2 text-sm font-semibold hover:bg-blue-200">
+              💬 {messagesUnread} okunmamış mesaj
+            </Link>
+          )}
+          {pendingReservations > 0 && (
+            <Link href="/app/reservations" className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-800 px-4 py-2 text-sm font-semibold hover:bg-amber-200">
+              ⏳ {pendingReservations} bekleyen
+            </Link>
+          )}
+          {todayReservations > 0 && (
+            <Link href="/app/reservations" className="inline-flex items-center gap-1.5 rounded-full bg-green-100 text-green-800 px-4 py-2 text-sm font-semibold hover:bg-green-200">
+              📅 Bugün {todayReservations} rezervasyon
+            </Link>
+          )}
+        </div>
+      )}
       {sponsoredBusinesses.length > 0 && (
         <div className="bg-[#f0fdf4] border-b border-[#bbf7d0] py-3 md:rounded-xl md:mb-6 md:border md:border-[#bbf7d0]">
           <div className="flex items-center justify-between px-4 md:px-6 mb-2">

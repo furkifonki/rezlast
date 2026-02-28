@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   Image,
   Modal,
   ScrollView,
+  Animated,
+  PanResponder,
 } from 'react-native';
 import { useSimpleStack } from '../../navigation/SimpleStackContext';
 import { supabase } from '../../lib/supabase';
@@ -60,6 +62,9 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const panStartX = useRef(0);
+  const drawerAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (!popToRootRef) return;
@@ -152,6 +157,28 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
     loadSponsored();
   }, [loadSponsored]);
 
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, g) => {
+        if (panStartX.current < 40 && g.dx > 20) return true;
+        return false;
+      },
+      onPanResponderGrant: (e) => { panStartX.current = e.nativeEvent.pageX; },
+      onPanResponderRelease: (_, g) => {
+        if (panStartX.current < 40 && g.dx > 60) setFilterDrawerOpen(true);
+      },
+    })
+  ).current;
+
+  useEffect(() => {
+    Animated.timing(drawerAnim, {
+      toValue: filterDrawerOpen ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [filterDrawerOpen, drawerAnim]);
+
   useEffect(() => {
     setLoading(true);
     loadBusinesses();
@@ -222,6 +249,7 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
 
   return (
     <View style={styles.container}>
+      <View style={styles.mainContent} {...panResponder.panHandlers}>
       {sponsoredBusinesses.length > 0 ? (
         <View style={styles.featuredBlock}>
           <View style={styles.featuredHeader}>
@@ -269,9 +297,7 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
             onPress={() => setSelectedCategoryId(null)}
             activeOpacity={0.8}
           >
-            <Text style={[styles.filterChipText, selectedCategoryId === null && styles.filterChipTextActive]}>
-              Tümü
-            </Text>
+            <Text style={[styles.filterChipText, selectedCategoryId === null && styles.filterChipTextActive]}>Tümü</Text>
           </TouchableOpacity>
           {categories.map((c) => (
             <TouchableOpacity
@@ -280,12 +306,11 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
               onPress={() => setSelectedCategoryId(c.id)}
               activeOpacity={0.8}
             >
-              <Text style={[styles.filterChipText, selectedCategoryId === c.id && styles.filterChipTextActive]}>
-                {c.name}
-              </Text>
+              <Text style={[styles.filterChipText, selectedCategoryId === c.id && styles.filterChipTextActive]}>{c.name}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
+        <Text style={styles.filterHint}>Soldan sağa kaydırarak filtreleri aç</Text>
       </View>
 
       {error ? (
@@ -316,6 +341,53 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
           renderItem={({ item }) => renderBusinessCard(item, sponsoredBusinessIds.has(item.id))}
         />
       )}
+
+      </View>
+
+      <Modal visible={filterDrawerOpen} transparent animationType="fade">
+        <View style={styles.drawerOverlay}>
+          <Animated.View
+            style={[
+              styles.filterDrawer,
+              {
+                opacity: drawerAnim,
+                transform: [{ translateX: drawerAnim.interpolate({ inputRange: [0, 1], outputRange: [-280, 0] }) }],
+              },
+            ]}
+            onStartShouldSetResponder={() => true}
+          >
+            <View style={styles.filterDrawerHeader}>
+              <Text style={styles.filterDrawerTitle}>Filtreler</Text>
+              <TouchableOpacity onPress={() => setFilterDrawerOpen(false)}>
+                <Text style={styles.filterDrawerClose}>Kapat</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={styles.drawerMapRow} onPress={() => { setFilterDrawerOpen(false); navigate('ExploreMap', undefined); }}>
+              <Text style={styles.mapButtonIcon}>🗺️</Text>
+              <Text style={styles.mapButtonText}>Harita görünümü</Text>
+            </TouchableOpacity>
+            <Text style={styles.filterLabel}>Kategori</Text>
+            <ScrollView style={styles.filterDrawerScroll} showsVerticalScrollIndicator={false}>
+              <TouchableOpacity
+                style={[styles.filterChip, styles.filterChipDrawer, selectedCategoryId === null && styles.filterChipActive]}
+                onPress={() => { setSelectedCategoryId(null); setFilterDrawerOpen(false); }}
+              >
+                <Text style={[styles.filterChipText, selectedCategoryId === null && styles.filterChipTextActive]}>Tümü</Text>
+              </TouchableOpacity>
+              {categories.map((c) => (
+                <TouchableOpacity
+                  key={c.id}
+                  style={[styles.filterChip, styles.filterChipDrawer, selectedCategoryId === c.id && styles.filterChipActive]}
+                  onPress={() => { setSelectedCategoryId(c.id); setFilterDrawerOpen(false); }}
+                >
+                  <Text style={[styles.filterChipText, selectedCategoryId === c.id && styles.filterChipTextActive]}>{c.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </Animated.View>
+          <TouchableOpacity style={styles.drawerBackdrop} activeOpacity={1} onPress={() => setFilterDrawerOpen(false)} />
+        </View>
+      </Modal>
 
       <Modal visible={showAllFeatured} transparent animationType="slide">
         <View style={styles.modalOverlay}>
@@ -348,6 +420,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f1f5f9',
   },
+  mainContent: { flex: 1 },
+  drawerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', flexDirection: 'row' },
+  drawerBackdrop: { flex: 1 },
+  filterDrawer: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 280, backgroundColor: '#fff', paddingTop: 56, paddingHorizontal: 16, shadowColor: '#000', shadowOffset: { width: 4, height: 0 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 8 },
+  filterDrawerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+  filterDrawerTitle: { fontSize: 18, fontWeight: '800', color: '#0f172a' },
+  filterDrawerClose: { fontSize: 16, color: '#15803d', fontWeight: '700' },
+  drawerMapRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0fdf4', paddingHorizontal: 18, paddingVertical: 12, borderRadius: 14, marginBottom: 20 },
+  filterChipDrawer: { marginBottom: 10 },
+  filterDrawerScroll: { maxHeight: 320 },
   listContent: {
     paddingHorizontal: 16,
     paddingTop: 16,
@@ -391,6 +473,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingLeft: 2,
   },
+  filterHint: { fontSize: 12, color: '#94a3b8', marginTop: 8, paddingLeft: 2 },
   filterScrollView: { marginHorizontal: -16 },
   filterScroll: {
     flexDirection: 'row',

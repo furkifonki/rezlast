@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
+import { RESERVATION_STATUS_LABELS, getReservationStatusStyle } from '../../constants/statusColors';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from './MenuScreen';
 
@@ -17,13 +18,7 @@ type Reservation = {
   businesses: { name: string } | null;
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Beklemede',
-  confirmed: 'Onaylandı',
-  cancelled: 'İptal',
-  completed: 'Tamamlandı',
-  no_show: 'Gelmedi',
-};
+const STATUS_LABELS = RESERVATION_STATUS_LABELS;
 
 type TabKey = 'active' | 'past' | 'cancelled';
 
@@ -91,8 +86,8 @@ export default function ReservationsScreen() {
                 <Text style={styles.cardDate}>{r.reservation_date} · {String(r.reservation_time).slice(0, 5)}</Text>
                 <Text style={styles.cardName}>{(r.businesses as { name: string } | null)?.name ?? '—'}</Text>
                 <Text style={styles.cardMeta}>{r.customer_name ?? '—'} · {r.party_size} kişi</Text>
-                <View style={[styles.badge, r.status === 'pending' && styles.badgePending, r.status === 'cancelled' && styles.badgeCancelled]}>
-                  <Text style={styles.badgeText}>{STATUS_LABELS[r.status] ?? r.status}</Text>
+                <View style={[styles.badge, { backgroundColor: getReservationStatusStyle(r.status).bg }]}>
+                  <Text style={[styles.badgeText, { color: getReservationStatusStyle(r.status).text }]}>{STATUS_LABELS[r.status] ?? r.status}</Text>
                 </View>
               </TouchableOpacity>
             ))
@@ -119,8 +114,6 @@ const styles = StyleSheet.create({
   cardDate: { fontSize: 14, fontWeight: '600', color: '#18181b', marginBottom: 4 },
   cardName: { fontSize: 15, color: '#52525b', marginBottom: 2 },
   cardMeta: { fontSize: 13, color: '#71717a', marginBottom: 8 },
-  badge: { alignSelf: 'flex-start', backgroundColor: '#dcfce7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  badgePending: { backgroundColor: '#fef3c7' },
-  badgeCancelled: { backgroundColor: '#f4f4f5' },
-  badgeText: { fontSize: 12, fontWeight: '600', color: '#166534' },
+  badge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  badgeText: { fontSize: 12, fontWeight: '600' },
 });
