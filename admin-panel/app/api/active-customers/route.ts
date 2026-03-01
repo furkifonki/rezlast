@@ -27,6 +27,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Oturum gerekli.' }, { status: 401 });
   }
 
+  const { searchParams } = new URL(request.url);
+  const q = searchParams.get('q')?.trim()?.toLowerCase() || '';
+
   const { data: myBusinesses } = await supabase.from('businesses').select('id').eq('owner_id', user.id);
   const businessIds = (myBusinesses ?? []).map((b: { id: string }) => b.id);
   if (businessIds.length === 0) {
@@ -46,6 +49,9 @@ export async function GET(request: NextRequest) {
     }
   });
 
-  const list = Array.from(byUser.entries()).map(([user_id, label]) => ({ user_id, label }));
+  let list = Array.from(byUser.entries()).map(([user_id, label]) => ({ user_id, label }));
+  if (q) {
+    list = list.filter((c) => c.label.toLowerCase().includes(q));
+  }
   return NextResponse.json(list);
 }

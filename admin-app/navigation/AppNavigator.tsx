@@ -1,9 +1,10 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../contexts/AuthContext';
+import { registerForPushNotificationsAsync, savePushTokenToSupabase } from '../lib/pushNotifications';
 import { MenuProvider, useMenu } from '../contexts/MenuContext';
 import MenuOverlay from '../components/MenuOverlay';
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -31,6 +32,7 @@ import NewServiceScreen from '../screens/dashboard/NewServiceScreen';
 import EditServiceScreen from '../screens/dashboard/EditServiceScreen';
 import LoyaltyScreen from '../screens/dashboard/LoyaltyScreen';
 import NotificationsScreen from '../screens/dashboard/NotificationsScreen';
+import { NotificationBellIcon } from '../components/NotificationBellIcon';
 
 type Props = Record<string, never>;
 
@@ -106,6 +108,9 @@ function MainStack() {
                   <Text style={styles.backButtonText}>← Geri</Text>
                 </TouchableOpacity>
               ),
+          headerRight: () => (
+            <NotificationBellIcon onPress={() => navigation.navigate('Notifications')} />
+          ),
         };
       }}
     >
@@ -125,6 +130,18 @@ export default function AppNavigator(_props: Props) {
   const { session } = useAuth();
   const isAuthenticated = session != null;
   const navigationRef = useRef<NavigationContainerRef<MainStackParamList>>(null);
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+    let cancelled = false;
+    (async () => {
+      const token = await registerForPushNotificationsAsync();
+      if (cancelled || !token) return;
+      await savePushTokenToSupabase(userId, token);
+    })();
+    return () => { cancelled = true; };
+  }, [session?.user?.id]);
 
   const navigate = (name: string, params?: object) => {
     if (navigationRef.current?.isReady()) {

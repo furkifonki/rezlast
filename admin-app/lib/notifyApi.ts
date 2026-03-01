@@ -3,8 +3,11 @@
  * EXPO_PUBLIC_ADMIN_API_URL ile admin panel base URL verilmeli.
  */
 
+import Constants from 'expo-constants';
+
 const getBaseUrl = (): string => {
-  const url = (process.env.EXPO_PUBLIC_ADMIN_API_URL ?? '').trim().replace(/\/$/, '');
+  const extra = Constants.expoConfig?.extra ?? {};
+  const url = (extra.EXPO_PUBLIC_ADMIN_API_URL ?? process.env.EXPO_PUBLIC_ADMIN_API_URL ?? '').trim().replace(/\/$/, '');
   return url;
 };
 

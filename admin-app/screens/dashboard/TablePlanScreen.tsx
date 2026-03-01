@@ -264,7 +264,6 @@ export default function TablePlanScreen() {
           </View>
         </View>
       )}
-      </ScrollView>
     </View>
   );
 }

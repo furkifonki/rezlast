@@ -34,6 +34,9 @@
         "projectId": "d6d6a8cb-fed7-4f80-9ad4-857a2f767026"
       }
     },
-    "owner": "furkifonki"
+    "owner": "furkifonki",
+    "plugins": [
+      "expo-notifications"
+    ]
   }
 }

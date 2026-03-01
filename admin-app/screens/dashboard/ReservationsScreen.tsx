@@ -20,13 +20,13 @@ type Reservation = {
 
 const STATUS_LABELS = RESERVATION_STATUS_LABELS;
 
-type TabKey = 'active' | 'past' | 'cancelled';
+type TabKey = 'pending' | 'active' | 'past' | 'cancelled';
 
 export default function ReservationsScreen() {
   const navigation = useNavigation<Nav>();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<TabKey>('active');
+  const [tab, setTab] = useState<TabKey>('pending');
 
   useEffect(() => {
     let cancelled = false;
@@ -45,7 +45,8 @@ export default function ReservationsScreen() {
         .in('business_id', businessIds)
         .order('reservation_date', { ascending: false })
         .order('reservation_time', { ascending: false });
-      if (tab === 'active') query = query.in('status', ['pending', 'confirmed']);
+      if (tab === 'pending') query = query.eq('status', 'pending');
+      else if (tab === 'active') query = query.eq('status', 'confirmed');
       else if (tab === 'past') query = query.eq('status', 'completed');
       else query = query.in('status', ['cancelled', 'no_show']);
       const { data, error: err } = await query;
@@ -68,9 +69,11 @@ export default function ReservationsScreen() {
   return (
     <View style={styles.root}>
       <View style={styles.tabs}>
-        {(['active', 'past', 'cancelled'] as const).map((t) => (
+        {(['pending', 'active', 'past', 'cancelled'] as const).map((t) => (
           <TouchableOpacity key={t} style={[styles.tab, tab === t && styles.tabActive]} onPress={() => setTab(t)}>
-            <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>{t === 'active' ? 'Aktif' : t === 'past' ? 'Geçmiş' : 'İptal'}</Text>
+            <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
+              {t === 'pending' ? 'Beklemede' : t === 'active' ? 'Aktif' : t === 'past' ? 'Geçmiş' : 'İptal'}
+            </Text>
           </TouchableOpacity>
         ))}
       </View>

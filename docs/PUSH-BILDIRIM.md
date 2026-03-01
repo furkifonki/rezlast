@@ -153,7 +153,13 @@ Bu adım projede var; ekstra kod eklemeniz gerekmez, sadece ortam değişkenleri
 - Expo push izni alması,
 - Dönen Expo push token’ı aynı `push_tokens` tablosuna, **giriş yapan kullanıcının `user_id`’si** ile kaydetmesi
 
-gerekir. Şu an mobil uygulama bu akışa sahip; admin-app’te benzer bir akış (giriş sonrası token al → `push_tokens` upsert) yoksa, işletme sahibi **sadece mobil uygulamayı** kullanıyorsa push alır; **sadece admin-app** kullanıyorsa “rezervasyon oluşturuldu” push’u gelmez. İsterseniz admin-app’e de `registerForPushNotificationsAsync` + `savePushTokenToSupabase` ekleyebilirsiniz (mobil uygulamadaki `pushNotifications.ts` ve MainStack mantığı referans alınabilir).
+gerekir. **Projede bu akış eklendi:** admin-app’te `expo-notifications` ve `expo-device` paketleri, `lib/pushNotifications.ts` ve AppNavigator’da giriş sonrası push izni + token kaydı mevcut. Admin-app’i TestFlight’ta açtığınızda push izni isteyecek; izin verilmezse işletme sahibi “yeni rezervasyon” push’u almaz.
+
+---
+
+## Adım 5b – Web uygulaması (müşteri rezervasyonu)
+
+Müşteri **web-app** üzerinden rezervasyon oluşturduğunda da işletme sahibine push gitmesi için admin panel API’si çağrılır. `web-app/app/app/reserve/[businessId]/page.tsx` içinde rezervasyon insert’ten sonra `NEXT_PUBLIC_ADMIN_PANEL_URL` ile `POST /api/push-notify-owner` çağrılıyor. Web’de bu env tanımlı değilse web’den yapılan rezervasyonlarda push tetiklenmez.
 
 ---
 
@@ -165,8 +171,9 @@ Aşağıdakileri tek tek kontrol edin:
 - [ ] **Supabase:** Service role key’i biliyorsunuz ve sadece sunucu tarafında kullanıyorsunuz.
 - [ ] **Admin panel:** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` tanımlı.
 - [ ] **Mobil uygulama:** `EXPO_PUBLIC_SUPABASE_*` ve (otomatik push için) `EXPO_PUBLIC_ADMIN_API_URL` tanımlı; `app.json`’da `expo.extra.eas.projectId` ve `expo-notifications` plugin’i var.
-- [ ] **İşletme uygulaması:** `EXPO_PUBLIC_SUPABASE_*` ve (otomatik push için) `EXPO_PUBLIC_ADMIN_API_URL` tanımlı; istenirse push token kaydı (Adım 5.2) eklendi.
-- [ ] **Cihaz:** Mobil uygulama (ve gerekiyorsa admin-app) gerçek cihazda/simülatörde en az bir kez açılıp push izni verildi; giriş yapıldıktan sonra `push_tokens` tablosunda ilgili `user_id` için bir satır oluştuğunu Supabase’den kontrol ettiniz.
+- [ ] **İşletme uygulaması (admin-app):** `EXPO_PUBLIC_SUPABASE_*` tanımlı; **push izni ve token kaydı** (Adım 5.2) projede eklendi — giriş sonrası izin istenir, token `push_tokens`’a yazılır. `expo-notifications` plugin’i ve `expo.extra.eas.projectId` (app.json) mevcut.
+- [ ] **Web uygulaması:** Müşteri web’den rezervasyon yaptığında push tetiklenmesi için `NEXT_PUBLIC_ADMIN_PANEL_URL` tanımlı (opsiyonel; yoksa sadece mobil rezervasyonda push gider).
+- [ ] **Cihaz:** Mobil uygulama **ve** (işletme sahibi için) admin-app gerçek cihazda en az bir kez açılıp push izni verildi; giriş sonrası `push_tokens` tablosunda ilgili `user_id` için satır var.
 - [ ] **iOS/Android:** TestFlight / Play Store veya development build ile push credentials (capability / FCM) ayarlı; gerekirse EAS credentials’ı kontrol ettiniz.
 
 ---
@@ -175,9 +182,11 @@ Aşağıdakileri tek tek kontrol edin:
 
 | Sorun | Kontrol |
 |-------|--------|
+| **Admin-app push izni hiç sorulmadı** | Admin-app’te `expo-notifications` kurulu ve `app.json`’da `plugins: ["expo-notifications"]` var mı? Giriş yaptıktan sonra `AppNavigator` içinde `registerForPushNotificationsAsync()` çağrılıyor; yeni bir build (TestFlight/development) alıp cihazda açın, izin dialog’u çıkmalı. |
+| **Yeni rezervasyon push’u gelmiyor** | 1) İşletme sahibi **admin-app** kullanıyorsa: Admin-app’te push izni verildi mi? Supabase `push_tokens` tablosunda `owner_id` (işletme sahibi user_id) için `expo_push_token` dolu mu? 2) Müşteri **mobil** uygulamadan rezervasyon yaptıysa: Mobil uygulamada `EXPO_PUBLIC_ADMIN_API_URL` tanımlı mı? 3) Müşteri **web**’den rezervasyon yaptıysa: Web’de `NEXT_PUBLIC_ADMIN_PANEL_URL` tanımlı mı? 4) Tetikleyici ayarlarında “Rezervasyon bildirimleri” kapatılmış olabilir; admin panel / admin-app → Bildirim gönder → Tetikleyici → “Rezervasyon bildirimleri” işaretli olsun. |
 | Push hiç gelmiyor | Cihazda push izni verildi mi? `push_tokens`’ta bu kullanıcı için `expo_push_token` dolu mu? |
-| Sadece bazı bildirimler gelmiyor | Hangi olay? Rezervasyon oluşturma → `EXPO_PUBLIC_ADMIN_API_URL` (mobil) ve admin-app’te token kaydı. Rezervasyon onayı → admin panel API’nin çağrıldığından ve `EXPO_PUBLIC_ADMIN_API_URL` (admin-app) tanımlı olduğundan emin olun. |
+| Sadece bazı bildirimler gelmiyor | Hangi olay? Rezervasyon oluşturma → yukarıdaki “Yeni rezervasyon push’u gelmiyor” maddesi. Rezervasyon onayı → admin panel API’nin çağrıldığından emin olun. Mesaj → “Mesaj bildirimleri” tetikleyici ayarında açık mı? |
 | “Sunucu yapılandırması eksik” | Admin panelde `SUPABASE_SERVICE_ROLE_KEY` tanımlı mı? |
-| Bildirim merkezinde kayıt yok | Aynı API’ler `app_notifications` insert de yapıyor; service role key ve RLS’in insert’e izin verdiğini (policy ile kullanıcı insert’i kapalı, backend insert’i açık) kontrol edin. |
+| Bildirim merkezinde kayıt yok | Aynı API’ler `app_notifications` insert de yapıyor; service role key ve RLS’in insert’e izin verdiğini kontrol edin. |
 
 Bu adımlar tamamlandığında, rezervasyon oluşturuldu / onaylandı / mesaj geldi akışlarında hem **app push** hem de **bildirim merkezi** kayıtları çalışır.

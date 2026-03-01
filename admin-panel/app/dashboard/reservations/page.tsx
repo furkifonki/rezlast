@@ -51,8 +51,10 @@ function ReservationsContent() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  type TabKey = 'active' | 'past' | 'cancelled';
-  const [tab, setTab] = useState<TabKey>(tabFromUrl === 'past' || tabFromUrl === 'cancelled' ? tabFromUrl : 'active');
+  type TabKey = 'pending' | 'active' | 'past' | 'cancelled';
+  const [tab, setTab] = useState<TabKey>(
+    (['pending', 'active', 'past', 'cancelled'] as const).includes(tabFromUrl as TabKey) ? (tabFromUrl as TabKey) : 'pending'
+  );
   const [filterStatus, setFilterStatus] = useState<string>(statusFromUrl && ['pending', 'confirmed', 'cancelled', 'completed', 'no_show'].includes(statusFromUrl) ? statusFromUrl : 'all');
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
@@ -66,7 +68,10 @@ function ReservationsContent() {
   }, [statusFromUrl]);
 
   useEffect(() => {
-    setFilterStatus('all');
+    if (tab === 'pending') setFilterStatus('pending');
+    else if (tab === 'active') setFilterStatus('confirmed');
+    else if (tab === 'past') setFilterStatus('all');
+    else setFilterStatus('all');
   }, [tab]);
 
   useEffect(() => {
@@ -113,7 +118,8 @@ function ReservationsContent() {
           .in('business_id', businessIds)
           .order('reservation_date', { ascending: false })
           .order('reservation_time', { ascending: false });
-        if (tab === 'active') query = query.in('status', ['pending', 'confirmed']);
+        if (tab === 'pending') query = query.eq('status', 'pending');
+        else if (tab === 'active') query = query.eq('status', 'confirmed');
         else if (tab === 'past') query = query.eq('status', 'completed');
         else if (tab === 'cancelled') query = query.in('status', ['cancelled', 'no_show']);
         if (filterStatus !== 'all') query = query.eq('status', filterStatus);
@@ -130,7 +136,8 @@ function ReservationsContent() {
             .order('reservation_date', { ascending: false })
             .order('reservation_time', { ascending: false });
           if (filterStatus !== 'all') queryFallback = queryFallback.eq('status', filterStatus);
-          if (tab === 'active') queryFallback = queryFallback.in('status', ['pending', 'confirmed']);
+          if (tab === 'pending') queryFallback = queryFallback.eq('status', 'pending');
+          else if (tab === 'active') queryFallback = queryFallback.eq('status', 'confirmed');
           else if (tab === 'past') queryFallback = queryFallback.eq('status', 'completed');
           else if (tab === 'cancelled') queryFallback = queryFallback.in('status', ['cancelled', 'no_show']);
           if (filterDateFrom) queryFallback = queryFallback.gte('reservation_date', filterDateFrom);
@@ -214,7 +221,7 @@ function ReservationsContent() {
 
       {/* Sekmeler */}
       <div className="mb-4 flex gap-1 border-b border-zinc-200">
-        {(['active', 'past', 'cancelled'] as const).map((t) => (
+        {(['pending', 'active', 'past', 'cancelled'] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -225,7 +232,7 @@ function ReservationsContent() {
                 : 'border-transparent text-zinc-600 hover:text-zinc-900'
             }`}
           >
-            {t === 'active' ? 'Aktif' : t === 'past' ? 'Geçmiş' : 'İptal'}
+            {t === 'pending' ? 'Beklemede' : t === 'active' ? 'Aktif' : t === 'past' ? 'Geçmiş' : 'İptal'}
           </button>
         ))}
       </div>
@@ -239,12 +246,8 @@ function ReservationsContent() {
           className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm text-zinc-900"
         >
           <option value="all">Tümü</option>
-          {tab === 'active' && (
-            <>
-              <option value="pending">Beklemede</option>
-              <option value="confirmed">Onaylandı</option>
-            </>
-          )}
+          {tab === 'pending' && <option value="pending">Beklemede</option>}
+          {tab === 'active' && <option value="confirmed">Onaylandı</option>}
           {tab === 'past' && <option value="completed">Tamamlandı</option>}
           {tab === 'cancelled' && (
             <>

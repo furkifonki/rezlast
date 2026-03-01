@@ -58,6 +58,25 @@ export async function POST(request: NextRequest) {
   let businessName = 'İşletme';
   const { data: bizName } = await supabase.from('businesses').select('name').eq('id', conv.restaurant_id).single();
   if (bizName?.name) businessName = bizName.name;
+
+  let title = 'Yeni mesaj';
+  let bodyText: string;
+  if (senderType === 'user') {
+    const { data: res } = await supabase
+      .from('conversations')
+      .select('reservation_id')
+      .eq('id', conversationId)
+      .single();
+    let customerName = 'Müşteri';
+    if (res?.reservation_id) {
+      const { data: rev } = await supabase.from('reservations').select('customer_name').eq('id', res.reservation_id).single();
+      if (rev?.customer_name?.trim()) customerName = rev.customer_name.trim();
+    }
+    bodyText = `${customerName} size mesaj gönderdi.`;
+  } else {
+    bodyText = `${businessName} size bir mesaj gönderdi.`;
+  }
+
   const recipientUserId = senderType === 'restaurant' ? conv.user_id : null;
   const recipientOwnerId = senderType === 'user' ? conv.restaurant_id : null;
   let targetUserIds: string[] = [];
@@ -65,12 +84,21 @@ export async function POST(request: NextRequest) {
     targetUserIds = [recipientUserId];
   } else if (recipientOwnerId) {
     const { data: biz } = await supabase.from('businesses').select('owner_id').eq('id', recipientOwnerId).single();
-    if (biz?.owner_id) targetUserIds = [biz.owner_id];
+    if (biz?.owner_id) {
+      const { data: triggerRow } = await supabase
+        .from('push_trigger_settings')
+        .select('notify_messages')
+        .eq('owner_id', biz.owner_id)
+        .single();
+      if (triggerRow && triggerRow.notify_messages === false) {
+        return NextResponse.json({ ok: true });
+      }
+      targetUserIds = [biz.owner_id];
+    }
     const { data: staff } = await supabase.from('restaurant_staff').select('user_id').eq('restaurant_id', recipientOwnerId);
     if (staff) targetUserIds = [...new Set([...targetUserIds, ...(staff as { user_id: string }[]).map((s) => s.user_id)])];
   }
-  const title = 'Yeni mesaj';
-  const bodyText = `${businessName} size bir mesaj gönderdi.`;
+
   for (const uid of targetUserIds) {
     const { data: tokens } = await supabase
       .from('push_tokens')

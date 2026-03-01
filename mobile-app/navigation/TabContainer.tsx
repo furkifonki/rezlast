@@ -1,6 +1,9 @@
-import React, { useRef, useState, createContext, useContext } from 'react';
+import React, { useRef, useState, createContext, useContext, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSimpleStack } from './SimpleStackContext';
+import { useUnreadMessages } from '../contexts/UnreadMessagesContext';
+import { useUnreadNotificationsCount } from '../hooks/useUnreadNotificationsCount';
 import ExploreScreen from '../screens/main/ExploreScreen';
 import FavoritesScreen from '../screens/main/FavoritesScreen';
 import ReservationsScreen from '../screens/main/ReservationsScreen';
@@ -28,10 +31,17 @@ type TabContainerProps = {
 export function TabContainer({ initialTab = 'Explore', onTabChange }: TabContainerProps) {
   const [tab, setTab] = useState<TabName>(initialTab);
   const insets = useSafeAreaInsets();
+  const { navigate } = useSimpleStack();
+  const { unreadCount, refetchUnread } = useUnreadMessages();
+  const { count: notificationCount } = useUnreadNotificationsCount();
   const explorePopToRoot = useRef<(() => void) | null>(null);
   const favoritesPopToRoot = useRef<(() => void) | null>(null);
   const reservationsPopToRoot = useRef<(() => void) | null>(null);
   const profilePopToRoot = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    if (tab === 'Profile') refetchUnread();
+  }, [tab, refetchUnread]);
 
   const handleTabPress = (key: TabName) => {
     if (key === tab) {
@@ -57,6 +67,25 @@ export function TabContainer({ initialTab = 'Explore', onTabChange }: TabContain
         <Text style={styles.headerTitle}>
           {TABS.find((t) => t.key === tab)?.label ?? 'Keşfet'}
         </Text>
+        <TouchableOpacity
+          onPress={() => navigate('NotificationCenter', undefined)}
+          style={styles.headerBell}
+          activeOpacity={0.7}
+          accessibilityLabel="Bildirimler"
+        >
+          <View style={styles.bellBadgeWrap}>
+            <View style={styles.bellIconWrap}>
+              <Image source={require('../assets/notification-bell.png')} style={styles.bellImage} resizeMode="contain" />
+            </View>
+            {notificationCount > 0 && (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText} numberOfLines={1}>
+                  {notificationCount > 9 ? '9+' : notificationCount}
+                </Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
       </View>
       <View style={styles.content}>
         {tab === 'Explore' && <ExploreScreen popToRootRef={explorePopToRoot} />}
@@ -72,14 +101,17 @@ export function TabContainer({ initialTab = 'Explore', onTabChange }: TabContain
             onPress={() => handleTabPress(t.key)}
             activeOpacity={0.7}
           >
-            <Text
-              style={[styles.tabLabel, tab === t.key && styles.tabLabelActive]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.7}
-            >
-              {t.label}
-            </Text>
+            <View style={styles.tabLabelRow}>
+              <Text
+                style={[styles.tabLabel, tab === t.key && styles.tabLabelActive]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+              >
+                {t.label}
+              </Text>
+              {t.key === 'Profile' && unreadCount > 0 && <View style={styles.unreadDot} />}
+            </View>
           </TouchableOpacity>
         ))}
       </View>
@@ -112,6 +144,44 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0f172a',
     flex: 1,
+  },
+  headerBell: {
+    padding: 8,
+    marginRight: -8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bellBadgeWrap: {
+    position: 'relative',
+  },
+  bellIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(21, 128, 61, 0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bellImage: {
+    width: 20,
+    height: 20,
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#dc2626',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  bellBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#fff',
   },
   content: {
     flex: 1,
@@ -150,5 +220,17 @@ const styles = StyleSheet.create({
   tabLabelActive: {
     color: '#15803d',
     fontWeight: '700',
+  },
+  tabLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#dc2626',
+    marginLeft: 4,
   },
 });

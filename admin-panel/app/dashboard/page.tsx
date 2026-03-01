@@ -241,7 +241,7 @@ export default function DashboardPage() {
           )}
           {pendingCount > 0 && (
             <Link
-              href="/dashboard/reservations?status=pending"
+              href="/dashboard/reservations?tab=pending"
               className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-800 px-4 py-2 text-sm font-semibold hover:bg-amber-200"
             >
               ⏳ {pendingCount} bekleyen onay
@@ -277,7 +277,7 @@ export default function DashboardPage() {
           <h2 className="text-sm font-medium text-zinc-500">Bekleyen Onay</h2>
           <p className="text-2xl font-semibold text-amber-600 mt-1">{pendingCount}</p>
           <Link
-            href="/dashboard/reservations?status=pending"
+            href="/dashboard/reservations?tab=pending"
             className="mt-2 inline-block text-sm text-green-700 hover:underline"
           >
             Onayla →

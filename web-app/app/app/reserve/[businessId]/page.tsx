@@ -144,7 +144,7 @@ export default function ReservePage() {
     setError(null);
     setSuccessMessage(null);
     setSaving(true);
-    const { error: err } = await supabase.from('reservations').insert({
+    const { data: inserted, error: err } = await supabase.from('reservations').insert({
       business_id: businessId,
       user_id: session.user.id,
       reservation_date: reservationDate,
@@ -155,7 +155,7 @@ export default function ReservePage() {
       table_id: tableId || null,
       special_requests: specialRequests.trim() || null,
       status: 'pending',
-    });
+    }).select('id').single();
     setSaving(false);
     if (err) {
       const msg = err.message.includes('masa seçimi zorunludur')
@@ -167,6 +167,14 @@ export default function ReservePage() {
             : err.message;
       setError(msg);
       return;
+    }
+    const adminPanelUrl = (process.env.NEXT_PUBLIC_ADMIN_PANEL_URL ?? '').replace(/\/$/, '');
+    if (adminPanelUrl && inserted?.id && session.access_token) {
+      fetch(`${adminPanelUrl}/api/push-notify-owner`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ business_id: businessId, reservation_id: inserted.id }),
+      }).catch(() => {});
     }
     setSuccessMessage('Rezervasyonunuz restorana onaya gönderildi. En kısa sürede bilgilendirileceksiniz.');
     setTimeout(() => router.push('/app/reservations'), 2200);

@@ -74,7 +74,7 @@ export default function DashboardLayout({
     { href: '/dashboard/hizmetler', label: 'Hizmetler' },
     { href: '/dashboard/loyalty', label: 'Puan İşlemleri' },
     { href: '/dashboard/tables', label: 'Masa Planı' },
-    { href: '/dashboard/notifications', label: 'Bildirim gönder' },
+    { href: '/dashboard/notifications', label: 'Bildirim gönder', icon: 'bell' as const },
   ];
 
   return (
@@ -87,19 +87,26 @@ export default function DashboardLayout({
           </Link>
         </div>
         <nav className="flex-1 p-2 space-y-1">
-          {nav.map(({ href, label, badge }) => {
+          {nav.map(({ href, label, badge, icon }) => {
             const isActive = href === '/dashboard' ? pathname === href : pathname.startsWith(href);
             return (
               <Link
                 key={href}
                 href={href}
-                className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm ${
+                className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm gap-2 ${
                   isActive
                     ? 'bg-green-700 text-white'
                     : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'
                 }`}
               >
-                <span>{label}</span>
+                <span className="flex items-center gap-2 min-w-0">
+                  {icon === 'bell' && (
+                    <span className="flex-shrink-0 w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                      <img src="/notification-bell.png" alt="" className="w-5 h-5 object-contain" />
+                    </span>
+                  )}
+                  <span className="truncate">{label}</span>
+                </span>
                 {typeof badge === 'number' && badge > 0 && (
                   <span className="flex-shrink-0 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center">
                     {badge > 99 ? '99+' : badge}

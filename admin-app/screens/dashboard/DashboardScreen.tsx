@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, PanResponder } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useMenu } from '../../contexts/MenuContext';
 import { supabase } from '../../lib/supabase';
 import { RESERVATION_STATUS_LABELS, getReservationStatusStyle } from '../../constants/statusColors';
@@ -41,59 +42,59 @@ export default function DashboardScreen() {
     })
   ).current;
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      if (!supabase) { setLoading(false); return; }
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || cancelled) { setLoading(false); return; }
-      const { data: myBusinesses } = await supabase.from('businesses').select('id').eq('owner_id', user.id);
-      const businessIds = (myBusinesses ?? []).map((b: { id: string }) => b.id);
-      if (businessIds.length === 0) {
-        setLoading(false);
-        return;
-      }
-      const today = new Date().toISOString().slice(0, 10);
-      const [ownerRes, staffRes] = await Promise.all([
-        supabase.from('businesses').select('id').eq('owner_id', user.id),
-        supabase.from('restaurant_staff').select('restaurant_id').eq('user_id', user.id),
-      ]);
-      const ownerIds = (ownerRes.data ?? []).map((b: { id: string }) => b.id);
-      const staffIds = (staffRes.data ?? []).map((s: { restaurant_id: string }) => s.restaurant_id).filter(Boolean);
-      const ids = [...new Set([...ownerIds, ...staffIds])];
-      let messagesUnreadCount = 0;
-      if (ids.length > 0) {
-        const { data: convData } = await supabase.from('conversations').select('id').in('restaurant_id', ids);
-        const convIds = (convData ?? []).map((c: { id: string }) => c.id);
-        if (convIds.length > 0) {
-          const { count } = await supabase.from('messages').select('*', { count: 'exact', head: true }).in('conversation_id', convIds).eq('sender_type', 'user').is('read_at_restaurant', null);
-          messagesUnreadCount = count ?? 0;
-        }
-      }
-      const [bRes, rRes, pRes, tRes, recentRes] = await Promise.all([
-        supabase.from('businesses').select('id', { count: 'exact', head: true }).eq('owner_id', user.id),
-        supabase.from('reservations').select('id', { count: 'exact', head: true }).in('business_id', businessIds),
-        supabase.from('reservations').select('id', { count: 'exact', head: true }).in('business_id', businessIds).eq('status', 'pending'),
-        supabase.from('reservations').select('id', { count: 'exact', head: true }).in('business_id', businessIds).eq('reservation_date', today),
-        supabase.from('reservations').select('id, reservation_date, reservation_time, party_size, status, customer_name, businesses ( name )').in('business_id', businessIds).order('reservation_date', { ascending: false }).order('reservation_time', { ascending: false }).limit(5),
-      ]);
-      if (cancelled) return;
-      setBusinessCount(bRes.count ?? 0);
-      setReservationCount(rRes.count ?? 0);
-      setPendingCount(pRes.count ?? 0);
-      setTodayCount(tRes.count ?? 0);
-      setMessagesUnread(messagesUnreadCount);
-      const raw = (recentRes.data ?? []) as Array<Record<string, unknown>>;
-      setRecentReservations(raw.map((r) => {
-        const b = r.businesses;
-        const biz = Array.isArray(b) && b.length ? (b[0] as { name: string }) : b && typeof b === 'object' && 'name' in b ? (b as { name: string }) : null;
-        return { ...r, businesses: biz } as Reservation;
-      }));
+  const loadDashboard = React.useCallback(async () => {
+    if (!supabase) { setLoading(false); return; }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setLoading(false); return; }
+    const { data: myBusinesses } = await supabase.from('businesses').select('id').eq('owner_id', user.id);
+    const businessIds = (myBusinesses ?? []).map((b: { id: string }) => b.id);
+    if (businessIds.length === 0) {
       setLoading(false);
+      return;
     }
-    load();
-    return () => { cancelled = true; };
+    const today = new Date().toISOString().slice(0, 10);
+    const [ownerRes, staffRes] = await Promise.all([
+      supabase.from('businesses').select('id').eq('owner_id', user.id),
+      supabase.from('restaurant_staff').select('restaurant_id').eq('user_id', user.id),
+    ]);
+    const ownerIds = (ownerRes.data ?? []).map((b: { id: string }) => b.id);
+    const staffIds = (staffRes.data ?? []).map((s: { restaurant_id: string }) => s.restaurant_id).filter(Boolean);
+    const ids = [...new Set([...ownerIds, ...staffIds])];
+    let messagesUnreadCount = 0;
+    if (ids.length > 0) {
+      const { data: convData } = await supabase.from('conversations').select('id').in('restaurant_id', ids);
+      const convIds = (convData ?? []).map((c: { id: string }) => c.id);
+      if (convIds.length > 0) {
+        const { count } = await supabase.from('messages').select('*', { count: 'exact', head: true }).in('conversation_id', convIds).eq('sender_type', 'user').is('read_at_restaurant', null);
+        messagesUnreadCount = count ?? 0;
+      }
+    }
+    const [bRes, rRes, pRes, tRes, recentRes] = await Promise.all([
+      supabase.from('businesses').select('id', { count: 'exact', head: true }).eq('owner_id', user.id),
+      supabase.from('reservations').select('id', { count: 'exact', head: true }).in('business_id', businessIds),
+      supabase.from('reservations').select('id', { count: 'exact', head: true }).in('business_id', businessIds).eq('status', 'pending'),
+      supabase.from('reservations').select('id', { count: 'exact', head: true }).in('business_id', businessIds).eq('reservation_date', today),
+      supabase.from('reservations').select('id, reservation_date, reservation_time, party_size, status, customer_name, businesses ( name )').in('business_id', businessIds).order('reservation_date', { ascending: false }).order('reservation_time', { ascending: false }).limit(5),
+    ]);
+    setBusinessCount(bRes.count ?? 0);
+    setReservationCount(rRes.count ?? 0);
+    setPendingCount(pRes.count ?? 0);
+    setTodayCount(tRes.count ?? 0);
+    setMessagesUnread(messagesUnreadCount);
+    const raw = (recentRes.data ?? []) as Array<Record<string, unknown>>;
+    setRecentReservations(raw.map((r) => {
+      const b = r.businesses;
+      const biz = Array.isArray(b) && b.length ? (b[0] as { name: string }) : b && typeof b === 'object' && 'name' in b ? (b as { name: string }) : null;
+      return { ...r, businesses: biz } as Reservation;
+    }));
+    setLoading(false);
   }, []);
+
+  useFocusEffect(React.useCallback(() => { if (!loading) loadDashboard(); }, [loadDashboard, loading]));
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
 
   if (loading) {
     return (

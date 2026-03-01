@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await supabase
     .from('push_trigger_settings')
-    .select('enabled, trigger_30min, trigger_1day')
+    .select('enabled, trigger_30min, trigger_1day, notify_messages, notify_reservations')
     .eq('owner_id', user.id)
     .single();
 
@@ -42,8 +42,14 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json(
     data
-      ? { enabled: !!data.enabled, trigger_30min: !!data.trigger_30min, trigger_1day: !!data.trigger_1day }
-      : { enabled: true, trigger_30min: true, trigger_1day: false }
+      ? {
+          enabled: !!data.enabled,
+          trigger_30min: !!data.trigger_30min,
+          trigger_1day: !!data.trigger_1day,
+          notify_messages: data.notify_messages !== false,
+          notify_reservations: data.notify_reservations !== false,
+        }
+      : { enabled: true, trigger_30min: true, trigger_1day: false, notify_messages: true, notify_reservations: true }
   );
 }
 
@@ -73,7 +79,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Oturum gerekli.' }, { status: 401 });
   }
 
-  let body: { enabled?: boolean; trigger_30min?: boolean; trigger_1day?: boolean };
+  let body: { enabled?: boolean; trigger_30min?: boolean; trigger_1day?: boolean; notify_messages?: boolean; notify_reservations?: boolean };
   try {
     body = await request.json();
   } catch {
@@ -83,6 +89,8 @@ export async function POST(request: NextRequest) {
   const enabled = typeof body.enabled === 'boolean' ? body.enabled : true;
   const trigger_30min = typeof body.trigger_30min === 'boolean' ? body.trigger_30min : true;
   const trigger_1day = typeof body.trigger_1day === 'boolean' ? body.trigger_1day : false;
+  const notify_messages = typeof body.notify_messages === 'boolean' ? body.notify_messages : true;
+  const notify_reservations = typeof body.notify_reservations === 'boolean' ? body.notify_reservations : true;
 
   const { error: upsertErr } = await supabase
     .from('push_trigger_settings')
@@ -92,6 +100,8 @@ export async function POST(request: NextRequest) {
         enabled,
         trigger_30min,
         trigger_1day,
+        notify_messages,
+        notify_reservations,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'owner_id' }
@@ -104,5 +114,5 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({ ok: true, enabled, trigger_30min, trigger_1day });
+  return NextResponse.json({ ok: true, enabled, trigger_30min, trigger_1day, notify_messages, notify_reservations });
 }

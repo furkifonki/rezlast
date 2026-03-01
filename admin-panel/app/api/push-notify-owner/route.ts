@@ -51,6 +51,14 @@ export async function POST(request: NextRequest) {
   if (!business?.owner_id) {
     return NextResponse.json({ error: 'İşletme bulunamadı.' }, { status: 404 });
   }
+  const { data: triggerRow } = await supabase
+    .from('push_trigger_settings')
+    .select('notify_reservations')
+    .eq('owner_id', business.owner_id)
+    .single();
+  if (triggerRow && triggerRow.notify_reservations === false) {
+    return NextResponse.json({ ok: true });
+  }
   const { data: tokens } = await supabase
     .from('push_tokens')
     .select('expo_push_token')

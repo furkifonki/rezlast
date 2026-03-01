@@ -13,12 +13,21 @@ import { supabase } from '../../lib/supabase';
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 const BATCH_SIZE = 100;
 
+type Channel = 'email' | 'sms' | 'app_push';
 type Tab = 'bulk' | 'single' | 'trigger';
 type ActiveCustomer = { user_id: string; label: string };
-type TriggerSettings = { enabled: boolean; trigger_30min: boolean; trigger_1day: boolean };
+type TriggerSettings = {
+  enabled: boolean;
+  trigger_30min: boolean;
+  trigger_1day: boolean;
+  notify_messages: boolean;
+  notify_reservations: boolean;
+};
 
 export default function NotificationsScreen() {
+  const [channel, setChannel] = useState<Channel>('app_push');
   const [tab, setTab] = useState<Tab>('bulk');
+  const [customerSearch, setCustomerSearch] = useState('');
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [loading, setLoading] = useState(false);
@@ -33,6 +42,8 @@ export default function NotificationsScreen() {
     enabled: true,
     trigger_30min: true,
     trigger_1day: false,
+    notify_messages: true,
+    notify_reservations: true,
   });
   const [triggerLoading, setTriggerLoading] = useState(false);
   const [triggerSaved, setTriggerSaved] = useState(false);
@@ -81,7 +92,7 @@ export default function NotificationsScreen() {
         if (!user) return;
         const { data } = await supabase
           .from('push_trigger_settings')
-          .select('enabled, trigger_30min, trigger_1day')
+          .select('enabled, trigger_30min, trigger_1day, notify_messages, notify_reservations')
           .eq('owner_id', user.id)
           .single();
         if (data) {
@@ -89,6 +100,8 @@ export default function NotificationsScreen() {
             enabled: !!data.enabled,
             trigger_30min: !!data.trigger_30min,
             trigger_1day: !!data.trigger_1day,
+            notify_messages: data.notify_messages !== false,
+            notify_reservations: data.notify_reservations !== false,
           });
         }
       })();
@@ -186,6 +199,8 @@ export default function NotificationsScreen() {
             enabled: triggerSettings.enabled,
             trigger_30min: triggerSettings.trigger_30min,
             trigger_1day: triggerSettings.trigger_1day,
+            notify_messages: triggerSettings.notify_messages,
+            notify_reservations: triggerSettings.notify_reservations,
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'owner_id' }
@@ -204,6 +219,41 @@ export default function NotificationsScreen() {
 
   return (
     <View style={styles.root}>
+      <View style={styles.channelRow}>
+        <TouchableOpacity
+          style={[styles.channelTab, channel === 'email' && styles.channelTabActive]}
+          onPress={() => setChannel('email')}
+        >
+          <Text style={[styles.channelTabText, channel === 'email' && styles.channelTabTextActive]}>E-posta</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.channelTab, channel === 'sms' && styles.channelTabActive]}
+          onPress={() => setChannel('sms')}
+        >
+          <Text style={[styles.channelTabText, channel === 'sms' && styles.channelTabTextActive]}>SMS</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.channelTab, channel === 'app_push' && styles.channelTabActive]}
+          onPress={() => setChannel('app_push')}
+        >
+          <Text style={[styles.channelTabText, channel === 'app_push' && styles.channelTabTextActive]}>App push</Text>
+        </TouchableOpacity>
+      </View>
+
+      {channel === 'email' && (
+        <View style={styles.placeholderBox}>
+          <Text style={styles.placeholderText}>E-posta bildirimleri yakında eklenecek. Şu an sadece App push kullanılabilir.</Text>
+        </View>
+      )}
+
+      {channel === 'sms' && (
+        <View style={styles.placeholderBox}>
+          <Text style={styles.placeholderText}>SMS bildirimleri yakında eklenecek. Şu an sadece App push kullanılabilir.</Text>
+        </View>
+      )}
+
+      {channel === 'app_push' && (
+        <>
       <View style={styles.tabRow}>
         <TouchableOpacity
           style={[styles.tab, tab === 'bulk' && styles.tabActive]}
@@ -253,27 +303,40 @@ export default function NotificationsScreen() {
 
         {tab === 'single' && (
           <>
-            <Text style={styles.desc}>Sadece bekleyen/onaylı rezervasyonu olan müşterilerden birini seçin.</Text>
+            <Text style={styles.desc}>Bekleyen/onaylı rezervasyonu olan müşterilerden birini seçin. Müşteri adıyla arayabilirsiniz.</Text>
+            <Text style={styles.label}>Müşteri ara</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ad veya isim ile ara…"
+              placeholderTextColor="#71717a"
+              value={customerSearch}
+              onChangeText={setCustomerSearch}
+            />
             <Text style={styles.label}>Aktif müşteri</Text>
             {activeCustomersLoading ? (
               <Text style={styles.hint}>Yükleniyor…</Text>
             ) : (
               <View style={styles.pickerWrap}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {activeCustomers.map((c) => (
-                    <TouchableOpacity
-                      key={c.user_id}
-                      style={[styles.chip, selectedUserId === c.user_id && styles.chipActive]}
-                      onPress={() => setSelectedUserId(c.user_id)}
-                    >
-                      <Text style={[styles.chipText, selectedUserId === c.user_id && styles.chipTextActive]} numberOfLines={1}>{c.label}</Text>
-                    </TouchableOpacity>
-                  ))}
+                  {activeCustomers
+                    .filter((c) => !customerSearch.trim() || c.label.toLowerCase().includes(customerSearch.trim().toLowerCase()))
+                    .map((c) => (
+                      <TouchableOpacity
+                        key={c.user_id}
+                        style={[styles.chip, selectedUserId === c.user_id && styles.chipActive]}
+                        onPress={() => setSelectedUserId(c.user_id)}
+                      >
+                        <Text style={[styles.chipText, selectedUserId === c.user_id && styles.chipTextActive]} numberOfLines={1}>{c.label}</Text>
+                      </TouchableOpacity>
+                    ))}
                 </ScrollView>
               </View>
             )}
             {!activeCustomersLoading && activeCustomers.length === 0 && (
               <Text style={styles.hint}>Bekleyen/onaylı rezervasyonu olan müşteri yok.</Text>
+            )}
+            {!activeCustomersLoading && activeCustomers.length > 0 && customerSearch.trim() && activeCustomers.filter((c) => c.label.toLowerCase().includes(customerSearch.trim().toLowerCase())).length === 0 && (
+              <Text style={styles.hint}>Arama sonucu bulunamadı.</Text>
             )}
             <Text style={styles.label}>Başlık</Text>
             <TextInput
@@ -320,6 +383,15 @@ export default function NotificationsScreen() {
               <View style={[styles.checkbox, triggerSettings.trigger_1day && styles.checkboxChecked]} />
               <Text style={[styles.checkLabel, !triggerSettings.enabled && styles.checkLabelDisabled]}>Rezervasyondan 1 gün önce push at</Text>
             </TouchableOpacity>
+            <Text style={styles.triggerSubtitle}>Bildirim türleri (işletme olarak alacağınız)</Text>
+            <TouchableOpacity style={styles.checkRow} onPress={() => setTriggerSettings((s) => ({ ...s, notify_messages: !s.notify_messages }))}>
+              <View style={[styles.checkbox, triggerSettings.notify_messages && styles.checkboxChecked]} />
+              <Text style={styles.checkLabel}>Mesaj bildirimleri (müşteriden gelen mesajlar)</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.checkRow} onPress={() => setTriggerSettings((s) => ({ ...s, notify_reservations: !s.notify_reservations }))}>
+              <View style={[styles.checkbox, triggerSettings.notify_reservations && styles.checkboxChecked]} />
+              <Text style={styles.checkLabel}>Rezervasyon bildirimleri (yeni rezervasyonlar)</Text>
+            </TouchableOpacity>
             {triggerSaved && <Text style={styles.successText}>Ayarlar kaydedildi.</Text>}
             <TouchableOpacity style={[styles.button, triggerLoading && styles.buttonDisabled]} onPress={saveTriggerSettings} disabled={triggerLoading}>
               {triggerLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Ayarları kaydet</Text>}
@@ -345,12 +417,21 @@ export default function NotificationsScreen() {
 
         {error && tab === 'trigger' ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
       </ScrollView>
+        </>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#f4f4f5' },
+  channelRow: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e4e4e7' },
+  channelTab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
+  channelTabActive: { backgroundColor: '#15803d' },
+  channelTabText: { fontSize: 14, fontWeight: '600', color: '#52525b' },
+  channelTabTextActive: { color: '#fff' },
+  placeholderBox: { margin: 16, padding: 20, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e4e4e7' },
+  placeholderText: { fontSize: 14, color: '#71717a', textAlign: 'center' },
   tabRow: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e4e4e7' },
   tab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
   tabActive: { backgroundColor: '#15803d' },
@@ -373,6 +454,7 @@ const styles = StyleSheet.create({
   checkboxChecked: { backgroundColor: '#15803d', borderColor: '#15803d' },
   checkLabel: { fontSize: 15, color: '#374151' },
   checkLabelDisabled: { color: '#a1a1aa' },
+  triggerSubtitle: { fontSize: 14, fontWeight: '600', color: '#3f3f46', marginTop: 8, marginBottom: 8 },
   successText: { fontSize: 14, color: '#15803d', marginBottom: 16 },
   errorBox: { backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca', borderRadius: 8, padding: 12, marginBottom: 16 },
   errorText: { fontSize: 14, color: '#b91c1c' },

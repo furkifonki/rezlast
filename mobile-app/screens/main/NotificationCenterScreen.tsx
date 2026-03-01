@@ -66,6 +66,19 @@ export default function NotificationCenterScreen({ onBack }: Props) {
     setList((prev) => prev.map((n) => (n.id === id ? { ...n, read_at: new Date().toISOString() } : n)));
   };
 
+  const markAllRead = async () => {
+    if (!supabase || !session?.user?.id) return;
+    const now = new Date().toISOString();
+    await supabase
+      .from('app_notifications')
+      .update({ read_at: now })
+      .eq('user_id', session.user.id)
+      .is('read_at', null);
+    setList((prev) => prev.map((n) => ({ ...n, read_at: n.read_at || now })));
+  };
+
+  const hasUnread = list.some((n) => !n.read_at);
+
   const onPress = (item: NotificationItem) => {
     if (!item.read_at) markRead(item.id);
     if (item.data_reservation_id) navigate('ReservationDetail', { reservationId: item.data_reservation_id });
@@ -109,6 +122,13 @@ export default function NotificationCenterScreen({ onBack }: Props) {
           <Text style={styles.backText}>← Geri</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Bildirimler</Text>
+        {hasUnread ? (
+          <TouchableOpacity onPress={markAllRead} hitSlop={12}>
+            <Text style={styles.markAllReadText}>Tümünü okundu işaretle</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.headerRightPlaceholder} />
+        )}
       </View>
       {loading && list.length === 0 ? (
         <View style={styles.centered}>
@@ -138,7 +158,9 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#f1f5f9' },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   backText: { fontSize: 16, color: '#15803d', fontWeight: '600', marginRight: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a', flex: 1 },
+  markAllReadText: { fontSize: 13, color: '#15803d', fontWeight: '600' },
+  headerRightPlaceholder: { minWidth: 1 },
   listContent: { padding: 16, paddingBottom: 32 },
   card: { backgroundColor: '#fff', borderRadius: 14, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#e2e8f0' },
   cardUnread: { backgroundColor: '#f0fdf4', borderColor: '#86efac' },

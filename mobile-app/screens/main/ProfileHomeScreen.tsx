@@ -4,6 +4,7 @@ import { useSimpleStack } from '../../navigation/SimpleStackContext';
 import { ProfileMenuCard } from '../../components/ProfileMenuCard';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { useAuth } from '../../contexts/AuthContext';
+import { useUnreadMessages } from '../../contexts/UnreadMessagesContext';
 import { getTierFromPoints } from '../../lib/loyaltyConstants';
 
 type ProfileHomeScreenProps = {
@@ -14,6 +15,7 @@ export default function ProfileHomeScreen({ popToRootRef }: ProfileHomeScreenPro
   const { navigate, popToTop } = useSimpleStack();
   const { profile, loading } = useUserProfile();
   const { signOut } = useAuth();
+  const { unreadCount } = useUnreadMessages();
 
   useEffect(() => {
     if (!popToRootRef) return;
@@ -57,12 +59,7 @@ export default function ProfileHomeScreen({ popToRootRef }: ProfileHomeScreenPro
         title="Mesajlar"
         description="Restoranlarla sohbet"
         onPress={() => navigate('MessagesList', undefined)}
-      />
-      <ProfileMenuCard
-        icon="🔔"
-        title="Bildirimler"
-        description="Rezervasyon onayları, mesajlar"
-        onPress={() => navigate('NotificationCenter', undefined)}
+        showUnreadDot={unreadCount > 0}
       />
       <ProfileMenuCard
         icon="📅"

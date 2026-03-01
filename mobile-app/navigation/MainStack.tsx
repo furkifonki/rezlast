@@ -6,6 +6,7 @@ import type { StackEntry } from './SimpleStackContext';
 import { SimpleStackProvider } from './SimpleStackContext';
 import { StackScreenWrapper } from './StackScreenWrapper';
 import { TabContainer, type TabName } from './TabContainer';
+import { UnreadMessagesProvider } from '../contexts/UnreadMessagesContext';
 import BusinessDetailScreen from '../screens/main/BusinessDetailScreen';
 import ReservationFlowScreen from '../screens/main/ReservationFlowScreen';
 import ProfileAccountScreen from '../screens/main/profile/ProfileAccountScreen';
@@ -51,7 +52,9 @@ function MainStackContent() {
     <SimpleStackProvider stack={stack} setStack={setStack}>
       <View style={styles.container}>
         {current.screen === 'Main' && (
-          <TabContainer initialTab={mainTab} onTabChange={setMainTab} />
+          <UnreadMessagesProvider>
+            <TabContainer initialTab={mainTab} onTabChange={setMainTab} />
+          </UnreadMessagesProvider>
         )}
         {current.screen === 'BusinessDetail' && current.params && (
           <StackScreenWrapper onGoBack={goBack}>

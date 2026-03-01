@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -36,6 +37,7 @@ export default function MessageThreadScreen({ route, navigation }: Props) {
   const [replyText, setReplyText] = useState('');
   const [customerName, setCustomerName] = useState('Konuşma');
   const [canMessage, setCanMessage] = useState(true);
+  const [reservationDetail, setReservationDetail] = useState<{ customer_name: string; business_name: string; reservation_date: string; reservation_time: string } | null>(null);
 
   useLayoutEffect(() => {
     navigation.setOptions({ title: customerName });
@@ -58,14 +60,24 @@ export default function MessageThreadScreen({ route, navigation }: Props) {
       setLoading(true);
       const { data: conv } = await supabase
         .from('conversations')
-        .select('id, reservation_id, reservations ( customer_name, status )')
+        .select('id, reservation_id, restaurant_id, reservations ( customer_name, status, reservation_date, reservation_time )')
         .eq('id', conversationId)
         .single();
       if (!cancelled && conv) {
-        const res = (conv as { reservations?: { customer_name?: string | null; status?: string } | null }).reservations;
+        const res = (conv as { reservations?: { customer_name?: string | null; status?: string; reservation_date?: string; reservation_time?: string | null } | null }).reservations;
         const r = Array.isArray(res) ? res[0] : res;
-        setCustomerName((r as { customer_name?: string | null } | null)?.customer_name?.trim() || 'Müşteri');
-        setCanMessage(r && typeof r === 'object' && 'status' in r ? ['pending', 'confirmed'].includes((r as { status: string }).status) : true);
+        const rObj = r && typeof r === 'object' ? r : null;
+        setCustomerName((rObj?.customer_name as string)?.trim() || 'Müşteri');
+        setCanMessage(rObj && 'status' in rObj ? ['pending', 'confirmed'].includes((rObj as { status: string }).status) : true);
+        if (rObj && (rObj as { reservation_date?: string }).reservation_date) {
+          const bizRes = await supabase.from('businesses').select('name').eq('id', (conv as { restaurant_id: string }).restaurant_id).single();
+          setReservationDetail({
+            customer_name: (rObj.customer_name as string)?.trim() || 'Müşteri',
+            business_name: (bizRes.data as { name?: string } | null)?.name ?? 'İşletme',
+            reservation_date: (rObj as { reservation_date: string }).reservation_date,
+            reservation_time: (rObj as { reservation_time?: string | null }).reservation_time ?? '',
+          });
+        } else setReservationDetail(null);
       }
       await loadMessages();
       const now = new Date().toISOString();
@@ -140,6 +152,19 @@ export default function MessageThreadScreen({ route, navigation }: Props) {
 
   return (
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
+      {reservationDetail && (
+        <TouchableOpacity
+          style={styles.detailBar}
+          onPress={() => Alert.alert(
+            'Rezervasyon bilgisi',
+            `Müşteri: ${reservationDetail.customer_name}\nİşletme: ${reservationDetail.business_name}\nTarih: ${new Date(reservationDetail.reservation_date).toLocaleDateString('tr-TR')}\nSaat: ${String(reservationDetail.reservation_time).slice(0, 5)}`,
+            [{ text: 'Tamam' }]
+          )}
+        >
+          <Text style={styles.detailBarText}>📋 Rezervasyon detayı</Text>
+          <Text style={styles.detailBarSub}>{reservationDetail.business_name} · {new Date(reservationDetail.reservation_date).toLocaleDateString('tr-TR')}</Text>
+        </TouchableOpacity>
+      )}
       <FlatList
         data={messages}
         keyExtractor={(item) => item.id}
@@ -192,4 +217,7 @@ const styles = StyleSheet.create({
   sendBtn: { backgroundColor: '#15803d', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 22, justifyContent: 'center' },
   sendBtnDisabled: { backgroundColor: '#a1a1aa', opacity: 0.8 },
   sendBtnText: { fontSize: 15, fontWeight: '600', color: '#fff' },
+  detailBar: { backgroundColor: '#f0fdf4', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#bbf7d0' },
+  detailBarText: { fontSize: 13, fontWeight: '600', color: '#166534' },
+  detailBarSub: { fontSize: 12, color: '#15803d', marginTop: 2 },
 });
