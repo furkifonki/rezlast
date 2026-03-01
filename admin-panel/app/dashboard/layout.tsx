@@ -73,6 +73,7 @@ export default function DashboardLayout({
     { href: '/dashboard/sponsored', label: 'Öne Çıkan' },
     { href: '/dashboard/hizmetler', label: 'Hizmetler' },
     { href: '/dashboard/loyalty', label: 'Puan İşlemleri' },
+    { href: '/dashboard/capacity', label: 'Kapasite' },
     { href: '/dashboard/tables', label: 'Masa Planı' },
     { href: '/dashboard/notifications', label: 'Bildirim gönder', icon: 'bell' as const },
   ];

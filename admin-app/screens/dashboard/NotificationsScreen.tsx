@@ -271,7 +271,7 @@ export default function NotificationsScreen() {
           style={[styles.tab, tab === 'trigger' && styles.tabActive]}
           onPress={() => setTab('trigger')}
         >
-          <Text style={[styles.tabText, tab === 'trigger' && styles.tabTextActive]}>Tetikleyici</Text>
+          <Text style={[styles.tabText, tab === 'trigger' && styles.tabTextActive]}>Otomatik bildirimler</Text>
         </TouchableOpacity>
       </View>
 
@@ -362,10 +362,10 @@ export default function NotificationsScreen() {
 
         {tab === 'trigger' && (
           <>
-            <Text style={styles.desc}>Rezervasyondan belirtilen süre önce otomatik push. Açık seçenekler zamanlanmış görev (cron) ile çalışır.</Text>
+            <Text style={styles.desc}>Rezervasyondan belirtilen süre önce otomatik push gönder. Açık seçenekler zamanlanmış görev (cron) ile çalışır.</Text>
             <TouchableOpacity style={styles.checkRow} onPress={() => setTriggerSettings((s) => ({ ...s, enabled: !s.enabled }))}>
               <View style={[styles.checkbox, triggerSettings.enabled && styles.checkboxChecked]} />
-              <Text style={styles.checkLabel}>Tetikleyici bildirimleri aktif</Text>
+              <Text style={styles.checkLabel}>Otomatik bildirimler aktif</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.checkRow}
@@ -373,7 +373,7 @@ export default function NotificationsScreen() {
               disabled={!triggerSettings.enabled}
             >
               <View style={[styles.checkbox, triggerSettings.trigger_30min && styles.checkboxChecked]} />
-              <Text style={[styles.checkLabel, !triggerSettings.enabled && styles.checkLabelDisabled]}>Rezervasyondan 30 dk önce push at</Text>
+              <Text style={[styles.checkLabel, !triggerSettings.enabled && styles.checkLabelDisabled]}>1. otomatik push: Rezervasyondan 30 dk önce push gönder</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.checkRow}
@@ -381,7 +381,7 @@ export default function NotificationsScreen() {
               disabled={!triggerSettings.enabled}
             >
               <View style={[styles.checkbox, triggerSettings.trigger_1day && styles.checkboxChecked]} />
-              <Text style={[styles.checkLabel, !triggerSettings.enabled && styles.checkLabelDisabled]}>Rezervasyondan 1 gün önce push at</Text>
+              <Text style={[styles.checkLabel, !triggerSettings.enabled && styles.checkLabelDisabled]}>2. otomatik push: Rezervasyondan 1 gün önce push gönder</Text>
             </TouchableOpacity>
             <Text style={styles.triggerSubtitle}>Bildirim türleri (işletme olarak alacağınız)</Text>
             <TouchableOpacity style={styles.checkRow} onPress={() => setTriggerSettings((s) => ({ ...s, notify_messages: !s.notify_messages }))}>

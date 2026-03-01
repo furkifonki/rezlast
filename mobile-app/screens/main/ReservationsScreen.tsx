@@ -50,20 +50,26 @@ export default function ReservationsScreen({ popToRootRef }: ReservationsScreenP
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  type TabKey = 'upcoming' | 'past';
+  type TabKey = 'upcoming' | 'past' | 'cancelled';
   const [tab, setTab] = useState<TabKey>('upcoming');
 
-  const { upcoming, past } = React.useMemo(() => {
+  const { upcoming, past, cancelled } = React.useMemo(() => {
     const up: Reservation[] = [];
     const pa: Reservation[] = [];
+    const can: Reservation[] = [];
     for (const r of list) {
-      if (isUpcoming(r.reservation_date, r.reservation_time)) up.push(r);
-      else pa.push(r);
+      if (r.status === 'cancelled') {
+        can.push(r);
+      } else if (isUpcoming(r.reservation_date, r.reservation_time)) {
+        up.push(r);
+      } else {
+        pa.push(r);
+      }
     }
-    return { upcoming: up, past: pa };
+    return { upcoming: up, past: pa, cancelled: can };
   }, [list]);
 
-  const displayedList = tab === 'upcoming' ? upcoming : past;
+  const displayedList = tab === 'upcoming' ? upcoming : tab === 'past' ? past : cancelled;
 
   useEffect(() => {
     if (!popToRootRef) return;
@@ -169,6 +175,17 @@ export default function ReservationsScreen({ popToRootRef }: ReservationsScreenP
             </View>
           )}
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabChip, tab === 'cancelled' && styles.tabChipActive]}
+          onPress={() => setTab('cancelled')}
+        >
+          <Text style={[styles.tabChipText, tab === 'cancelled' && styles.tabChipTextActive]}>İptal</Text>
+          {cancelled.length > 0 && (
+            <View style={styles.tabBadge}>
+              <Text style={styles.tabBadgeText}>{cancelled.length}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
       <FlatList
         data={displayedList}
@@ -180,7 +197,9 @@ export default function ReservationsScreen({ popToRootRef }: ReservationsScreenP
         ListEmptyComponent={
           displayedList.length === 0 ? (
             <View style={styles.emptyTab}>
-              <Text style={styles.emptyTabText}>{tab === 'upcoming' ? 'Gelecek rezervasyonunuz yok.' : 'Geçmiş rezervasyonunuz yok.'}</Text>
+              <Text style={styles.emptyTabText}>
+                {tab === 'upcoming' ? 'Gelecek rezervasyonunuz yok.' : tab === 'past' ? 'Geçmiş rezervasyonunuz yok.' : 'İptal edilen rezervasyonunuz yok.'}
+              </Text>
             </View>
           ) : null
         }
@@ -243,6 +262,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
+    backgroundColor: '#f1f5f9',
   },
   title: { fontSize: 22, fontWeight: '700', color: '#0f172a', marginBottom: 10, letterSpacing: -0.3 },
   subtitle: { fontSize: 15, color: '#64748b', textAlign: 'center', marginBottom: 10, lineHeight: 22 },
@@ -263,7 +283,7 @@ const styles = StyleSheet.create({
   retryButtonText: { fontSize: 15, fontWeight: '700', color: '#fff' },
   tabRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 12,
@@ -278,11 +298,14 @@ const styles = StyleSheet.create({
   tabChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderRadius: 28,
     backgroundColor: '#f1f5f9',
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
   },
   tabChipActive: {
     backgroundColor: '#15803d',

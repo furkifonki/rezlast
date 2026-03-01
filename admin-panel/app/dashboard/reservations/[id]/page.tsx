@@ -135,31 +135,73 @@ export default function ReservationDetailPage() {
 
   const updateStatus = async (status: string) => {
     if (!reservation) return;
-    setActionLoading(true);
     const supabase = createClient();
-    const payload: Record<string, unknown> = {
-      status,
-      updated_at: new Date().toISOString(),
-    };
-    if (status === 'confirmed') payload.confirmed_at = new Date().toISOString();
-    if (status === 'cancelled') payload.cancelled_at = new Date().toISOString();
-
+    if (status === 'confirmed') {
+      setError(null);
+      const { data: checkData, error: checkErr } = await supabase.rpc('check_capacity_for_confirm', {
+        p_reservation_id: id,
+      });
+      if (checkErr) {
+        setError(checkErr.message);
+        return;
+      }
+      const row = Array.isArray(checkData) && checkData[0] ? checkData[0] : checkData;
+      if (row && (row as { ok: boolean }).ok === false) {
+        const msg = (row as { msg: string }).msg || 'Bu saat diliminde kapasite dolu.';
+        setError(msg);
+        return;
+      }
+      const durationMin = reservation.duration_minutes && reservation.duration_minutes > 0 ? reservation.duration_minutes : 90;
+      const startStr = `${reservation.reservation_date}T${String(reservation.reservation_time).slice(0, 8)}`;
+      const startDate = new Date(startStr);
+      const endDate = new Date(startDate.getTime() + durationMin * 60 * 1000);
+      const payload: Record<string, unknown> = {
+        status,
+        updated_at: new Date().toISOString(),
+        confirmed_at: new Date().toISOString(),
+        reservation_start: startDate.toISOString(),
+        reservation_end: endDate.toISOString(),
+      };
+      setActionLoading(true);
+      const { error: err } = await supabase.from('reservations').update(payload).eq('id', id);
+      setActionLoading(false);
+      if (err) {
+        setError(err.message);
+        return;
+      }
+      setError(null);
+      setReservation((prev) =>
+        prev ? { ...prev, status, confirmed_at: payload.confirmed_at as string } : null
+      );
+      return;
+    }
+    if (status === 'cancelled') {
+      const payload: Record<string, unknown> = {
+        status,
+        updated_at: new Date().toISOString(),
+        cancelled_at: new Date().toISOString(),
+      };
+      setActionLoading(true);
+      const { error: err } = await supabase.from('reservations').update(payload).eq('id', id);
+      setActionLoading(false);
+      if (err) {
+        setError(err.message);
+        return;
+      }
+      setReservation((prev) =>
+        prev ? { ...prev, status, cancelled_at: payload.cancelled_at as string } : null
+      );
+      return;
+    }
+    setActionLoading(true);
+    const payload: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
     const { error: err } = await supabase.from('reservations').update(payload).eq('id', id);
     setActionLoading(false);
     if (err) {
       setError(err.message);
       return;
     }
-    setReservation((prev) =>
-      prev
-        ? {
-            ...prev,
-            status,
-            confirmed_at: status === 'confirmed' ? (payload.confirmed_at as string) : prev.confirmed_at,
-            cancelled_at: status === 'cancelled' ? (payload.cancelled_at as string) : prev.cancelled_at,
-          }
-        : null
-    );
+    setReservation((prev) => (prev ? { ...prev, status } : null));
   };
 
   const saveRevenue = async () => {
@@ -207,9 +249,10 @@ export default function ReservationDetailPage() {
   }
 
   const businessName = (reservation.businesses as { name: string } | null)?.name ?? '—';
+  const showActionBar = ['pending', 'confirmed', 'completed'].includes(reservation.status);
 
   return (
-    <div>
+    <div className="min-h-screen pb-24">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <Link href="/dashboard/reservations" className="text-sm text-zinc-500 hover:text-zinc-700">
@@ -325,66 +368,15 @@ export default function ReservationDetailPage() {
                 type="button"
                 onClick={saveRevenue}
                 disabled={savingRevenue}
-                className="rounded-lg bg-green-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
+                className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
               >
-                {savingRevenue ? 'Kaydediliyor...' : 'Kaydet'}
+                {savingRevenue ? 'Kaydediliyor...' : 'Gelir kaydet'}
               </button>
             </div>
           </div>
           )}
 
-          {/* Aksiyonlar */}
-          <div className="mt-4 flex flex-wrap gap-2 border-t border-zinc-100 pt-4">
-            {reservation.status === 'pending' && (
-              <>
-                <button
-                  onClick={() => updateStatus('confirmed')}
-                  disabled={actionLoading}
-                  className="rounded-lg bg-green-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
-                >
-                  Onayla
-                </button>
-                <button
-                  onClick={() => updateStatus('cancelled')}
-                  disabled={actionLoading}
-                  className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
-                >
-                  İptal
-                </button>
-              </>
-            )}
-            {reservation.status === 'confirmed' && (
-              <>
-                <button
-                  onClick={() => updateStatus('completed')}
-                  disabled={actionLoading}
-                  className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                >
-                  Tamamlandı
-                </button>
-                <button
-                  onClick={() => updateStatus('cancelled')}
-                  disabled={actionLoading}
-                  className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
-                >
-                  İptal
-                </button>
-              </>
-            )}
-            {reservation.status === 'completed' && (
-              <button
-                onClick={() => {
-                  if (typeof window !== 'undefined' && window.confirm('Bu rezervasyonu tekrar "Onaylandı" durumuna almak istediğinize emin misiniz?')) {
-                    updateStatus('confirmed');
-                  }
-                }}
-                disabled={actionLoading}
-                className="rounded-lg border border-amber-400 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
-              >
-                Onaylandıya geri al
-              </button>
-            )}
-          </div>
+          {/* Aksiyonlar sticky bar'da gösteriliyor */}
         </div>
       </div>
 
@@ -410,6 +402,66 @@ export default function ReservationDetailPage() {
           )}
         </ul>
       </div>
+
+      {/* Sticky aksiyon çubuğu */}
+      {showActionBar && (
+        <div className="fixed bottom-0 left-56 right-0 z-30 border-t border-zinc-200 bg-white px-6 py-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+          {error && (
+            <p className="text-sm text-red-600 mb-2">{error}</p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {reservation.status === 'pending' && (
+              <>
+                <button
+                  onClick={() => updateStatus('confirmed')}
+                  disabled={actionLoading}
+                  className="rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
+                >
+                  {actionLoading ? 'Kontrol ediliyor...' : 'Rezervasyon Onayla'}
+                </button>
+                <button
+                  onClick={() => updateStatus('cancelled')}
+                  disabled={actionLoading}
+                  className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                >
+                  İptal
+                </button>
+              </>
+            )}
+            {reservation.status === 'confirmed' && (
+              <>
+                <button
+                  onClick={() => updateStatus('completed')}
+                  disabled={actionLoading}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Tamamlandı
+                </button>
+                <button
+                  onClick={() => updateStatus('cancelled')}
+                  disabled={actionLoading}
+                  className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                >
+                  İptal
+                </button>
+              </>
+            )}
+            {reservation.status === 'completed' && (
+              <button
+                onClick={() => {
+                  if (typeof window !== 'undefined' && window.confirm('Bu rezervasyonu tekrar "Onaylandı" durumuna almak istediğinize emin misiniz?')) {
+                    updateStatus('confirmed');
+                  }
+                }}
+                disabled={actionLoading}
+                className="rounded-lg border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+              >
+                Onaylandıya geri al
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

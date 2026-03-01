@@ -18,12 +18,8 @@ import NewBusinessScreen from '../screens/dashboard/NewBusinessScreen';
 import EditBusinessScreen from '../screens/dashboard/EditBusinessScreen';
 import ReservationsScreen from '../screens/dashboard/ReservationsScreen';
 import ReservationDetailScreen from '../screens/dashboard/ReservationDetailScreen';
-import TablesScreen from '../screens/dashboard/TablesScreen';
-import TablePlanScreen from '../screens/dashboard/TablePlanScreen';
 import MessagesScreen from '../screens/dashboard/MessagesScreen';
 import MessageThreadScreen from '../screens/dashboard/MessageThreadScreen';
-import NewTableScreen from '../screens/dashboard/NewTableScreen';
-import EditTableScreen from '../screens/dashboard/EditTableScreen';
 import GelirScreen from '../screens/dashboard/GelirScreen';
 import ReviewsScreen from '../screens/dashboard/ReviewsScreen';
 import SponsoredScreen from '../screens/dashboard/SponsoredScreen';
@@ -32,7 +28,11 @@ import NewServiceScreen from '../screens/dashboard/NewServiceScreen';
 import EditServiceScreen from '../screens/dashboard/EditServiceScreen';
 import LoyaltyScreen from '../screens/dashboard/LoyaltyScreen';
 import NotificationsScreen from '../screens/dashboard/NotificationsScreen';
+import NotificationCenterScreen from '../screens/dashboard/NotificationCenterScreen';
+import BusinessHoursScreen from '../screens/dashboard/BusinessHoursScreen';
+import CapacityScreen from '../screens/dashboard/CapacityScreen';
 import { NotificationBellIcon } from '../components/NotificationBellIcon';
+import { useUnreadNotificationsCount } from '../hooks/useUnreadNotificationsCount';
 
 type Props = Record<string, never>;
 
@@ -53,6 +53,7 @@ const MAIN_SCREENS: { name: keyof MainStackParamList; component: React.Component
   { name: 'Dashboard', component: DashboardScreen, title: 'Ana Sayfa', headerShown: true },
   { name: 'BusinessesList', component: BusinessesScreen, title: 'İşletmelerim', headerShown: true },
   { name: 'BusinessDetail', component: BusinessDetailScreen, title: 'İşletme', headerShown: true },
+  { name: 'BusinessHours', component: BusinessHoursScreen, title: 'Çalışma saatleri', headerShown: true },
   { name: 'NewBusiness', component: NewBusinessScreen, title: 'Yeni İşletme', headerShown: true },
   { name: 'EditBusiness', component: EditBusinessScreen, title: 'İşletme Düzenle', headerShown: true },
   { name: 'ReservationsList', component: ReservationsScreen, title: 'Rezervasyonlar', headerShown: true },
@@ -66,16 +67,14 @@ const MAIN_SCREENS: { name: keyof MainStackParamList; component: React.Component
   { name: 'NewService', component: NewServiceScreen, title: 'Yeni Hizmet', headerShown: true },
   { name: 'EditService', component: EditServiceScreen, title: 'Hizmet Düzenle', headerShown: true },
   { name: 'Loyalty', component: LoyaltyScreen, title: 'Puan İşlemleri', headerShown: true },
-  { name: 'Tables', component: TablesScreen, title: 'Masa Planı', headerShown: true },
-  { name: 'TablePlan', component: TablePlanScreen, title: 'Masa planı (sürükle-bırak)', headerShown: true },
-  { name: 'NewTable', component: NewTableScreen, title: 'Yeni Masa', headerShown: true },
-  { name: 'EditTable', component: EditTableScreen, title: 'Masa Düzenle', headerShown: true },
+  { name: 'Capacity', component: CapacityScreen, title: 'Kapasite', headerShown: true },
   { name: 'Notifications', component: NotificationsScreen, title: 'Bildirim gönder', headerShown: true },
+  { name: 'NotificationCenter', component: NotificationCenterScreen, title: 'Bildirimler', headerShown: true },
 ];
 
 const ROOT_SCREENS: (keyof MainStackParamList)[] = [
   'Dashboard', 'BusinessesList', 'ReservationsList', 'Messages', 'Gelir', 'Reviews',
-  'Sponsored', 'Hizmetler', 'Loyalty', 'Tables', 'Notifications',
+  'Sponsored', 'Hizmetler', 'Loyalty', 'Capacity', 'Notifications',
 ];
 
 function MenuButton() {
@@ -84,6 +83,16 @@ function MenuButton() {
     <TouchableOpacity onPress={open} style={styles.menuButton} hitSlop={12}>
       <Text style={styles.menuButtonText}>☰</Text>
     </TouchableOpacity>
+  );
+}
+
+function HeaderBellButton({ navigation }: { navigation: any }) {
+  const { count } = useUnreadNotificationsCount();
+  return (
+    <NotificationBellIcon
+      count={count}
+      onPress={() => navigation.navigate('NotificationCenter')}
+    />
   );
 }
 
@@ -109,7 +118,7 @@ function MainStack() {
                 </TouchableOpacity>
               ),
           headerRight: () => (
-            <NotificationBellIcon onPress={() => navigation.navigate('Notifications')} />
+            <HeaderBellButton navigation={navigation} />
           ),
         };
       }}

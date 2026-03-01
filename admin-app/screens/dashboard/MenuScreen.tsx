@@ -9,6 +9,7 @@ export type MainStackParamList = {
   Dashboard: undefined;
   BusinessesList: undefined;
   BusinessDetail: { businessId: string };
+  BusinessHours: { businessId: string };
   NewBusiness: undefined;
   EditBusiness: { businessId: string };
   ReservationsList: undefined;
@@ -22,11 +23,9 @@ export type MainStackParamList = {
   NewService: undefined;
   EditService: { serviceId: string };
   Loyalty: undefined;
-  Tables: undefined;
-  TablePlan: undefined;
-  NewTable: { businessId?: string };
-  EditTable: { tableId: string };
   Notifications: undefined;
+  NotificationCenter: undefined;
+  Capacity: undefined;
 };
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'Dashboard'>;
@@ -41,7 +40,7 @@ const MENU_ITEMS: { name: keyof MainStackParamList; label: string }[] = [
   { name: 'Sponsored', label: 'Öne Çıkan' },
   { name: 'Hizmetler', label: 'Hizmetler' },
   { name: 'Loyalty', label: 'Puan İşlemleri' },
-  { name: 'Tables', label: 'Masa Planı' },
+  { name: 'Capacity', label: 'Kapasite' },
   { name: 'Notifications', label: 'Bildirim gönder' },
 ];
 

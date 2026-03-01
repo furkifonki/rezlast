@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,13 +10,15 @@ import {
   Image,
   Modal,
   ScrollView,
-  Animated,
-  PanResponder,
+  TextInput,
+  Pressable,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSimpleStack } from '../../navigation/SimpleStackContext';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFavorites } from '../../hooks/useFavorites';
+import * as Location from 'expo-location';
 
 type Category = { id: string; name: string; slug: string };
 type Business = {
@@ -28,6 +30,8 @@ type Business = {
   description: string | null;
   rating: number | null;
   categories: { name: string } | null;
+  latitude: number | null;
+  longitude: number | null;
 };
 type SponsoredItem = {
   id: string;
@@ -59,12 +63,25 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
   const { favoritesSet: favorites, toggleFavorite, refetch: refetchFavorites } = useFavorites();
   const [showAllFeatured, setShowAllFeatured] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
+  const [radiusKm, setRadiusKm] = useState<number | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
+  const [cities, setCities] = useState<string[]>([]);
+  const [districts, setDistricts] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
-  const panStartX = useRef(0);
-  const drawerAnim = useRef(new Animated.Value(0)).current;
+  const [filtersSheetOpen, setFiltersSheetOpen] = useState(false);
+  const insets = useSafeAreaInsets();
+
+  const activeFilterCount =
+    (selectedCategoryId ? 1 : 0) +
+    (selectedCity ? 1 : 0) +
+    (selectedDistrict ? 1 : 0) +
+    (radiusKm != null && radiusKm > 0 ? 1 : 0);
+  const hasActiveFilters = activeFilterCount > 0;
 
   useEffect(() => {
     if (!popToRootRef) return;
@@ -82,7 +99,7 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
     setSponsoredError(null);
     const { data, error: err } = await supabase
       .from('sponsored_listings')
-      .select('id, business_id, priority, businesses ( id, name, address, city, district, description, rating, categories ( name ) )')
+      .select('id, business_id, priority, businesses ( id, name, address, city, district, description, rating, categories ( name ), latitude, longitude )')
       .eq('payment_status', 'paid')
       .lte('start_date', today)
       .gte('end_date', today)
@@ -105,8 +122,7 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
     setCategories((data ?? []) as Category[]);
   };
 
-  // Filtreler: Kategori (Restoran, Berber, Güzellik) business.category_id ile eşleşir.
-  // Admin paneldeki "hizmetler" (services) işletme bazlıdır; rezervasyon ekranında o işletmenin hizmetleri gösterilir.
+  // Filtreler: Arama, kategori, şehir, ilçe, mesafe (km)
   const loadBusinesses = useCallback(async () => {
     if (!supabase) {
       setError('Bağlantı yok');
@@ -116,12 +132,18 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
     setError(null);
     let query = supabase
       .from('businesses')
-      .select('id, name, address, city, district, description, rating, categories ( name )')
+      .select('id, name, address, city, district, description, rating, categories ( name ), latitude, longitude')
       .eq('is_active', true)
       .order('rating', { ascending: false })
       .order('name');
     if (selectedCategoryId) {
       query = query.eq('category_id', selectedCategoryId);
+    }
+    if (selectedCity) {
+      query = query.eq('city', selectedCity);
+    }
+    if (selectedDistrict) {
+      query = query.eq('district', selectedDistrict);
     }
     const { data, err } = await query;
     if (err) {
@@ -129,7 +151,30 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
       setBusinesses([]);
       setPhotoMap({});
     } else {
-      const list = (data ?? []) as Business[];
+      let list = (data ?? []) as Business[];
+      if (searchQuery.trim()) {
+        const q = searchQuery.trim().toLowerCase();
+        list = list.filter(
+          (b) =>
+            (b.name && b.name.toLowerCase().includes(q)) ||
+            (b.city && b.city.toLowerCase().includes(q)) ||
+            (b.district && b.district.toLowerCase().includes(q)) ||
+            (b.address && b.address.toLowerCase().includes(q))
+        );
+      }
+      if (radiusKm != null && radiusKm > 0 && userLocation) {
+        const R = 6371;
+        list = list.filter((b) => {
+          if (b.latitude == null || b.longitude == null) return false;
+          const dLat = (b.latitude - userLocation.lat) * Math.PI / 180;
+          const dLon = (b.longitude - userLocation.lon) * Math.PI / 180;
+          const a =
+            Math.sin(dLat / 2) ** 2 +
+            Math.cos(userLocation.lat * Math.PI / 180) * Math.cos(b.latitude * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          return R * c <= radiusKm;
+        });
+      }
       setBusinesses(list);
       const ids = list.map((b) => b.id).filter(Boolean);
       if (ids.length > 0 && supabase) {
@@ -150,34 +195,66 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
     }
     setLoading(false);
     setRefreshing(false);
-  }, [selectedCategoryId]);
+  }, [selectedCategoryId, selectedCity, selectedDistrict, searchQuery, radiusKm, userLocation]);
 
   useEffect(() => {
     loadCategories();
     loadSponsored();
   }, [loadSponsored]);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, g) => {
-        if (panStartX.current < 40 && g.dx > 20) return true;
-        return false;
-      },
-      onPanResponderGrant: (e) => { panStartX.current = e.nativeEvent.pageX; },
-      onPanResponderRelease: (_, g) => {
-        if (panStartX.current < 40 && g.dx > 60) setFilterDrawerOpen(true);
-      },
-    })
-  ).current;
+  useEffect(() => {
+    let cancelled = false;
+    if (!supabase) return;
+    supabase
+      .from('businesses')
+      .select('city')
+      .eq('is_active', true)
+      .not('city', 'is', null)
+      .then(({ data }) => {
+        if (cancelled) return;
+        const set = new Set((data ?? []).map((r: { city: string }) => r.city).filter(Boolean));
+        setCities(Array.from(set).sort((a, b) => a.localeCompare(b, 'tr')));
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
-    Animated.timing(drawerAnim, {
-      toValue: filterDrawerOpen ? 1 : 0,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
-  }, [filterDrawerOpen, drawerAnim]);
+    if (!selectedCity || !supabase) {
+      setDistricts([]);
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from('businesses')
+      .select('district')
+      .eq('is_active', true)
+      .eq('city', selectedCity)
+      .not('district', 'is', null)
+      .then(({ data }) => {
+        if (cancelled) return;
+        const set = new Set((data ?? []).map((r: { district: string }) => r.district).filter(Boolean));
+        setDistricts(Array.from(set).sort((a, b) => a.localeCompare(b, 'tr')));
+      });
+    return () => { cancelled = true; };
+  }, [selectedCity]);
+
+  useEffect(() => {
+    if (radiusKm != null && radiusKm > 0 && !userLocation) {
+      (async () => {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          setRadiusKm(null);
+          return;
+        }
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        setUserLocation({ lat: loc.coords.latitude, lon: loc.coords.longitude });
+      })();
+    }
+  }, [radiusKm]);
+
+  useEffect(() => {
+    setSelectedDistrict(null);
+  }, [selectedCity]);
 
   useEffect(() => {
     setLoading(true);
@@ -194,6 +271,18 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
     loadSponsored();
     loadBusinesses();
     refetchFavorites();
+  };
+
+  const clearFilters = () => {
+    setSelectedCategoryId(null);
+    setSelectedCity(null);
+    setSelectedDistrict(null);
+    setRadiusKm(null);
+  };
+
+  const applyFiltersAndClose = () => {
+    loadBusinesses();
+    setFiltersSheetOpen(false);
   };
 
   const renderBusinessCard = (item: Business, isFeatured?: boolean, cardWidth?: number) => {
@@ -249,7 +338,7 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.mainContent} {...panResponder.panHandlers}>
+      <View style={styles.mainContent}>
       {sponsoredBusinesses.length > 0 ? (
         <View style={styles.featuredBlock}>
           <View style={styles.featuredHeader}>
@@ -276,41 +365,41 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
           <Text style={styles.featuredErrorText}>Öne çıkanlar yüklenemedi</Text>
         </View>
       ) : null}
-      <View style={styles.filterSection}>
-        <TouchableOpacity
-          style={styles.mapButton}
-          onPress={() => navigate('ExploreMap', undefined)}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.mapButtonIcon}>🗺️</Text>
-          <Text style={styles.mapButtonText}>Harita görünümü</Text>
-        </TouchableOpacity>
-        <Text style={styles.filterLabel}>Kategori</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterScroll}
-          style={styles.filterScrollView}
-        >
+      <View style={styles.searchAndFilterBar}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="İşletme, şehir veya ilçe ara..."
+          placeholderTextColor="#94a3b8"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          returnKeyType="search"
+        />
+        <View style={styles.filterRow}>
+          <Pressable
+            style={({ pressed }) => [styles.filterPill, hasActiveFilters && styles.filterPillActive, pressed && styles.filterPillPressed]}
+            onPress={() => setFiltersSheetOpen(true)}
+          >
+            <Text style={[styles.filterPillText, hasActiveFilters && styles.filterPillTextActive]}>Filtrele</Text>
+            {hasActiveFilters ? (
+              <View style={styles.filterPillBadge}>
+                <Text style={styles.filterPillBadgeText}>{activeFilterCount}</Text>
+              </View>
+            ) : null}
+          </Pressable>
           <TouchableOpacity
-            style={[styles.filterChip, selectedCategoryId === null && styles.filterChipActive]}
-            onPress={() => setSelectedCategoryId(null)}
+            style={styles.mapPill}
+            onPress={() => navigate('ExploreMap', undefined)}
             activeOpacity={0.8}
           >
-            <Text style={[styles.filterChipText, selectedCategoryId === null && styles.filterChipTextActive]}>Tümü</Text>
+            <Text style={styles.mapPillIcon}>🗺</Text>
+            <Text style={styles.mapPillText}>Harita</Text>
           </TouchableOpacity>
-          {categories.map((c) => (
-            <TouchableOpacity
-              key={c.id}
-              style={[styles.filterChip, selectedCategoryId === c.id && styles.filterChipActive]}
-              onPress={() => setSelectedCategoryId(c.id)}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.filterChipText, selectedCategoryId === c.id && styles.filterChipTextActive]}>{c.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-        <Text style={styles.filterHint}>Soldan sağa kaydırarak filtreleri aç</Text>
+        </View>
+        {hasActiveFilters ? (
+          <TouchableOpacity style={styles.clearFiltersBtn} onPress={clearFilters} activeOpacity={0.7}>
+            <Text style={styles.clearFiltersText}>Filtreleri temizle</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {error ? (
@@ -334,8 +423,8 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
           ListEmptyComponent={
             <View style={styles.emptyBlock}>
               <Text style={styles.emptyEmoji}>🏪</Text>
-              <Text style={styles.emptyTitle}>Bu kategoride işletme yok</Text>
-              <Text style={styles.emptyText}>Farklı bir kategori seçin veya &quot;Tümü&quot;ne tıklayın.</Text>
+              <Text style={styles.emptyTitle}>Sonuç bulunamadı</Text>
+              <Text style={styles.emptyText}>Arama veya filtreleri değiştirmeyi deneyin.</Text>
             </View>
           }
           renderItem={({ item }) => renderBusinessCard(item, sponsoredBusinessIds.has(item.id))}
@@ -344,49 +433,69 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
 
       </View>
 
-      <Modal visible={filterDrawerOpen} transparent animationType="fade">
-        <View style={styles.drawerOverlay}>
-          <Animated.View
-            style={[
-              styles.filterDrawer,
-              {
-                opacity: drawerAnim,
-                transform: [{ translateX: drawerAnim.interpolate({ inputRange: [0, 1], outputRange: [-280, 0] }) }],
-              },
-            ]}
-            onStartShouldSetResponder={() => true}
-          >
-            <View style={styles.filterDrawerHeader}>
-              <Text style={styles.filterDrawerTitle}>Filtreler</Text>
-              <TouchableOpacity onPress={() => setFilterDrawerOpen(false)}>
-                <Text style={styles.filterDrawerClose}>Kapat</Text>
+      {/* Filtreler bottom sheet */}
+      <Modal visible={filtersSheetOpen} transparent animationType="slide">
+        <Pressable style={styles.filterSheetOverlay} onPress={() => setFiltersSheetOpen(false)}>
+          <View style={[styles.filterSheet, { paddingBottom: insets.bottom + 24 }]} onStartShouldSetResponder={() => true}>
+            <View style={styles.filterSheetHandle} />
+            <View style={styles.filterSheetHeader}>
+              <Text style={styles.filterSheetTitle}>Filtreler</Text>
+              <TouchableOpacity onPress={clearFilters} hitSlop={12}>
+                <Text style={styles.filterSheetClear}>Temizle</Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.drawerMapRow} onPress={() => { setFilterDrawerOpen(false); navigate('ExploreMap', undefined); }}>
-              <Text style={styles.mapButtonIcon}>🗺️</Text>
-              <Text style={styles.mapButtonText}>Harita görünümü</Text>
-            </TouchableOpacity>
-            <Text style={styles.filterLabel}>Kategori</Text>
-            <ScrollView style={styles.filterDrawerScroll} showsVerticalScrollIndicator={false}>
-              <TouchableOpacity
-                style={[styles.filterChip, styles.filterChipDrawer, selectedCategoryId === null && styles.filterChipActive]}
-                onPress={() => { setSelectedCategoryId(null); setFilterDrawerOpen(false); }}
-              >
-                <Text style={[styles.filterChipText, selectedCategoryId === null && styles.filterChipTextActive]}>Tümü</Text>
-              </TouchableOpacity>
-              {categories.map((c) => (
-                <TouchableOpacity
-                  key={c.id}
-                  style={[styles.filterChip, styles.filterChipDrawer, selectedCategoryId === c.id && styles.filterChipActive]}
-                  onPress={() => { setSelectedCategoryId(c.id); setFilterDrawerOpen(false); }}
-                >
-                  <Text style={[styles.filterChipText, selectedCategoryId === c.id && styles.filterChipTextActive]}>{c.name}</Text>
+            <ScrollView style={styles.filterSheetScroll} showsVerticalScrollIndicator={false}>
+              <Text style={styles.filterSheetLabel}>Kategori</Text>
+              <View style={styles.filterSheetChipRow}>
+                <TouchableOpacity style={[styles.filterSheetChip, selectedCategoryId === null && styles.filterSheetChipActive]} onPress={() => setSelectedCategoryId(null)} activeOpacity={0.8}>
+                  <Text style={[styles.filterSheetChipText, selectedCategoryId === null && styles.filterSheetChipTextActive]}>Tümü</Text>
                 </TouchableOpacity>
-              ))}
+                {categories.map((c) => (
+                  <TouchableOpacity key={c.id} style={[styles.filterSheetChip, selectedCategoryId === c.id && styles.filterSheetChipActive]} onPress={() => setSelectedCategoryId(c.id)} activeOpacity={0.8}>
+                    <Text style={[styles.filterSheetChipText, selectedCategoryId === c.id && styles.filterSheetChipTextActive]}>{c.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={styles.filterSheetLabel}>Şehir</Text>
+              <View style={styles.filterSheetChipRow}>
+                <TouchableOpacity style={[styles.filterSheetChip, selectedCity === null && styles.filterSheetChipActive]} onPress={() => setSelectedCity(null)} activeOpacity={0.8}>
+                  <Text style={[styles.filterSheetChipText, selectedCity === null && styles.filterSheetChipTextActive]}>Tümü</Text>
+                </TouchableOpacity>
+                {cities.map((c) => (
+                  <TouchableOpacity key={c} style={[styles.filterSheetChip, selectedCity === c && styles.filterSheetChipActive]} onPress={() => setSelectedCity(c)} activeOpacity={0.8}>
+                    <Text style={[styles.filterSheetChipText, selectedCity === c && styles.filterSheetChipTextActive]} numberOfLines={1}>{c}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {selectedCity ? (
+                <>
+                  <Text style={styles.filterSheetLabel}>İlçe</Text>
+                  <View style={styles.filterSheetChipRow}>
+                    <TouchableOpacity style={[styles.filterSheetChip, selectedDistrict === null && styles.filterSheetChipActive]} onPress={() => setSelectedDistrict(null)} activeOpacity={0.8}>
+                      <Text style={[styles.filterSheetChipText, selectedDistrict === null && styles.filterSheetChipTextActive]}>Tümü</Text>
+                    </TouchableOpacity>
+                    {districts.map((d) => (
+                      <TouchableOpacity key={d} style={[styles.filterSheetChip, selectedDistrict === d && styles.filterSheetChipActive]} onPress={() => setSelectedDistrict(d)} activeOpacity={0.8}>
+                        <Text style={[styles.filterSheetChipText, selectedDistrict === d && styles.filterSheetChipTextActive]} numberOfLines={1}>{d}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              ) : null}
+              <Text style={styles.filterSheetLabel}>Mesafe</Text>
+              <View style={styles.filterSheetChipRow}>
+                {[null, 5, 10, 25, 50].map((km) => (
+                  <TouchableOpacity key={km ?? 'all'} style={[styles.filterSheetChip, radiusKm === km && styles.filterSheetChipActive]} onPress={() => setRadiusKm(km)} activeOpacity={0.8}>
+                    <Text style={[styles.filterSheetChipText, radiusKm === km && styles.filterSheetChipTextActive]}>{km == null ? 'Kapalı' : `${km} km`}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </ScrollView>
-          </Animated.View>
-          <TouchableOpacity style={styles.drawerBackdrop} activeOpacity={1} onPress={() => setFilterDrawerOpen(false)} />
-        </View>
+            <TouchableOpacity style={styles.filterSheetApply} onPress={applyFiltersAndClose} activeOpacity={0.85}>
+              <Text style={styles.filterSheetApplyText}>Uygula</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
       </Modal>
 
       <Modal visible={showAllFeatured} transparent animationType="slide">
@@ -421,92 +530,185 @@ const styles = StyleSheet.create({
     backgroundColor: '#f1f5f9',
   },
   mainContent: { flex: 1 },
-  drawerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', flexDirection: 'row' },
-  drawerBackdrop: { flex: 1 },
-  filterDrawer: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 280, backgroundColor: '#fff', paddingTop: 56, paddingHorizontal: 16, shadowColor: '#000', shadowOffset: { width: 4, height: 0 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 8 },
-  filterDrawerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
-  filterDrawerTitle: { fontSize: 18, fontWeight: '800', color: '#0f172a' },
-  filterDrawerClose: { fontSize: 16, color: '#15803d', fontWeight: '700' },
-  drawerMapRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0fdf4', paddingHorizontal: 18, paddingVertical: 12, borderRadius: 14, marginBottom: 20 },
-  filterChipDrawer: { marginBottom: 10 },
-  filterDrawerScroll: { maxHeight: 320 },
   listContent: {
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 28,
   },
-  filterSection: {
+  searchAndFilterBar: {
     backgroundColor: '#fff',
-    paddingVertical: 18,
     paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 14,
     marginBottom: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
-    shadowRadius: 8,
+    shadowRadius: 6,
     elevation: 2,
   },
-  mapButton: {
+  searchInput: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: '#0f172a',
+    marginBottom: 12,
+    borderWidth: 0,
+  },
+  filterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
+    gap: 10,
+  },
+  filterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f1f5f9',
+    paddingVertical: 12,
+    paddingLeft: 16,
+    paddingRight: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  filterPillActive: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#15803d',
+  },
+  filterPillPressed: { opacity: 0.85 },
+  filterPillText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  filterPillTextActive: {
+    color: '#15803d',
+  },
+  filterPillBadge: {
+    backgroundColor: '#15803d',
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  filterPillBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  mapPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#f0fdf4',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  mapPillIcon: { fontSize: 18, marginRight: 8 },
+  mapPillText: { fontSize: 15, fontWeight: '600', color: '#15803d' },
+  clearFiltersBtn: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+  },
+  clearFiltersText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#15803d',
+  },
+  filterSheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  filterSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '78%',
+  },
+  filterSheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#cbd5e1',
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  filterSheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  filterSheetTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  filterSheetClear: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  filterSheetScroll: {
+    maxHeight: 340,
+    paddingHorizontal: 20,
+  },
+  filterSheetLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748b',
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  filterSheetChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 20,
+  },
+  filterSheetChip: {
     paddingHorizontal: 18,
     paddingVertical: 12,
-    borderRadius: 14,
-    marginBottom: 16,
-    borderWidth: 0,
-    shadowColor: '#15803d',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  mapButtonIcon: { fontSize: 20, marginRight: 10 },
-  mapButtonText: { fontSize: 15, fontWeight: '600', color: '#15803d' },
-  filterLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#94a3b8',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 12,
-    paddingLeft: 2,
-  },
-  filterHint: { fontSize: 12, color: '#94a3b8', marginTop: 8, paddingLeft: 2 },
-  filterScrollView: { marginHorizontal: -16 },
-  filterScroll: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingLeft: 2,
-    paddingRight: 16,
-  },
-  filterChip: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 28,
+    borderRadius: 22,
     backgroundColor: '#f8fafc',
-    borderWidth: 0,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
-  filterChipActive: {
+  filterSheetChipActive: {
     backgroundColor: '#15803d',
-    shadowColor: '#15803d',
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
+    borderColor: '#15803d',
   },
-  filterChipText: {
-    fontSize: 14,
-    color: '#64748b',
+  filterSheetChipText: {
+    fontSize: 15,
     fontWeight: '600',
+    color: '#475569',
   },
-  filterChipTextActive: {
+  filterSheetChipTextActive: {
     color: '#fff',
+  },
+  filterSheetApply: {
+    marginHorizontal: 20,
+    marginTop: 12,
+    backgroundColor: '#15803d',
+    borderRadius: 16,
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterSheetApplyText: {
+    fontSize: 17,
     fontWeight: '700',
+    color: '#fff',
   },
   featuredBlock: {
     backgroundColor: '#fff',

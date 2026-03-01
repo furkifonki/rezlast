@@ -7,9 +7,9 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
 type Service = { id: string; name: string; duration_minutes: number; duration_display: string | null };
-type TableRow = { id: string; table_number: string; capacity: number };
 
 const SLOT_INTERVAL_MIN = 30;
+const DEFAULT_DURATION_MINUTES = 90;
 const FALLBACK_TIMES = ['09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00'];
 
 function getNextDays(count: number): { date: string; label: string }[] {
@@ -39,10 +39,6 @@ export default function ReservePage() {
   const [reservationTime, setReservationTime] = useState('');
   const [availableSlotsForDate, setAvailableSlotsForDate] = useState<string[] | null>(null);
   const [loadingSlotsForDate, setLoadingSlotsForDate] = useState(false);
-  const [availableTables, setAvailableTables] = useState<TableRow[]>([]);
-  const [businessHasTables, setBusinessHasTables] = useState<boolean | null>(null);
-  const [tableId, setTableId] = useState<string | null>(null);
-  const [loadingTables, setLoadingTables] = useState(false);
   const [partySize, setPartySize] = useState(2);
   const [specialRequests, setSpecialRequests] = useState('');
   const [showNoteInput, setShowNoteInput] = useState(false);
@@ -50,11 +46,10 @@ export default function ReservePage() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const availableDates = getNextDays(14);
-
-  const hasTablesForSlot = availableTables.length > 0;
-  const mustSelectTable = businessHasTables === true && (hasTablesForSlot ? !tableId : true);
-  const noTablesForSlot = businessHasTables === true && reservationDate && reservationTime && !loadingTables && availableTables.length === 0 && tableId === null;
+  const durationMinutes = serviceId
+    ? (services.find((s) => s.id === serviceId)?.duration_minutes ?? DEFAULT_DURATION_MINUTES)
+    : DEFAULT_DURATION_MINUTES;
+  const effectiveDuration = durationMinutes > 0 ? durationMinutes : DEFAULT_DURATION_MINUTES;
 
   useEffect(() => {
     if (!supabase || !businessId) return;
@@ -64,9 +59,6 @@ export default function ReservePage() {
     supabase.from('services').select('id, name, duration_minutes, duration_display').eq('business_id', businessId).eq('is_active', true).order('name').then(({ data }) => {
       setServices((data ?? []) as unknown as Service[]);
     });
-    supabase.from('tables').select('id').eq('business_id', businessId).eq('is_active', true).limit(1).then(({ data }) => {
-      setBusinessHasTables((data?.length ?? 0) > 0);
-    });
   }, [businessId]);
 
   const loadSlotsForDate = useCallback(async () => {
@@ -75,10 +67,13 @@ export default function ReservePage() {
     const { data } = await supabase.rpc('get_available_slots_for_date', {
       p_business_id: businessId,
       p_date: reservationDate,
+      p_duration_minutes: effectiveDuration,
     });
-    setAvailableSlotsForDate((data ?? []) as string[]);
+    const rows = (data ?? []) as { slot_time?: string }[];
+    const slots = rows.map((r) => (r?.slot_time ?? '').slice(0, 5)).filter(Boolean);
+    setAvailableSlotsForDate(slots);
     setLoadingSlotsForDate(false);
-  }, [businessId, reservationDate]);
+  }, [businessId, reservationDate, effectiveDuration]);
 
   useEffect(() => {
     if (!reservationDate) {
@@ -89,35 +84,9 @@ export default function ReservePage() {
     loadSlotsForDate();
   }, [reservationDate, loadSlotsForDate]);
 
-  const loadTables = useCallback(async () => {
-    if (!supabase || !reservationDate || !reservationTime) return;
-    setLoadingTables(true);
-    const timeParam = reservationTime.length === 5 ? `${reservationTime}:00` : reservationTime;
-    const { data: availableRows } = await supabase.rpc('get_available_tables', {
-      p_business_id: businessId,
-      p_date: reservationDate,
-      p_time: timeParam,
-      p_duration_minutes: 30,
-    });
-    const list = (availableRows ?? []) as unknown as TableRow[];
-    setAvailableTables(list);
-    setTableId(list.length > 0 ? list[0].id : null);
-    setLoadingTables(false);
-  }, [businessId, reservationDate, reservationTime]);
-
-  useEffect(() => {
-    if (!reservationDate || !reservationTime) {
-      setAvailableTables([]);
-      setTableId(null);
-      return;
-    }
-    loadTables();
-  }, [reservationDate, reservationTime, loadTables]);
-
   const slots = (availableSlotsForDate && availableSlotsForDate.length > 0) ? availableSlotsForDate : FALLBACK_TIMES;
   const noSlots = reservationDate && availableSlotsForDate !== null && availableSlotsForDate.length === 0;
-  const maxGuestCapacity = availableTables.length > 0 ? Math.max(6, ...availableTables.map((t) => t.capacity)) : 6;
-  const guestCountOptions = Array.from({ length: maxGuestCapacity }, (_, i) => i + 1);
+  const guestCountOptions = Array.from({ length: 12 }, (_, i) => i + 1);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,38 +102,33 @@ export default function ReservePage() {
       setError('Tarih ve saat seçin.');
       return;
     }
-    if (mustSelectTable) {
-      setError('Bu işletme için lütfen bir masa seçin. Bu saat için uygun masa yoksa başka bir saat deneyin.');
-      return;
-    }
-    if (businessHasTables === true && !hasTablesForSlot && reservationDate && reservationTime) {
-      setError('Bu tarih ve saat için uygun masa bulunamadı. Lütfen başka bir saat seçin.');
-      return;
-    }
     setError(null);
     setSuccessMessage(null);
     setSaving(true);
+    const startStr = `${reservationDate}T${reservationTime.slice(0, 5)}:00`;
+    const startDate = new Date(startStr);
+    const endDate = new Date(startDate.getTime() + effectiveDuration * 60 * 1000);
     const { data: inserted, error: err } = await supabase.from('reservations').insert({
       business_id: businessId,
       user_id: session.user.id,
       reservation_date: reservationDate,
       reservation_time: reservationTime.slice(0, 5),
-      duration_minutes: 30,
+      duration_minutes: effectiveDuration,
       party_size: partySize,
       service_id: serviceId || null,
-      table_id: tableId || null,
       special_requests: specialRequests.trim() || null,
       status: 'pending',
+      reservation_start: startDate.toISOString(),
+      reservation_end: endDate.toISOString(),
+      table_count_used: 1,
     }).select('id').single();
     setSaving(false);
     if (err) {
-      const msg = err.message.includes('masa seçimi zorunludur')
-        ? 'Bu işletme için masa seçimi zorunludur. Lütfen tarih ve saat seçtikten sonra listeden bir masa seçin.'
-        : err.message.includes('network') || err.message.includes('fetch')
-          ? 'İnternet bağlantınızı kontrol edin.'
-          : err.message.includes('JWT') || err.message.includes('unauthorized')
-            ? 'Oturumunuz sonlanmış. Lütfen tekrar giriş yapın.'
-            : err.message;
+      const msg = err.message.includes('network') || err.message.includes('fetch')
+        ? 'İnternet bağlantınızı kontrol edin.'
+        : err.message.includes('JWT') || err.message.includes('unauthorized')
+          ? 'Oturumunuz sonlanmış. Lütfen tekrar giriş yapın.'
+          : err.message;
       setError(msg);
       return;
     }
@@ -268,26 +232,6 @@ export default function ReservePage() {
           )}
         </div>
 
-        {availableTables.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold text-[#64748b] mb-2">Masa *</p>
-            <select
-              value={tableId ?? ''}
-              onChange={(e) => setTableId(e.target.value || null)}
-              className="w-full border border-[#e2e8f0] rounded-xl px-4 py-3 text-[#0f172a]"
-            >
-              <option value="">İşletme belirlesin</option>
-              {availableTables.map((t) => (
-                <option key={t.id} value={t.id}>Masa {t.table_number} ({t.capacity} kişi)</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {noTablesForSlot && (
-          <p className="text-sm text-[#dc2626]">Bu tarih ve saat için uygun masa bulunamadı. Lütfen başka bir saat seçin.</p>
-        )}
-
         <div>
           <p className="text-xs font-semibold text-[#64748b] mb-2">Kişi sayısı</p>
           <div className="flex flex-wrap gap-2">
@@ -332,16 +276,7 @@ export default function ReservePage() {
 
         <button
           type="submit"
-          disabled={Boolean(
-            saving ||
-            !reservationDate ||
-            !reservationTime ||
-            noSlots ||
-            mustSelectTable ||
-            noTablesForSlot ||
-            (businessHasTables === true && loadingTables) ||
-            (businessHasTables === null && !!reservationDate && !!reservationTime)
-          )}
+          disabled={Boolean(saving || !reservationDate || !reservationTime || noSlots)}
           className="w-full bg-[#15803d] text-white font-semibold py-3.5 rounded-xl disabled:opacity-50"
         >
           {saving ? 'Gönderiliyor...' : 'Rezervasyon yap'}

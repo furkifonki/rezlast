@@ -91,6 +91,9 @@ export default function BusinessDetailScreen({ route, navigation }: Props) {
       <TouchableOpacity style={styles.editBtn} onPress={() => navigation.navigate('EditBusiness', { businessId: business.id })}>
         <Text style={styles.editBtnText}>Düzenle</Text>
       </TouchableOpacity>
+      <TouchableOpacity style={styles.hoursBtn} onPress={() => navigation.navigate('BusinessHours', { businessId: business.id })}>
+        <Text style={styles.hoursBtnText}>Çalışma saatleri</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -107,4 +110,6 @@ const styles = StyleSheet.create({
   hint: { fontSize: 13, color: '#71717a', marginTop: 16, fontStyle: 'italic' },
   editBtn: { backgroundColor: '#15803d', borderRadius: 12, padding: 16, marginTop: 8, alignItems: 'center' },
   editBtnText: { fontSize: 16, fontWeight: '600', color: '#fff' },
+  hoursBtn: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#15803d', borderRadius: 12, padding: 16, marginTop: 8, alignItems: 'center' },
+  hoursBtnText: { fontSize: 16, fontWeight: '600', color: '#15803d' },
 });

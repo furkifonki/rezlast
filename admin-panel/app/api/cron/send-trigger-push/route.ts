@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     .or('trigger_30min.eq.true,trigger_1day.eq.true');
 
   if (!settingsRows?.length) {
-    return NextResponse.json({ sent_30min: 0, sent_1day: 0, message: 'Aktif tetikleyici ayarı yok.' });
+    return NextResponse.json({ sent_30min: 0, sent_1day: 0, message: 'Aktif otomatik bildirim ayarı yok.' });
   }
 
   let sent30 = 0;

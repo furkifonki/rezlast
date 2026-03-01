@@ -207,6 +207,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
+    backgroundColor: '#f1f5f9',
   },
   emptyEmoji: { fontSize: 56, marginBottom: 16 },
   title: { fontSize: 22, fontWeight: '700', color: '#0f172a', marginBottom: 10, letterSpacing: -0.3 },

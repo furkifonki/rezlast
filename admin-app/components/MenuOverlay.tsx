@@ -26,7 +26,7 @@ const MENU_ITEMS: { name: keyof MainStackParamList; label: string }[] = [
   { name: 'Sponsored', label: 'Öne Çıkan' },
   { name: 'Hizmetler', label: 'Hizmetler' },
   { name: 'Loyalty', label: 'Puan İşlemleri' },
-  { name: 'Tables', label: 'Masa Planı' },
+  { name: 'Capacity', label: 'Kapasite' },
   { name: 'Notifications', label: 'Bildirim gönder' },
 ];
 

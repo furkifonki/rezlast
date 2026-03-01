@@ -9,6 +9,7 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { notifyCustomer, notifyCustomerCancelled } from '../../lib/notifyApi';
 import { RESERVATION_STATUS_LABELS, getReservationStatusStyle } from '../../constants/statusColors';
@@ -56,6 +57,7 @@ function formatDateTime(iso: string | null): string {
 
 export default function ReservationDetailScreen({ route }: Props) {
   const { reservationId } = route.params;
+  const insets = useSafeAreaInsets();
   const [reservation, setReservation] = useState<ReservationDetail | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
@@ -121,21 +123,61 @@ export default function ReservationDetailScreen({ route }: Props) {
 
   const updateStatus = async (status: string) => {
     if (!reservation || !supabase) return;
+    if (status === 'confirmed') {
+      setError(null);
+      const { data: checkData, error: checkErr } = await supabase.rpc('check_capacity_for_confirm', { p_reservation_id: reservationId });
+      if (checkErr) {
+        setError(checkErr.message);
+        return;
+      }
+      const row = Array.isArray(checkData) && checkData[0] ? checkData[0] : checkData;
+      if (row && (row as { ok: boolean }).ok === false) {
+        const msg = (row as { msg: string }).msg || 'Bu saat diliminde kapasite dolu.';
+        setError(msg);
+        return;
+      }
+      const durationMin = reservation.duration_minutes && reservation.duration_minutes > 0 ? reservation.duration_minutes : 90;
+      const startStr = `${reservation.reservation_date}T${String(reservation.reservation_time).slice(0, 8)}`;
+      const startDate = new Date(startStr);
+      const endDate = new Date(startDate.getTime() + durationMin * 60 * 1000);
+      const payload: Record<string, unknown> = {
+        status,
+        updated_at: new Date().toISOString(),
+        confirmed_at: new Date().toISOString(),
+        reservation_start: startDate.toISOString(),
+        reservation_end: endDate.toISOString(),
+      };
+      setActionLoading(true);
+      const { error: err } = await supabase.from('reservations').update(payload).eq('id', reservationId);
+      setActionLoading(false);
+      if (err) setError(err.message);
+      else {
+        setError(null);
+        setReservation((prev) => prev ? { ...prev, status, confirmed_at: payload.confirmed_at as string } : null);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) notifyCustomer(reservationId, session.access_token).catch(() => {});
+      }
+      return;
+    }
+    if (status === 'cancelled') {
+      const payload: Record<string, unknown> = { status, updated_at: new Date().toISOString(), cancelled_at: new Date().toISOString() };
+      setActionLoading(true);
+      const { error: err } = await supabase.from('reservations').update(payload).eq('id', reservationId);
+      setActionLoading(false);
+      if (err) setError(err.message);
+      else {
+        setReservation((prev) => prev ? { ...prev, status, cancelled_at: payload.cancelled_at as string } : null);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) notifyCustomerCancelled(reservationId, session.access_token).catch(() => {});
+      }
+      return;
+    }
     setActionLoading(true);
     const payload: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
-    if (status === 'confirmed') payload.confirmed_at = new Date().toISOString();
-    if (status === 'cancelled') payload.cancelled_at = new Date().toISOString();
     const { error: err } = await supabase.from('reservations').update(payload).eq('id', reservationId);
     setActionLoading(false);
     if (err) setError(err.message);
-    else {
-      setReservation((prev) => prev ? { ...prev, status, confirmed_at: status === 'confirmed' ? (payload.confirmed_at as string) : prev.confirmed_at, cancelled_at: status === 'cancelled' ? (payload.cancelled_at as string) : prev.cancelled_at } : null);
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        if (status === 'confirmed') notifyCustomer(reservationId, session.access_token).catch(() => {});
-        else if (status === 'cancelled') notifyCustomerCancelled(reservationId, session.access_token).catch(() => {});
-      }
-    }
+    else setReservation((prev) => prev ? { ...prev, status } : null);
   };
 
   const saveRevenue = async () => {
@@ -188,100 +230,110 @@ export default function ReservationDetailScreen({ route }: Props) {
     ? (reservation.duration_display && DURATION_DISPLAY_LABELS[reservation.duration_display]) ?? 'Süre sınırı yok'
     : `${reservation.duration_minutes} dk`;
 
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.card}>
-        <Text style={styles.label}>Durum</Text>
-        <View style={[styles.statusBadge, { backgroundColor: getReservationStatusStyle(reservation.status).bg }]}>
-          <Text style={[styles.statusBadgeText, { color: getReservationStatusStyle(reservation.status).text }]}>{STATUS_LABELS[reservation.status] ?? reservation.status}</Text>
-        </View>
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.label}>İşletme</Text>
-        <Text style={styles.value}>{bizName}</Text>
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.label}>Tarih / Saat</Text>
-        <Text style={styles.value}>{reservation.reservation_date} · {String(reservation.reservation_time).slice(0, 5)}</Text>
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.label}>Süre · Kişi</Text>
-        <Text style={styles.value}>{durationLabel} · {reservation.party_size} kişi</Text>
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.label}>Müşteri</Text>
-        <Text style={styles.value}>{reservation.customer_name ?? '—'}</Text>
-        {reservation.customer_phone ? <Text style={styles.valueSmall}>{reservation.customer_phone}</Text> : null}
-        {reservation.customer_email ? <Text style={styles.valueSmall}>{reservation.customer_email}</Text> : null}
-      </View>
-      {reservation.special_requests ? (
-        <View style={styles.card}>
-          <Text style={styles.label}>Özel istek</Text>
-          <Text style={styles.value}>{reservation.special_requests}</Text>
-        </View>
-      ) : null}
+  const showActionBar = ['pending', 'confirmed', 'completed'].includes(reservation.status);
+  const actionBarHeight = 72 + insets.bottom;
 
-      {revenueSectionAvailable && (
+  return (
+    <View style={styles.wrapper}>
+      <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: actionBarHeight + 24 }]}>
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Gelir bilgisi</Text>
-          {revenueMessage ? (
-            <View style={[styles.revenueMsg, revenueMessage.type === 'success' ? styles.revenueMsgSuccess : styles.revenueMsgError]}>
-              <Text style={revenueMessage.type === 'success' ? styles.revenueMsgTextSuccess : styles.revenueMsgTextError}>{revenueMessage.text}</Text>
-            </View>
-          ) : null}
-          <View style={styles.revenueRow}>
-            <TextInput style={styles.amountInput} value={amountInput} onChangeText={setAmountInput} placeholder="Tutar (₺)" placeholderTextColor="#a1a1aa" keyboardType="decimal-pad" />
-            <View style={styles.pickerWrap}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.chipRow}>
-                  <TouchableOpacity style={[styles.chip, !paymentMethodIdInput && styles.chipActive]} onPress={() => setPaymentMethodIdInput('')}><Text style={[styles.chipText, !paymentMethodIdInput && styles.chipTextActive]}>Yok</Text></TouchableOpacity>
-                  {paymentMethods.map((pm) => (
-                    <TouchableOpacity key={pm.id} style={[styles.chip, paymentMethodIdInput === pm.id && styles.chipActive]} onPress={() => setPaymentMethodIdInput(pm.id)}><Text style={[styles.chipText, paymentMethodIdInput === pm.id && styles.chipTextActive]}>{pm.name}</Text></TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
-            </View>
+          <Text style={styles.label}>Durum</Text>
+          <View style={[styles.statusBadge, { backgroundColor: getReservationStatusStyle(reservation.status).bg }]}>
+            <Text style={[styles.statusBadgeText, { color: getReservationStatusStyle(reservation.status).text }]}>{STATUS_LABELS[reservation.status] ?? reservation.status}</Text>
           </View>
-          <TouchableOpacity style={styles.saveRevenueBtn} onPress={saveRevenue} disabled={savingRevenue}>
-            <Text style={styles.saveRevenueBtnText}>{savingRevenue ? 'Kaydediliyor...' : 'Gelir kaydet'}</Text>
-          </TouchableOpacity>
+        </View>
+        <View style={styles.card}>
+          <Text style={styles.label}>İşletme</Text>
+          <Text style={styles.value}>{bizName}</Text>
+        </View>
+        <View style={styles.card}>
+          <Text style={styles.label}>Tarih / Saat</Text>
+          <Text style={styles.value}>{reservation.reservation_date} · {String(reservation.reservation_time).slice(0, 5)}</Text>
+        </View>
+        <View style={styles.card}>
+          <Text style={styles.label}>Süre · Kişi</Text>
+          <Text style={styles.value}>{durationLabel} · {reservation.party_size} kişi</Text>
+        </View>
+        <View style={styles.card}>
+          <Text style={styles.label}>Müşteri</Text>
+          <Text style={styles.value}>{reservation.customer_name ?? '—'}</Text>
+          {reservation.customer_phone ? <Text style={styles.valueSmall}>{reservation.customer_phone}</Text> : null}
+          {reservation.customer_email ? <Text style={styles.valueSmall}>{reservation.customer_email}</Text> : null}
+        </View>
+        {reservation.special_requests ? (
+          <View style={styles.card}>
+            <Text style={styles.label}>Özel istek</Text>
+            <Text style={styles.value}>{reservation.special_requests}</Text>
+          </View>
+        ) : null}
+
+        {revenueSectionAvailable && (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Gelir bilgisi</Text>
+            {revenueMessage ? (
+              <View style={[styles.revenueMsg, revenueMessage.type === 'success' ? styles.revenueMsgSuccess : styles.revenueMsgError]}>
+                <Text style={revenueMessage.type === 'success' ? styles.revenueMsgTextSuccess : styles.revenueMsgTextError}>{revenueMessage.text}</Text>
+              </View>
+            ) : null}
+            <View style={styles.revenueRow}>
+              <TextInput style={styles.amountInput} value={amountInput} onChangeText={setAmountInput} placeholder="Tutar (₺)" placeholderTextColor="#a1a1aa" keyboardType="decimal-pad" />
+              <View style={styles.pickerWrap}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.chipRow}>
+                    <TouchableOpacity style={[styles.chip, !paymentMethodIdInput && styles.chipActive]} onPress={() => setPaymentMethodIdInput('')}><Text style={[styles.chipText, !paymentMethodIdInput && styles.chipTextActive]}>Yok</Text></TouchableOpacity>
+                    {paymentMethods.map((pm) => (
+                      <TouchableOpacity key={pm.id} style={[styles.chip, paymentMethodIdInput === pm.id && styles.chipActive]} onPress={() => setPaymentMethodIdInput(pm.id)}><Text style={[styles.chipText, paymentMethodIdInput === pm.id && styles.chipTextActive]}>{pm.name}</Text></TouchableOpacity>
+                    ))}
+                  </View>
+                </ScrollView>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.saveRevenueBtn} onPress={saveRevenue} disabled={savingRevenue}>
+              <Text style={styles.saveRevenueBtnText}>{savingRevenue ? 'Kaydediliyor...' : 'Gelir kaydet'}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Zaman çizelgesi</Text>
+          <Text style={styles.valueSmall}>Oluşturuldu: {formatDateTime(reservation.created_at)}</Text>
+          {reservation.confirmed_at ? <Text style={styles.valueSmall}>Onaylandı: {formatDateTime(reservation.confirmed_at)}</Text> : null}
+          {reservation.cancelled_at ? <Text style={styles.valueSmall}>İptal: {formatDateTime(reservation.cancelled_at)}</Text> : null}
+        </View>
+      </ScrollView>
+
+      {showActionBar && (
+        <View style={[styles.actionBar, { paddingBottom: insets.bottom }]}>
+          {error ? <Text style={styles.actionBarError} numberOfLines={2}>{error}</Text> : null}
+          <View style={styles.actionsRow}>
+            {reservation.status === 'pending' && (
+              <>
+                <TouchableOpacity style={styles.btnConfirm} onPress={() => updateStatus('confirmed')} disabled={actionLoading}>
+                  <Text style={styles.btnConfirmText}>{actionLoading ? 'Kontrol ediliyor...' : 'Rezervasyon Onayla'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.btnCancel} onPress={() => updateStatus('cancelled')} disabled={actionLoading}><Text style={styles.btnCancelText}>İptal</Text></TouchableOpacity>
+              </>
+            )}
+            {reservation.status === 'confirmed' && (
+              <>
+                <TouchableOpacity style={styles.btnComplete} onPress={() => updateStatus('completed')} disabled={actionLoading}><Text style={styles.btnCompleteText}>Tamamlandı</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.btnCancel} onPress={() => updateStatus('cancelled')} disabled={actionLoading}><Text style={styles.btnCancelText}>İptal</Text></TouchableOpacity>
+              </>
+            )}
+            {reservation.status === 'completed' && (
+              <TouchableOpacity style={styles.btnRevert} onPress={() => handleStatusAction('confirmed')} disabled={actionLoading}><Text style={styles.btnRevertText}>Onaylandıya geri al</Text></TouchableOpacity>
+            )}
+          </View>
         </View>
       )}
-
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>İşlemler</Text>
-        <View style={styles.actionsRow}>
-          {reservation.status === 'pending' && (
-            <>
-              <TouchableOpacity style={styles.btnConfirm} onPress={() => updateStatus('confirmed')} disabled={actionLoading}><Text style={styles.btnConfirmText}>Onayla</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.btnCancel} onPress={() => updateStatus('cancelled')} disabled={actionLoading}><Text style={styles.btnCancelText}>İptal</Text></TouchableOpacity>
-            </>
-          )}
-          {reservation.status === 'confirmed' && (
-            <>
-              <TouchableOpacity style={styles.btnComplete} onPress={() => updateStatus('completed')} disabled={actionLoading}><Text style={styles.btnCompleteText}>Tamamlandı</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.btnCancel} onPress={() => updateStatus('cancelled')} disabled={actionLoading}><Text style={styles.btnCancelText}>İptal</Text></TouchableOpacity>
-            </>
-          )}
-          {reservation.status === 'completed' && (
-            <TouchableOpacity style={styles.btnRevert} onPress={() => handleStatusAction('confirmed')} disabled={actionLoading}><Text style={styles.btnRevertText}>Onaylandıya geri al</Text></TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Zaman çizelgesi</Text>
-        <Text style={styles.valueSmall}>Oluşturuldu: {formatDateTime(reservation.created_at)}</Text>
-        {reservation.confirmed_at ? <Text style={styles.valueSmall}>Onaylandı: {formatDateTime(reservation.confirmed_at)}</Text> : null}
-        {reservation.cancelled_at ? <Text style={styles.valueSmall}>İptal: {formatDateTime(reservation.cancelled_at)}</Text> : null}
-      </View>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f4f4f5' },
-  content: { padding: 16, paddingBottom: 32 },
+  wrapper: { flex: 1, backgroundColor: '#f4f4f5' },
+  container: { flex: 1 },
+  content: { padding: 16 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   loadingText: { marginTop: 12, fontSize: 14, color: '#71717a' },
   errorText: { fontSize: 14, color: '#b91c1c', textAlign: 'center' },
@@ -305,8 +357,10 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: '#15803d', borderColor: '#15803d' },
   chipText: { fontSize: 13, color: '#52525b' },
   chipTextActive: { color: '#fff', fontWeight: '600' },
-  saveRevenueBtn: { marginTop: 12, backgroundColor: '#15803d', borderRadius: 10, padding: 12, alignItems: 'center' },
-  saveRevenueBtnText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+  saveRevenueBtn: { marginTop: 12, backgroundColor: 'transparent', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, alignSelf: 'flex-start', borderWidth: 1, borderColor: '#a1a1aa' },
+  saveRevenueBtnText: { fontSize: 13, fontWeight: '500', color: '#52525b' },
+  actionBar: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e4e4e7', paddingHorizontal: 16, paddingTop: 10 },
+  actionBarError: { fontSize: 12, color: '#b91c1c', marginBottom: 6 },
   actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   btnConfirm: { backgroundColor: '#15803d', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
   btnConfirmText: { fontSize: 14, fontWeight: '600', color: '#fff' },

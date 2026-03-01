@@ -148,7 +148,7 @@ export default function NotificationsPage() {
     <div>
       <h1 className="text-xl font-semibold text-zinc-800 mb-2">Bildirim gönder</h1>
       <p className="text-zinc-600 text-sm mb-6">
-        Kanal seçin: E-posta, SMS veya uygulama push. Mevcut toplu/tekil/tetikleyici ayarları App push içindedir.
+        Kanal seçin: E-posta, SMS veya uygulama push. Mevcut toplu/tekil/otomatik bildirim ayarları App push içindedir.
       </p>
 
       {/* Kanal sekmeleri: Email | SMS | App push */}
@@ -210,7 +210,7 @@ export default function NotificationsPage() {
               onClick={() => setAppPushTab('trigger')}
               className={`px-4 py-2 text-sm font-medium rounded-t-lg ${appPushTab === 'trigger' ? 'bg-green-600 text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'}`}
             >
-              Tetikleyici (otomatik)
+              Otomatik bildirimler
             </button>
           </div>
 
@@ -339,7 +339,7 @@ export default function NotificationsPage() {
                     onChange={(e) => setTriggerSettings((s) => ({ ...s, enabled: e.target.checked }))}
                     className="rounded border-zinc-300 text-green-600"
                   />
-                  <span className="font-medium text-zinc-800">Tetikleyici bildirimleri aktif</span>
+                  <span className="font-medium text-zinc-800">Otomatik bildirimler aktif</span>
                 </label>
                 <label className="flex items-center gap-3">
                   <input
@@ -349,7 +349,7 @@ export default function NotificationsPage() {
                     disabled={!triggerSettings.enabled}
                     className="rounded border-zinc-300 text-green-600"
                   />
-                  <span className="text-zinc-700">Rezervasyondan 30 dakika önce push at</span>
+                  <span className="text-zinc-700">1. otomatik push: Rezervasyondan 30 dakika önce push gönder</span>
                 </label>
                 <label className="flex items-center gap-3">
                   <input
@@ -359,7 +359,7 @@ export default function NotificationsPage() {
                     disabled={!triggerSettings.enabled}
                     className="rounded border-zinc-300 text-green-600"
                   />
-                  <span className="text-zinc-700">Rezervasyondan 1 gün önce push at</span>
+                  <span className="text-zinc-700">2. otomatik push: Rezervasyondan 1 gün önce push gönder</span>
                 </label>
                 <div className="border-t border-zinc-200 pt-4 mt-4">
                   <p className="text-sm font-medium text-zinc-800 mb-2">Bildirim türleri (işletme olarak alacağınız)</p>

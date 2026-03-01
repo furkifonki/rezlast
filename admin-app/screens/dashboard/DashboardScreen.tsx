@@ -32,13 +32,14 @@ export default function DashboardScreen() {
   const [messagesUnread, setMessagesUnread] = useState(0);
   const [recentReservations, setRecentReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
-  const panStartX = useRef(0);
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, g) => g.dx > 50,
-      onPanResponderGrant: (e) => { panStartX.current = e.nativeEvent.pageX; },
-      onPanResponderRelease: (_, g) => { if (g.dx > 60 && panStartX.current < 40) openMenu(); },
+      onMoveShouldSetPanResponder: (_, g) => g.dx > 40,
+      onPanResponderGrant: () => {},
+      onPanResponderRelease: (_, g) => {
+        if (g.dx > 50) openMenu();
+      },
     })
   ).current;
 
@@ -105,7 +106,12 @@ export default function DashboardScreen() {
   }
 
   return (
-    <View style={styles.root} {...panResponder.panHandlers}>
+    <View style={styles.root}>
+      <View
+        style={styles.edgeSwipeStrip}
+        {...panResponder.panHandlers}
+        pointerEvents="box-only"
+      />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {(messagesUnread > 0 || pendingCount > 0 || todayCount > 0) && (
           <View style={styles.notifStrip}>
@@ -128,7 +134,7 @@ export default function DashboardScreen() {
         )}
         <View style={styles.welcomeBlock}>
           <Text style={styles.h1}>Ana Sayfa</Text>
-          <Text style={styles.subtitle}>İşletme ve rezervasyon özetiniz. Sol üst menüden veya soldan sağa kaydırarak diğer bölümlere geçebilirsiniz.</Text>
+          <Text style={styles.subtitle}>İşletme ve rezervasyon özetiniz. Sol üst menüden diğer bölümlere geçebilirsiniz.</Text>
         </View>
 
         <View style={styles.cardRow}>
@@ -190,6 +196,14 @@ export default function DashboardScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#f4f4f5' },
+  edgeSwipeStrip: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 28,
+    zIndex: 10,
+  },
   scroll: { flex: 1 },
   content: { padding: 20, paddingBottom: 40 },
   notifStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
