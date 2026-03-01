@@ -193,75 +193,77 @@ export default function TablePlanScreen() {
         ) : (
           <>
             <Text style={styles.hint}>Masayı tutup sürükleyin; bırakınca konum kaydedilir.</Text>
-            <View style={[styles.canvasWrap, { width: canvasW, height: canvasH }]}>
-              <View style={styles.canvas} collapsable={false}>
-                {tables.map((t) => {
-                  const baseX = (t.position_x ?? 0) * scale;
-                  const baseY = (t.position_y ?? 0) * scale;
-                  const off = dragOffset[t.id];
-                  const x = off ? baseX + off.x : baseX;
-                  const y = off ? baseY + off.y : baseY;
-                  const style = getStyle(t.table_type);
-                  const pan = PanResponder.create({
-                    onStartShouldSetPanResponder: () => true,
-                    onMoveShouldSetPanResponder: () => true,
-                    onPanResponderGrant: () => setDraggingId(t.id),
-                    onPanResponderMove: (_, g) => {
-                      setDragOffset((prev) => {
-                        const cur = prev[t.id] ?? { x: 0, y: 0 };
-                        let nx = cur.x + g.dx;
-                        let ny = cur.y + g.dy;
-                        const newX = baseX + nx;
-                        const newY = baseY + ny;
-                        if (newX < 0) nx = -baseX;
-                        if (newY < 0) ny = -baseY;
-                        if (newX > maxX) nx = maxX - baseX;
-                        if (newY > maxY) ny = maxY - baseY;
-                        return { ...prev, [t.id]: { x: nx, y: ny } };
-                      });
-                    },
-                    onPanResponderRelease: (_, g) => {
-                      const cur = dragOffsetRef.current[t.id] ?? { x: 0, y: 0 };
-                      const clampX = Math.max(0, Math.min(maxX, baseX + cur.x + g.dx));
-                      const clampY = Math.max(0, Math.min(maxY, baseY + cur.y + g.dy));
-                      setDragOffset((prev) => {
-                        const next = { ...prev };
-                        delete next[t.id];
-                        return next;
-                      });
-                      setDraggingId(null);
-                      savePosition(t.id, clampX / scale, clampY / scale);
-                    },
-                  });
-                  return (
-                    <View
-                      key={t.id}
-                      style={[
-                        styles.tableBox,
-                        {
-                          left: x,
-                          top: y,
-                          width: tableW,
-                          height: tableH,
-                          backgroundColor: draggingId === t.id ? '#dcfce7' : style.bg,
-                          borderColor: draggingId === t.id ? '#16a34a' : style.border,
-                        },
-                      ]}
-                      {...pan.panHandlers}
-                    >
-                      <Text style={styles.tableNum}>{t.table_number}</Text>
-                      <Text style={styles.tableCap}>{t.capacity} kişi</Text>
-                      <Text style={[styles.tableType, { color: style.border }]} numberOfLines={1}>{style.label}</Text>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
             <TouchableOpacity style={styles.backToList} onPress={() => navigation.goBack()}>
               <Text style={styles.backToListText}>← Geri</Text>
             </TouchableOpacity>
           </>
         )}
+      </ScrollView>
+
+      {selectedBusinessId && !loading && tables.length > 0 && (
+        <View style={[styles.canvasOuter, { width: canvasW + 32, height: canvasH + 32 }]}>
+          <View style={[styles.canvasWrap, { width: canvasW, height: canvasH }]}>
+            <View style={styles.canvas} collapsable={false}>
+              {tables.map((t) => {
+                const baseX = (t.position_x ?? 0) * scale;
+                const baseY = (t.position_y ?? 0) * scale;
+                const off = dragOffset[t.id];
+                const x = off ? baseX + off.x : baseX;
+                const y = off ? baseY + off.y : baseY;
+                const style = getStyle(t.table_type);
+                const pan = PanResponder.create({
+                  onStartShouldSetPanResponder: () => true,
+                  onMoveShouldSetPanResponder: () => true,
+                  onPanResponderGrant: () => setDraggingId(t.id),
+                  onPanResponderMove: (_, g) => {
+                    let nx = g.dx;
+                    let ny = g.dy;
+                    if (baseX + nx < 0) nx = -baseX;
+                    if (baseY + ny < 0) ny = -baseY;
+                    if (baseX + nx > maxX) nx = maxX - baseX;
+                    if (baseY + ny > maxY) ny = maxY - baseY;
+                    setDragOffset((prev) => ({ ...prev, [t.id]: { x: nx, y: ny } }));
+                  },
+                  onPanResponderRelease: (_, g) => {
+                    let clampX = baseX + (dragOffsetRef.current[t.id]?.x ?? g.dx);
+                    let clampY = baseY + (dragOffsetRef.current[t.id]?.y ?? g.dy);
+                    clampX = Math.max(0, Math.min(maxX, clampX));
+                    clampY = Math.max(0, Math.min(maxY, clampY));
+                    setDragOffset((prev) => {
+                      const next = { ...prev };
+                      delete next[t.id];
+                      return next;
+                    });
+                    setDraggingId(null);
+                    savePosition(t.id, clampX / scale, clampY / scale);
+                  },
+                });
+                return (
+                  <View
+                    key={t.id}
+                    style={[
+                      styles.tableBox,
+                      {
+                        left: x,
+                        top: y,
+                        width: tableW,
+                        height: tableH,
+                        backgroundColor: draggingId === t.id ? '#dcfce7' : style.bg,
+                        borderColor: draggingId === t.id ? '#16a34a' : style.border,
+                      },
+                    ]}
+                    {...pan.panHandlers}
+                  >
+                    <Text style={styles.tableNum}>{t.table_number}</Text>
+                    <Text style={styles.tableCap}>{t.capacity} kişi</Text>
+                    <Text style={[styles.tableType, { color: style.border }]} numberOfLines={1}>{style.label}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+      )}
       </ScrollView>
     </View>
   );
@@ -303,7 +305,8 @@ const styles = StyleSheet.create({
   link: { marginTop: 12 },
   linkText: { fontSize: 16, color: '#15803d', fontWeight: '600' },
   hint: { fontSize: 13, color: '#52525b', marginBottom: 12 },
-  canvasWrap: { alignSelf: 'center', borderRadius: 12, overflow: 'hidden', backgroundColor: '#f8fafc', borderWidth: 2, borderColor: 'rgba(148,163,184,0.3)' },
+  canvasOuter: { padding: 16, alignSelf: 'center', backgroundColor: '#f8fafc', borderRadius: 12, borderWidth: 2, borderColor: 'rgba(148,163,184,0.3)' },
+  canvasWrap: { alignSelf: 'center', borderRadius: 12, overflow: 'hidden', backgroundColor: '#f8fafc' },
   canvas: { flex: 1, position: 'relative', width: '100%', height: '100%' },
   tableBox: { position: 'absolute', borderRadius: 14, borderWidth: 2, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
   tableNum: { fontSize: 16, fontWeight: '700', color: '#18181b' },

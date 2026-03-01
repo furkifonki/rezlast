@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { markConversationAsReadByUser, sendMessage as sendMessageApi } from '../lib/messaging';
+import { notifyMessage as notifyMessageApi } from '../lib/notifyApi';
 import type { Message } from '../types/messaging';
 
 const PENDING_PREFIX = 'pending-';
@@ -98,6 +99,9 @@ export function useMessages(conversationId: string | null) {
         setMessages((prev) =>
           prev.map((m) => (m.id === pendingId ? created : m))
         );
+        if (session.access_token) {
+          notifyMessageApi(conversationId, 'user', session.access_token).catch(() => {});
+        }
         return created;
       } catch (e) {
         setMessages((prev) => prev.filter((m) => m.id !== pendingId));

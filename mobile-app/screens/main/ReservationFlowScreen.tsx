@@ -17,6 +17,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/NotificationContext';
 import { validateReservationTime, isSlotDisabled } from '../../lib/reservationTimeValidation';
 import { t } from '../../lib/i18n';
+import { notifyOwner } from '../../lib/notifyApi';
 
 type Service = { id: string; name: string; duration_minutes: number; duration_display: string | null; price: number | null };
 type TableRow = { id: string; table_number: string; capacity: number; table_type: string | null; position_x: number | null; position_y: number | null };
@@ -430,23 +431,30 @@ export default function ReservationFlowScreen({ businessId, businessName, onBack
     }
     setError(null);
     setSaving(true);
-    const { error: err } = await supabase.from('reservations').insert({
-      business_id: businessId,
-      user_id: session.user.id,
-      reservation_date: reservationDate,
-      reservation_time: (reservationTime ?? '').slice(0, 5),
-      duration_minutes: effectiveDuration,
-      party_size: partySize,
-      service_id: serviceId || null,
-      table_id: tableId || null,
-      special_requests: specialRequests.trim() || null,
-      status: 'pending',
-    });
+    const { data: inserted, error: err } = await supabase
+      .from('reservations')
+      .insert({
+        business_id: businessId,
+        user_id: session.user.id,
+        reservation_date: reservationDate,
+        reservation_time: (reservationTime ?? '').slice(0, 5),
+        duration_minutes: effectiveDuration,
+        party_size: partySize,
+        service_id: serviceId || null,
+        table_id: tableId || null,
+        special_requests: specialRequests.trim() || null,
+        status: 'pending',
+      })
+      .select('id')
+      .single();
     setSaving(false);
     if (err) {
       setError(err.message);
       toast.error(err.message);
       return;
+    }
+    if (inserted?.id && session?.access_token) {
+      notifyOwner(businessId, inserted.id, session.access_token).catch(() => {});
     }
     toast.success('Rezervasyonunuz restorana onaya gönderildi. En kısa sürede bilgilendirileceksiniz.', 'Başarılı');
     onDone();

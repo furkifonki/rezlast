@@ -13,6 +13,7 @@ import {
 import { useRoute, useNavigation } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
+import { notifyMessage } from '../../lib/notifyApi';
 import type { MainStackParamList } from './MenuScreen';
 
 type Message = {
@@ -107,7 +108,11 @@ export default function MessageThreadScreen({ route, navigation }: Props) {
       .select()
       .single();
     setSending(false);
-    if (!error && created) setMessages((prev) => [...prev, created as Message]);
+    if (!error && created) {
+      setMessages((prev) => [...prev, created as Message]);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) notifyMessage(conversationId, 'restaurant', session.access_token).catch(() => {});
+    }
   };
 
   const renderMessage = ({ item }: { item: Message }) => {

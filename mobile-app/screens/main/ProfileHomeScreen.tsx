@@ -59,6 +59,12 @@ export default function ProfileHomeScreen({ popToRootRef }: ProfileHomeScreenPro
         onPress={() => navigate('MessagesList', undefined)}
       />
       <ProfileMenuCard
+        icon="🔔"
+        title="Bildirimler"
+        description="Rezervasyon onayları, mesajlar"
+        onPress={() => navigate('NotificationCenter', undefined)}
+      />
+      <ProfileMenuCard
         icon="📅"
         title="Rezervasyonlar"
         description="Gelecek ve geçmiş rezervasyonlarınız"

@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
+import { notifyCustomer, notifyCustomerCancelled } from '../../lib/notifyApi';
 import { RESERVATION_STATUS_LABELS, getReservationStatusStyle } from '../../constants/statusColors';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from './MenuScreen';
@@ -127,7 +128,14 @@ export default function ReservationDetailScreen({ route }: Props) {
     const { error: err } = await supabase.from('reservations').update(payload).eq('id', reservationId);
     setActionLoading(false);
     if (err) setError(err.message);
-    else setReservation((prev) => prev ? { ...prev, status, confirmed_at: status === 'confirmed' ? (payload.confirmed_at as string) : prev.confirmed_at, cancelled_at: status === 'cancelled' ? (payload.cancelled_at as string) : prev.cancelled_at } : null);
+    else {
+      setReservation((prev) => prev ? { ...prev, status, confirmed_at: status === 'confirmed' ? (payload.confirmed_at as string) : prev.confirmed_at, cancelled_at: status === 'cancelled' ? (payload.cancelled_at as string) : prev.cancelled_at } : null);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        if (status === 'confirmed') notifyCustomer(reservationId, session.access_token).catch(() => {});
+        else if (status === 'cancelled') notifyCustomerCancelled(reservationId, session.access_token).catch(() => {});
+      }
+    }
   };
 
   const saveRevenue = async () => {

@@ -20,6 +20,7 @@ import ChatScreen from '../screens/main/messages/ChatScreen';
 import ExploreMapScreen from '../screens/main/ExploreMapScreen';
 import BusinessReviewsScreen from '../screens/main/BusinessReviewsScreen';
 import ReservationDetailScreen from '../screens/main/ReservationDetailScreen';
+import NotificationCenterScreen from '../screens/main/NotificationCenterScreen';
 
 const initialStack: StackEntry[] = [{ screen: 'Main', params: undefined }];
 
@@ -158,6 +159,11 @@ function MainStackContent() {
               businessName={current.params.businessName}
               onBack={goBack}
             />
+          </StackScreenWrapper>
+        )}
+        {current.screen === 'NotificationCenter' && (
+          <StackScreenWrapper onGoBack={goBack}>
+            <NotificationCenterScreen onBack={goBack} />
           </StackScreenWrapper>
         )}
       </View>
