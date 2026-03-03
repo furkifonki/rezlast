@@ -123,6 +123,15 @@ export default function ChatPage() {
     setMessages((prev) =>
       prev.map((m) => (m.id === tempId ? (created as Message) : m))
     );
+    // İşletme sahibine push + bildirim merkezine kayıt
+    const adminPanelUrl = (process.env.NEXT_PUBLIC_ADMIN_PANEL_URL ?? '').replace(/\/$/, '');
+    if (adminPanelUrl && session?.access_token) {
+      fetch(`${adminPanelUrl}/api/push-notify-message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ conversation_id: conversationId, sender_type: 'user' }),
+      }).catch(() => {});
+    }
   };
 
   if (loading && messages.length === 0) {

@@ -129,14 +129,13 @@ CREATE TABLE categories (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- MVP kategorileri
+-- MVP kategorileri (Halı Sahalar + Futbol Sahaları tek kategoride birleştirildi: Halı Saha)
 INSERT INTO categories (name, slug, icon, sort_order) VALUES
   ('Restoranlar', 'restoranlar', 'restaurant', 1),
   ('Berberler', 'berberler', 'scissors', 2),
   ('Güzellik Salonları', 'guzellik-salonlari', 'sparkles', 3),
   ('Tenis Kortları', 'tenis-kortlari', 'tennis', 4),
-  ('Halı Sahalar', 'hali-sahalar', 'football', 5),
-  ('Futbol Sahaları', 'futbol-sahalari', 'football', 6);
+  ('Halı Saha', 'hali-saha', 'football', 5);
 ```
 
 ### 6. business_hours

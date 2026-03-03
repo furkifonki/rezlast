@@ -11,6 +11,8 @@ import {
 import { supabase } from '../../lib/supabase';
 
 type Business = { id: string; name: string };
+type CapacityRule = { day_of_week: number; capacity_tables: number | null; slot_duration_minutes: number | null; is_closed: boolean };
+const DAY_NAMES = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 
 export default function CapacityScreen() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -20,8 +22,12 @@ export default function CapacityScreen() {
   const [slotDuration, setSlotDuration] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingRules, setSavingRules] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [rules, setRules] = useState<CapacityRule[]>(() =>
+    DAY_NAMES.map((_, i) => ({ day_of_week: i, capacity_tables: null, slot_duration_minutes: null, is_closed: false }))
+  );
 
   const searchLower = searchQuery.trim().toLowerCase();
   const filteredBusinesses = searchLower
@@ -52,15 +58,38 @@ export default function CapacityScreen() {
     if (!selectedBusinessId || !supabase) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from('businesses')
-        .select('capacity_tables, slot_duration_minutes')
-        .eq('id', selectedBusinessId)
-        .single();
+      const [{ data }, { data: ruleRows }] = await Promise.all([
+        supabase
+          .from('businesses')
+          .select('capacity_tables, slot_duration_minutes')
+          .eq('id', selectedBusinessId)
+          .single(),
+        supabase
+          .from('business_capacity_rules')
+          .select('day_of_week, capacity_tables, slot_duration_minutes, is_closed')
+          .eq('business_id', selectedBusinessId)
+          .order('day_of_week'),
+      ]);
       if (!cancelled && data) {
         const row = data as { capacity_tables?: number; slot_duration_minutes?: number };
         setCapacityTables(String(row.capacity_tables ?? 0));
         setSlotDuration(String(row.slot_duration_minutes ?? 90));
+      }
+      if (!cancelled) {
+        const map = new Map<number, CapacityRule>();
+        (ruleRows ?? []).forEach((r: any) => {
+          map.set(r.day_of_week, {
+            day_of_week: r.day_of_week,
+            capacity_tables: r.capacity_tables ?? null,
+            slot_duration_minutes: r.slot_duration_minutes ?? null,
+            is_closed: !!r.is_closed,
+          });
+        });
+        setRules(
+          DAY_NAMES.map((_, i) =>
+            map.get(i) ?? { day_of_week: i, capacity_tables: null, slot_duration_minutes: null, is_closed: false }
+          )
+        );
       }
     })();
     return () => { cancelled = true; };
@@ -92,6 +121,46 @@ export default function CapacityScreen() {
     setSaving(false);
     if (err) setError(err.message);
     else setSuccess(true);
+  };
+
+  const handleRuleChange = (day: number, patch: Partial<CapacityRule>) => {
+    setRules((prev) => prev.map((r) => (r.day_of_week === day ? { ...r, ...patch } : r)));
+  };
+
+  const handleSaveRules = async () => {
+    if (!supabase || !selectedBusinessId) return;
+    setError(null);
+    setSuccess(false);
+    setSavingRules(true);
+    for (const r of rules) {
+      const hasValues =
+        r.capacity_tables !== null || r.slot_duration_minutes !== null || r.is_closed;
+      if (!hasValues) {
+        await supabase
+          .from('business_capacity_rules')
+          .delete()
+          .eq('business_id', selectedBusinessId)
+          .eq('day_of_week', r.day_of_week);
+        continue;
+      }
+      const payload = {
+        business_id: selectedBusinessId,
+        day_of_week: r.day_of_week,
+        capacity_tables: r.capacity_tables,
+        slot_duration_minutes: r.slot_duration_minutes,
+        is_closed: r.is_closed,
+      };
+      const { error: err } = await supabase
+        .from('business_capacity_rules')
+        .upsert(payload, { onConflict: 'business_id,day_of_week' });
+      if (err) {
+        setError(err.message);
+        setSavingRules(false);
+        return;
+      }
+    }
+    setSavingRules(false);
+    setSuccess(true);
   };
 
   if (loading) {
@@ -159,8 +228,69 @@ export default function CapacityScreen() {
       />
       <Text style={styles.hint}>Her rezervasyonun süresi (15–480 dk).</Text>
 
+      <Text style={[styles.label, { marginTop: 16 }]}>Haftalık kapasite kuralları (opsiyonel)</Text>
+      <Text style={[styles.hint, { marginBottom: 8 }]}>
+        Buradaki değerler sadece ilgili gün için geçerli olur. Boş bırakılan günler yukarıdaki genel kapasite ve slot süresini kullanır.
+      </Text>
+      {rules.map((r) => (
+        <View key={r.day_of_week} style={styles.ruleRow}>
+          <View style={{ flex: 1.2 }}>
+            <Text style={styles.ruleDay}>{DAY_NAMES[r.day_of_week]}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={styles.ruleCheckboxRow}>
+              <Text style={styles.ruleLabelSmall}>Kapalı</Text>
+              <TouchableOpacity
+                onPress={() => handleRuleChange(r.day_of_week, { is_closed: !r.is_closed })}
+                style={[
+                  styles.ruleCheckbox,
+                  r.is_closed && styles.ruleCheckboxActive,
+                ]}
+              >
+                {r.is_closed && <Text style={styles.ruleCheckboxMark}>✓</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.ruleLabelSmall}>Kapasite</Text>
+            <TextInput
+              style={styles.ruleInput}
+              value={r.capacity_tables !== null ? String(r.capacity_tables) : ''}
+              onChangeText={(txt) =>
+                handleRuleChange(r.day_of_week, {
+                  capacity_tables: txt === '' ? null : Number(txt) || 0,
+                })
+              }
+              placeholder="-"
+              placeholderTextColor="#a1a1aa"
+              keyboardType="number-pad"
+              editable={!r.is_closed}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.ruleLabelSmall}>Süre (dk)</Text>
+            <TextInput
+              style={styles.ruleInput}
+              value={r.slot_duration_minutes !== null ? String(r.slot_duration_minutes) : ''}
+              onChangeText={(txt) =>
+                handleRuleChange(r.day_of_week, {
+                  slot_duration_minutes: txt === '' ? null : Number(txt) || 0,
+                })
+              }
+              placeholder="-"
+              placeholderTextColor="#a1a1aa"
+              keyboardType="number-pad"
+              editable={!r.is_closed}
+            />
+          </View>
+        </View>
+      ))}
+
       <TouchableOpacity style={[styles.saveBtn, saving && styles.saveBtnDisabled]} onPress={handleSave} disabled={saving}>
-        {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Kaydet</Text>}
+        {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Genel kapasiteyi kaydet</Text>}
+      </TouchableOpacity>
+      <TouchableOpacity style={[styles.saveBtnSecondary, savingRules && styles.saveBtnDisabled]} onPress={handleSaveRules} disabled={savingRules}>
+        {savingRules ? <ActivityIndicator color="#15803d" /> : <Text style={styles.saveBtnSecondaryText}>Gün bazlı kuralları kaydet</Text>}
       </TouchableOpacity>
     </ScrollView>
   );
@@ -188,4 +318,14 @@ const styles = StyleSheet.create({
   saveBtn: { backgroundColor: '#15803d', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 8 },
   saveBtnDisabled: { opacity: 0.7 },
   saveBtnText: { fontSize: 16, fontWeight: '600', color: '#fff' },
+  saveBtnSecondary: { borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 8, borderWidth: 1, borderColor: '#15803d', backgroundColor: '#ecfdf3' },
+  saveBtnSecondaryText: { fontSize: 15, fontWeight: '600', color: '#15803d' },
+  ruleRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
+  ruleDay: { fontSize: 13, fontWeight: '500', color: '#111827' },
+  ruleLabelSmall: { fontSize: 11, color: '#6b7280', marginBottom: 2 },
+  ruleInput: { borderWidth: 1, borderColor: '#d4d4d8', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, fontSize: 13, color: '#111827' },
+  ruleCheckboxRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  ruleCheckbox: { width: 20, height: 20, borderRadius: 6, borderWidth: 1, borderColor: '#d4d4d8', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9fafb' },
+  ruleCheckboxActive: { backgroundColor: '#15803d', borderColor: '#15803d' },
+  ruleCheckboxMark: { color: '#fff', fontSize: 13, fontWeight: '600' },
 });

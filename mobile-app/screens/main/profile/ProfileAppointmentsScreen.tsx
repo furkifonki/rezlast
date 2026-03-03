@@ -53,8 +53,13 @@ export default function ProfileAppointmentsScreen() {
     const up: Reservation[] = [];
     const pa: Reservation[] = [];
     for (const r of list) {
-      if (isUpcoming(r.reservation_date, r.reservation_time)) up.push(r);
-      else pa.push(r);
+      if (r.status === 'completed' || r.status === 'no_show' || r.status === 'cancelled') {
+        pa.push(r);
+      } else if (isUpcoming(r.reservation_date, r.reservation_time)) {
+        up.push(r);
+      } else {
+        pa.push(r);
+      }
     }
     return { upcoming: up, past: pa };
   }, [list]);

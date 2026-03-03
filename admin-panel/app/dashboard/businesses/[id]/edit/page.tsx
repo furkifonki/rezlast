@@ -4,6 +4,7 @@ import { Suspense, useState, useEffect, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase';
+import { slugify } from '@/lib/utils';
 import { cityNames, getDistrictsByCity } from '@/lib/turkey-cities';
 
 type Category = { id: string; name: string };
@@ -89,6 +90,11 @@ function EditBusinessContent() {
   };
   const [newClosureDate, setNewClosureDate] = useState('');
   const [newClosureReason, setNewClosureReason] = useState('');
+  const [newCategoryOpen, setNewCategoryOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategorySlug, setNewCategorySlug] = useState('');
+  const [newCategorySaving, setNewCategorySaving] = useState(false);
+  const [newCategoryError, setNewCategoryError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -143,6 +149,44 @@ function EditBusinessContent() {
 
   const updateHourRow = (day: number, patch: Partial<HourRow>) => {
     setHourRows((prev) => prev.map((r) => (r.day_of_week === day ? { ...r, ...patch } : r)));
+  };
+
+  const loadCategories = async () => {
+    const supabase = createClient();
+    const { data } = await supabase.from('categories').select('id, name').eq('is_active', true).order('sort_order');
+    setCategories((data ?? []) as Category[]);
+  };
+
+  const openNewCategory = () => {
+    setNewCategoryName('');
+    setNewCategorySlug('');
+    setNewCategoryError(null);
+    setNewCategoryOpen(true);
+  };
+
+  const handleAddCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) {
+      setNewCategoryError('Kategori adı zorunludur.');
+      return;
+    }
+    const slug = (newCategorySlug.trim() || slugify(newCategoryName)).replace(/\s+/g, '-').toLowerCase() || 'kategori';
+    setNewCategoryError(null);
+    setNewCategorySaving(true);
+    const supabase = createClient();
+    const { data: inserted, error: err } = await supabase
+      .from('categories')
+      .insert({ name: newCategoryName.trim(), slug, is_active: true, sort_order: 999 })
+      .select('id, name')
+      .single();
+    setNewCategorySaving(false);
+    if (err) {
+      setNewCategoryError(err.message);
+      return;
+    }
+    setCategories((prev) => [...prev, { id: inserted.id, name: inserted.name }]);
+    setForm((f) => (f ? { ...f, category_id: inserted.id } : f));
+    setNewCategoryOpen(false);
   };
 
   const handleSaveGeneral = async (e: React.FormEvent) => {
@@ -373,16 +417,25 @@ function EditBusinessContent() {
           </div>
           <div>
             <label className="block text-sm font-medium text-zinc-700 mb-1">Kategori *</label>
-            <select
-              required
-              value={form.category_id}
-              onChange={(e) => setForm((f) => (f ? { ...f, category_id: e.target.value } : f))}
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900 focus:border-green-600 focus:outline-none focus:ring-1 focus:ring-green-600"
-            >
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+            <div className="flex gap-2 items-center">
+              <select
+                required
+                value={form.category_id}
+                onChange={(e) => setForm((f) => (f ? { ...f, category_id: e.target.value } : f))}
+                className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900 focus:border-green-600 focus:outline-none focus:ring-1 focus:ring-green-600"
+              >
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={openNewCategory}
+                className="rounded-lg border border-green-600 text-green-700 px-3 py-2 text-sm font-medium hover:bg-green-50"
+              >
+                Yeni kategori
+              </button>
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-zinc-700 mb-1">Adres *</label>
@@ -687,6 +740,47 @@ function EditBusinessContent() {
               ))}
             </ul>
           )}
+        </div>
+      )}
+
+      {newCategoryOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-zinc-900 mb-4">Yeni kategori ekle</h3>
+            <form onSubmit={handleAddCategory}>
+              {newCategoryError && (
+                <p className="text-sm text-red-600 mb-2">{newCategoryError}</p>
+              )}
+              <div className="mb-3">
+                <label className="block text-sm font-medium text-zinc-700 mb-1">Kategori adı *</label>
+                <input
+                  type="text"
+                  value={newCategoryName}
+                  onChange={(e) => { setNewCategoryName(e.target.value); setNewCategorySlug(slugify(e.target.value) || ''); }}
+                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900"
+                  placeholder="Örn: Halı Saha"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-zinc-700 mb-1">Slug (isteğe bağlı)</label>
+                <input
+                  type="text"
+                  value={newCategorySlug}
+                  onChange={(e) => setNewCategorySlug(e.target.value)}
+                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900"
+                  placeholder="hali-saha"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button type="submit" disabled={newCategorySaving} className="rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50">
+                  {newCategorySaving ? 'Ekleniyor...' : 'Ekle'}
+                </button>
+                <button type="button" onClick={() => setNewCategoryOpen(false)} className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">
+                  İptal
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

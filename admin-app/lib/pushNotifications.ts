@@ -41,10 +41,11 @@ export async function savePushTokenToSupabase(userId: string, expoPushToken: str
   await supabase.from('push_tokens').upsert(
     {
       user_id: userId,
+      app_type: 'owner',
       expo_push_token: expoPushToken,
       platform,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: 'user_id' }
+    { onConflict: 'user_id,app_type' }
   );
 }

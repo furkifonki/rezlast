@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -53,6 +53,12 @@ export default function NotificationCenterScreen({ navigation }: Props) {
   useEffect(() => {
     load();
   }, [session?.user?.id]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (session?.user?.id) load();
+    }, [session?.user?.id])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);

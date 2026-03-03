@@ -30,6 +30,11 @@ export default function NewBusinessScreen() {
   const [error, setError] = useState<string | null>(null);
   const [cityModal, setCityModal] = useState(false);
   const [districtModal, setDistrictModal] = useState(false);
+  const [newCategoryOpen, setNewCategoryOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategorySlug, setNewCategorySlug] = useState('');
+  const [newCategorySaving, setNewCategorySaving] = useState(false);
+  const [newCategoryError, setNewCategoryError] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: '',
     category_id: '',
@@ -90,6 +95,37 @@ export default function NewBusinessScreen() {
     else navigation.goBack();
   };
 
+  const openNewCategory = () => {
+    setNewCategoryName('');
+    setNewCategorySlug('');
+    setNewCategoryError(null);
+    setNewCategoryOpen(true);
+  };
+
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim()) {
+      setNewCategoryError('Kategori adı zorunludur.');
+      return;
+    }
+    const slug = (newCategorySlug.trim() || slugify(newCategoryName)).replace(/\s+/g, '-').toLowerCase() || 'kategori';
+    setNewCategoryError(null);
+    setNewCategorySaving(true);
+    if (!supabase) { setNewCategorySaving(false); return; }
+    const { data: inserted, error: err } = await supabase
+      .from('categories')
+      .insert({ name: newCategoryName.trim(), slug, is_active: true, sort_order: 999 })
+      .select('id, name')
+      .single();
+    setNewCategorySaving(false);
+    if (err) {
+      setNewCategoryError(err.message);
+      return;
+    }
+    setCategories((prev) => [...prev, { id: inserted.id, name: inserted.name }]);
+    setForm((f) => ({ ...f, category_id: inserted.id }));
+    setNewCategoryOpen(false);
+  };
+
   const districts = getDistrictsByCity(form.city);
 
   if (loading) {
@@ -107,15 +143,16 @@ export default function NewBusinessScreen() {
       </View>
       <View style={styles.card}>
         <Text style={styles.label}>Kategori *</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={styles.chipRow}>
-            {categories.map((c) => (
-              <TouchableOpacity key={c.id} style={[styles.chip, form.category_id === c.id && styles.chipActive]} onPress={() => setForm((f) => ({ ...f, category_id: c.id }))}>
-                <Text style={[styles.chipText, form.category_id === c.id && styles.chipTextActive]}>{c.name}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
+        <View style={styles.chipRow}>
+          {categories.map((c) => (
+            <TouchableOpacity key={c.id} style={[styles.chip, form.category_id === c.id && styles.chipActive]} onPress={() => setForm((f) => ({ ...f, category_id: c.id }))}>
+              <Text style={[styles.chipText, form.category_id === c.id && styles.chipTextActive]}>{c.name}</Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity style={[styles.chip, styles.chipNew]} onPress={openNewCategory}>
+            <Text style={styles.chipNewText}>+ Yeni kategori</Text>
+          </TouchableOpacity>
+        </View>
       </View>
       <View style={styles.card}>
         <Text style={styles.label}>Adres *</Text>
@@ -186,6 +223,38 @@ export default function NewBusinessScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+      <Modal visible={newCategoryOpen} transparent animationType="fade">
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setNewCategoryOpen(false)}>
+          <View style={[styles.modalContent, { maxHeight: '50%' }]}>
+            <Text style={styles.modalTitle}>Yeni kategori ekle</Text>
+            {newCategoryError ? <Text style={styles.errorText}>{newCategoryError}</Text> : null}
+            <Text style={styles.label}>Kategori adı *</Text>
+            <TextInput
+              style={styles.input}
+              value={newCategoryName}
+              onChangeText={(v) => { setNewCategoryName(v); setNewCategorySlug(slugify(v) || ''); }}
+              placeholder="Örn: Halı Saha"
+              placeholderTextColor="#a1a1aa"
+            />
+            <Text style={[styles.label, { marginTop: 8 }]}>Slug (isteğe bağlı)</Text>
+            <TextInput
+              style={styles.input}
+              value={newCategorySlug}
+              onChangeText={setNewCategorySlug}
+              placeholder="hali-saha"
+              placeholderTextColor="#a1a1aa"
+            />
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
+              <TouchableOpacity style={[styles.submitBtn, { flex: 1 }]} onPress={handleAddCategory} disabled={newCategorySaving}>
+                <Text style={styles.submitBtnText}>{newCategorySaving ? 'Ekleniyor...' : 'Ekle'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.cancelBtn, { flex: 1 }]} onPress={() => setNewCategoryOpen(false)}>
+                <Text style={styles.cancelBtnText}>İptal</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </ScrollView>
   );
 }
@@ -209,6 +278,8 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: '#15803d', borderColor: '#15803d' },
   chipText: { fontSize: 13, color: '#52525b' },
   chipTextActive: { color: '#fff', fontWeight: '600' },
+  chipNew: { borderStyle: 'dashed', borderColor: '#15803d' },
+  chipNewText: { fontSize: 13, color: '#15803d', fontWeight: '600' },
   submitBtn: { backgroundColor: '#15803d', borderRadius: 10, padding: 14, alignItems: 'center', marginTop: 8 },
   submitBtnText: { fontSize: 16, fontWeight: '600', color: '#fff' },
   cancelBtn: { marginTop: 12, padding: 14, alignItems: 'center' },

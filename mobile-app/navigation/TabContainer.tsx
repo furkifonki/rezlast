@@ -18,8 +18,8 @@ export function useTabSet() {
 
 const TABS: { key: TabName; label: string; shortLabel: string; emoji: string }[] = [
   { key: 'Explore', label: 'Keşfet', shortLabel: 'Keşfet', emoji: '🔎' },
-  { key: 'Favorites', label: 'Favoriler', shortLabel: 'Favoriler', emoji: '⭐' },
-  { key: 'Reservations', label: 'Rezervasyonlarım', shortLabel: 'Rezerv.', emoji: '📅' },
+  { key: 'Favorites', label: 'Favoriler', shortLabel: 'Favoriler', emoji: '❤️' },
+  { key: 'Reservations', label: 'Rezervasyonlarım', shortLabel: 'Rezervasyonlar', emoji: '📅' },
   { key: 'Profile', label: 'Profil', shortLabel: 'Profil', emoji: '👤' },
 ];
 
@@ -101,19 +101,19 @@ export function TabContainer({ initialTab = 'Explore', onTabChange }: TabContain
             onPress={() => handleTabPress(t.key)}
             activeOpacity={0.7}
           >
-            <View style={styles.tabLabelRow}>
-              <Text style={styles.tabEmoji}>{t.emoji}</Text>
-              <View style={styles.tabLabelWrap}>
-                <Text
-                  style={[styles.tabLabel, tab === t.key && styles.tabLabelActive]}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.75}
-                >
-                  {t.shortLabel}
-                </Text>
+            <View style={styles.tabLabelCol}>
+              <View style={styles.tabEmojiWrap}>
+                <Text style={styles.tabEmoji}>{t.emoji}</Text>
+                {t.key === 'Profile' && unreadCount > 0 && <View style={styles.unreadDot} />}
               </View>
-              {t.key === 'Profile' && unreadCount > 0 && <View style={styles.unreadDot} />}
+              <Text
+                style={[styles.tabLabel, tab === t.key && styles.tabLabelActive]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+              >
+                {t.shortLabel}
+              </Text>
             </View>
           </TouchableOpacity>
         ))}
@@ -195,9 +195,9 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    paddingTop: 10,
-    paddingHorizontal: 12,
-    paddingBottom: 10,
+    paddingTop: 8,
+    paddingHorizontal: 6,
+    paddingBottom: 8,
     borderTopWidth: 1,
     borderTopColor: '#e2e8f0',
     shadowColor: '#000',
@@ -210,10 +210,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    borderRadius: 12,
-    marginHorizontal: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 2,
+    borderRadius: 10,
+    marginHorizontal: 2,
     minWidth: 0,
     overflow: 'hidden',
   },
@@ -222,36 +222,37 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(21, 128, 61, 0.25)',
   },
-  tabLabelRow: {
-    flexDirection: 'row',
+  tabLabelCol: {
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    flexWrap: 'nowrap',
+    minWidth: 0,
     maxWidth: '100%',
   },
-  tabLabelWrap: {
-    flex: 1,
-    minWidth: 0,
-    justifyContent: 'center',
+  tabEmojiWrap: {
+    position: 'relative',
   },
   tabLabel: {
     fontSize: 10,
     color: '#64748b',
     fontWeight: '500',
+    marginTop: 2,
+    textAlign: 'center',
   },
   tabLabelActive: {
     color: '#15803d',
     fontWeight: '700',
   },
   tabEmoji: {
-    fontSize: 14,
-    marginRight: 3,
+    fontSize: 18,
   },
   unreadDot: {
+    position: 'absolute',
+    top: -2,
+    right: -6,
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: '#dc2626',
-    marginLeft: 4,
   },
 });

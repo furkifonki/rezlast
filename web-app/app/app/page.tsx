@@ -101,10 +101,20 @@ export default function ExplorePage() {
 
   const loadCategories = useCallback(async () => {
     if (!supabase) return;
+    const { data: bizData } = await supabase
+      .from('businesses')
+      .select('category_id')
+      .eq('is_active', true);
+    const ids = [...new Set((bizData ?? []).map((r: { category_id: string }) => r.category_id).filter(Boolean))];
+    if (ids.length === 0) {
+      setCategories([]);
+      return;
+    }
     const { data } = await supabase
       .from('categories')
       .select('id, name, slug')
       .eq('is_active', true)
+      .in('id', ids)
       .order('sort_order');
     setCategories((data ?? []) as Category[]);
   }, []);

@@ -18,6 +18,7 @@ import { useSimpleStack } from '../../navigation/SimpleStackContext';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFavorites } from '../../hooks/useFavorites';
+import { filterOfficialCities, getDistrictsByCity } from '../../constants/turkeyCities';
 import * as Location from 'expo-location';
 
 type Category = { id: string; name: string; slug: string };
@@ -114,10 +115,20 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
 
   const loadCategories = async () => {
     if (!supabase) return;
+    const { data: bizData } = await supabase
+      .from('businesses')
+      .select('category_id')
+      .eq('is_active', true);
+    const ids = [...new Set((bizData ?? []).map((r: { category_id: string }) => r.category_id).filter(Boolean))];
+    if (ids.length === 0) {
+      setCategories([]);
+      return;
+    }
     const { data } = await supabase
       .from('categories')
       .select('id, name, slug')
       .eq('is_active', true)
+      .in('id', ids)
       .order('sort_order');
     setCategories((data ?? []) as Category[]);
   };
@@ -140,10 +151,17 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
       query = query.eq('category_id', selectedCategoryId);
     }
     if (selectedCity) {
-      query = query.eq('city', selectedCity);
+      const isIstanbulKagithane = selectedCity === 'İstanbul' && selectedDistrict === 'Kağıthane';
+      if (!isIstanbulKagithane) {
+        query = query.eq('city', selectedCity);
+      }
     }
     if (selectedDistrict) {
-      query = query.eq('district', selectedDistrict);
+      if (selectedCity === 'İstanbul' && selectedDistrict === 'Kağıthane') {
+        query = query.or('and(city.eq.İstanbul,district.eq.Kağıthane),city.eq.Kağıthane');
+      } else {
+        query = query.eq('district', selectedDistrict);
+      }
     }
     const { data, err } = await query;
     if (err) {
@@ -212,8 +230,8 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
       .not('city', 'is', null)
       .then(({ data }) => {
         if (cancelled) return;
-        const set = new Set((data ?? []).map((r: { city: string }) => r.city).filter(Boolean));
-        setCities(Array.from(set).sort((a, b) => a.localeCompare(b, 'tr')));
+        const raw = (data ?? []).map((r: { city: string }) => r.city).filter(Boolean);
+        setCities(filterOfficialCities(raw));
       });
     return () => { cancelled = true; };
   }, []);
@@ -224,6 +242,7 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
       return;
     }
     let cancelled = false;
+    const officialDistricts = getDistrictsByCity(selectedCity);
     supabase
       .from('businesses')
       .select('district')
@@ -232,8 +251,9 @@ export default function ExploreScreen({ popToRootRef }: ExploreScreenProps) {
       .not('district', 'is', null)
       .then(({ data }) => {
         if (cancelled) return;
-        const set = new Set((data ?? []).map((r: { district: string }) => r.district).filter(Boolean));
-        setDistricts(Array.from(set).sort((a, b) => a.localeCompare(b, 'tr')));
+        const fromDb = (data ?? []).map((r: { district: string }) => r.district).filter(Boolean);
+        const merged = new Set<string>([...officialDistricts, ...fromDb]);
+        setDistricts(Array.from(merged).sort((a, b) => a.localeCompare(b, 'tr')));
       });
     return () => { cancelled = true; };
   }, [selectedCity]);

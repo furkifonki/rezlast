@@ -15,6 +15,7 @@ import { notifyCustomer, notifyCustomerCancelled } from '../../lib/notifyApi';
 import { RESERVATION_STATUS_LABELS, getReservationStatusStyle } from '../../constants/statusColors';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MainStackParamList } from './MenuScreen';
+import { useNavigation } from '@react-navigation/native';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'ReservationDetail'>;
 
@@ -57,6 +58,7 @@ function formatDateTime(iso: string | null): string {
 
 export default function ReservationDetailScreen({ route }: Props) {
   const { reservationId } = route.params;
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const [reservation, setReservation] = useState<ReservationDetail | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -68,6 +70,8 @@ export default function ReservationDetailScreen({ route }: Props) {
   const [savingRevenue, setSavingRevenue] = useState(false);
   const [revenueMessage, setRevenueMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [revenueSectionAvailable, setRevenueSectionAvailable] = useState(true);
+  const [conversationLoading, setConversationLoading] = useState(false);
+  const [messageError, setMessageError] = useState<string | null>(null);
 
   const loadReservation = React.useCallback(async () => {
     if (!supabase) return;
@@ -211,6 +215,25 @@ export default function ReservationDetailScreen({ route }: Props) {
     }
   };
 
+  const openMessageThread = async () => {
+    if (!reservation || !supabase || conversationLoading) return;
+    if (!['pending', 'confirmed'].includes(reservation.status)) {
+      setMessageError('Bu rezervasyon için mesajlaşma kapalı.');
+      return;
+    }
+    setMessageError(null);
+    setConversationLoading(true);
+    const { data: convId, error: rpcErr } = await supabase.rpc('get_or_create_conversation_for_owner', { p_reservation_id: reservationId });
+    setConversationLoading(false);
+    if (rpcErr) {
+      setMessageError(rpcErr.message || 'Sohbet açılamadı.');
+      return;
+    }
+    if (convId) {
+      (navigation as any).navigate('MessageThread', { conversationId: convId });
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.centered}><ActivityIndicator size="large" color="#15803d" /><Text style={styles.loadingText}>Yükleniyor...</Text></View>
@@ -300,6 +323,20 @@ export default function ReservationDetailScreen({ route }: Props) {
           {reservation.confirmed_at ? <Text style={styles.valueSmall}>Onaylandı: {formatDateTime(reservation.confirmed_at)}</Text> : null}
           {reservation.cancelled_at ? <Text style={styles.valueSmall}>İptal: {formatDateTime(reservation.cancelled_at)}</Text> : null}
         </View>
+
+        {['pending', 'confirmed'].includes(reservation.status) && (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Mesajlaşma</Text>
+            {messageError ? <Text style={styles.valueSmallError}>{messageError}</Text> : null}
+            <TouchableOpacity
+              style={[styles.btnMessage, conversationLoading && styles.btnMessageDisabled]}
+              onPress={openMessageThread}
+              disabled={conversationLoading}
+            >
+              <Text style={styles.btnMessageText}>{conversationLoading ? 'Açılıyor...' : '💬 Mesaj gönder / görüntüle'}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
 
       {showActionBar && (
@@ -370,4 +407,8 @@ const styles = StyleSheet.create({
   btnCompleteText: { fontSize: 14, fontWeight: '600', color: '#fff' },
   btnRevert: { backgroundColor: '#fef3c7', borderWidth: 1, borderColor: '#fcd34d', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
   btnRevertText: { fontSize: 14, fontWeight: '600', color: '#92400e' },
+  btnMessage: { backgroundColor: '#15803d', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 10, alignItems: 'center', marginTop: 8 },
+  btnMessageDisabled: { opacity: 0.7 },
+  btnMessageText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+  valueSmallError: { fontSize: 13, color: '#b91c1c', marginTop: 4 },
 });

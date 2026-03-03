@@ -131,6 +131,9 @@ DECLARE
   v_date DATE;
   v_time TIME;
   v_duration INTEGER;
+  v_rule_capacity INTEGER;
+  v_rule_slot_minutes INTEGER;
+  v_rule_is_closed BOOLEAN;
 BEGIN
   SELECT r.business_id, r.reservation_start, r.reservation_end, r.table_count_used,
          r.reservation_date, r.reservation_time, r.duration_minutes
@@ -153,6 +156,30 @@ BEGIN
       RETURN QUERY SELECT true, ''::text;
       RETURN;
     END IF;
+  END IF;
+
+  -- Gün bazlı kapasite kuralı varsa onu kullan (değilse businesses tablosuna düş).
+  v_rule_capacity := NULL;
+  v_rule_slot_minutes := NULL;
+  v_rule_is_closed := false;
+
+  IF v_date IS NOT NULL THEN
+    SELECT
+      r.capacity_tables,
+      r.slot_duration_minutes,
+      COALESCE(r.is_closed, false)
+    INTO
+      v_rule_capacity,
+      v_rule_slot_minutes,
+      v_rule_is_closed
+    FROM business_capacity_rules r
+    WHERE r.business_id = v_business_id
+      AND r.day_of_week = EXTRACT(DOW FROM v_date)::INTEGER;
+  END IF;
+
+  IF v_rule_is_closed THEN
+    RETURN QUERY SELECT false, 'Bu gün için rezervasyonlar kapalı.'::text;
+    RETURN;
   END IF;
 
   SELECT b.capacity_tables INTO v_capacity_tables
@@ -198,6 +225,8 @@ DECLARE
   v_end TIMESTAMPTZ;
   v_used INTEGER;
   v_cap INTEGER;
+  v_rule_cap INTEGER;
+  v_rule_closed BOOLEAN;
   v_bid UUID;
 BEGIN
   v_start := (p_date + p_time) AT TIME ZONE 'Europe/Istanbul';
@@ -205,7 +234,27 @@ BEGIN
 
   FOR v_bid IN SELECT id FROM businesses WHERE is_active = true
   LOOP
+    -- Gün bazlı kural: varsa kapasiteyi override et / günü kapat.
+    v_rule_cap := NULL;
+    v_rule_closed := false;
+    SELECT
+      r.capacity_tables,
+      COALESCE(r.is_closed, false)
+    INTO
+      v_rule_cap,
+      v_rule_closed
+    FROM business_capacity_rules r
+    WHERE r.business_id = v_bid
+      AND r.day_of_week = EXTRACT(DOW FROM p_date)::INTEGER;
+
+    IF v_rule_closed THEN
+      CONTINUE;
+    END IF;
+
     SELECT capacity_tables INTO v_cap FROM businesses WHERE id = v_bid;
+    IF v_rule_cap IS NOT NULL THEN
+      v_cap := v_rule_cap;
+    END IF;
     IF v_cap IS NULL OR v_cap <= 0 THEN
       RETURN NEXT v_bid;
       CONTINUE;

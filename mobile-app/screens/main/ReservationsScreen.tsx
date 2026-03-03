@@ -60,6 +60,8 @@ export default function ReservationsScreen({ popToRootRef }: ReservationsScreenP
     for (const r of list) {
       if (r.status === 'cancelled') {
         can.push(r);
+      } else if (r.status === 'completed' || r.status === 'no_show') {
+        pa.push(r);
       } else if (isUpcoming(r.reservation_date, r.reservation_time)) {
         up.push(r);
       } else {
