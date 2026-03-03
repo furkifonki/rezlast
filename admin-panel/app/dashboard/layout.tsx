@@ -74,7 +74,8 @@ export default function DashboardLayout({
     { href: '/dashboard/hizmetler', label: 'Hizmetler' },
     { href: '/dashboard/loyalty', label: 'Puan İşlemleri' },
     { href: '/dashboard/capacity', label: 'Kapasite' },
-    { href: '/dashboard/notifications', label: 'Bildirim gönder', icon: 'bell' as const },
+    { href: '/dashboard/notification-center', label: 'Bildirimler', icon: 'bell' as const },
+    { href: '/dashboard/notifications', label: 'Bildirim gönder' },
   ];
 
   return (

@@ -38,14 +38,18 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
 export async function savePushTokenToSupabase(userId: string, expoPushToken: string): Promise<void> {
   if (!supabase) return;
   const platform = Platform.OS;
-  await supabase.from('push_tokens').upsert(
-    {
-      user_id: userId,
-      app_type: 'owner',
-      expo_push_token: expoPushToken,
-      platform,
-      updated_at: new Date().toISOString(),
-    },
+  const payload = {
+    user_id: userId,
+    expo_push_token: expoPushToken,
+    platform,
+    updated_at: new Date().toISOString(),
+  };
+  // Önce app_type ile dene (push_tokens-add-app-type migration çalıştıysa iki uygulama ayrı satırda kalır)
+  const { error: errWithType } = await supabase.from('push_tokens').upsert(
+    { ...payload, app_type: 'owner' },
     { onConflict: 'user_id,app_type' }
   );
+  if (!errWithType) return;
+  // Migration yoksa app_type sütunu/constraint yok; sadece user_id ile kaydet (son açılan uygulama kazanır)
+  await supabase.from('push_tokens').upsert(payload, { onConflict: 'user_id' });
 }

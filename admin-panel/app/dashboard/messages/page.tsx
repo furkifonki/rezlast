@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 
 type Conversation = {
@@ -54,6 +55,7 @@ const CONV_SELECT = `
 `;
 
 export default function MessagesPage() {
+  const searchParams = useSearchParams();
   const [businessIds, setBusinessIds] = useState<string[]>([]);
   const [conversations, setConversations] = useState<ConversationWithMeta[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -153,6 +155,13 @@ export default function MessagesPage() {
     })();
     return () => { cancelled = true; };
   }, [loadConversations]);
+
+  const openConversationId = searchParams.get('conversation');
+  useEffect(() => {
+    if (openConversationId && conversations.some((c) => c.id === openConversationId)) {
+      setSelectedId(openConversationId);
+    }
+  }, [openConversationId, conversations]);
 
   useEffect(() => {
     if (!selectedId) {

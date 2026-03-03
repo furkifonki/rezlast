@@ -4,6 +4,17 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
+function corsHeaders(response: NextResponse) {
+  response.headers.set('Access-Control-Allow-Origin', '*');
+  response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  return response;
+}
+
+export async function OPTIONS() {
+  return corsHeaders(new NextResponse(null, { status: 204 }));
+}
+
 function getSupabaseWithAuth(request: NextRequest, response: NextResponse) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -24,27 +35,28 @@ function getSupabaseWithAuth(request: NextRequest, response: NextResponse) {
 }
 
 export async function POST(request: NextRequest) {
-  const response = NextResponse.json({});
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const resForAuth = NextResponse.json({});
+  corsHeaders(resForAuth);
   if (!supabaseUrl || !serviceKey) {
-    return NextResponse.json({ error: 'Sunucu yapılandırması eksik.' }, { status: 500 });
+    return corsHeaders(NextResponse.json({ error: 'Sunucu yapılandırması eksik.' }, { status: 500 }));
   }
-  const supabaseAuth = getSupabaseWithAuth(request, response);
+  const supabaseAuth = getSupabaseWithAuth(request, resForAuth);
   const { data: { user } } = await supabaseAuth.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: 'Oturum gerekli.' }, { status: 401 });
+    return corsHeaders(NextResponse.json({ error: 'Oturum gerekli.' }, { status: 401 }));
   }
   let body: { conversation_id?: string; sender_type?: string };
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Geçersiz istek.' }, { status: 400 });
+    return corsHeaders(NextResponse.json({ error: 'Geçersiz istek.' }, { status: 400 }));
   }
   const conversationId = typeof body.conversation_id === 'string' ? body.conversation_id.trim() : null;
   const senderType = body.sender_type === 'user' || body.sender_type === 'restaurant' ? body.sender_type : null;
   if (!conversationId || !senderType) {
-    return NextResponse.json({ error: 'conversation_id ve sender_type gerekli.' }, { status: 400 });
+    return corsHeaders(NextResponse.json({ error: 'conversation_id ve sender_type gerekli.' }, { status: 400 }));
   }
   const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
   const { data: conv } = await supabase
@@ -53,7 +65,7 @@ export async function POST(request: NextRequest) {
     .eq('id', conversationId)
     .single();
   if (!conv) {
-    return NextResponse.json({ error: 'Sohbet bulunamadı.' }, { status: 404 });
+    return corsHeaders(NextResponse.json({ error: 'Sohbet bulunamadı.' }, { status: 404 }));
   }
   let businessName = 'İşletme';
   const { data: bizName } = await supabase.from('businesses').select('name').eq('id', conv.restaurant_id).single();
@@ -91,7 +103,7 @@ export async function POST(request: NextRequest) {
         .eq('owner_id', biz.owner_id)
         .single();
       if (triggerRow && triggerRow.notify_messages === false) {
-        return NextResponse.json({ ok: true });
+        return corsHeaders(NextResponse.json({ ok: true }));
       }
       targetUserIds = [biz.owner_id];
     }
@@ -113,13 +125,7 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify(list.map((to: string) => ({ to, title, body: bodyText, sound: 'default' }))),
       });
     }
-    await supabase.from('app_notifications').insert({
-      user_id: uid,
-      type: 'new_message',
-      title,
-      body: bodyText,
-      data_conversation_id: conversationId,
-    });
+    // app_notifications kaydı DB trigger (trg_app_notify_new_message) ile ekleniyor; burada tekrar eklenmez.
   }
-  return NextResponse.json({ ok: true });
+  return corsHeaders(NextResponse.json({ ok: true }));
 }

@@ -4,6 +4,17 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
+function corsHeaders(response: NextResponse) {
+  response.headers.set('Access-Control-Allow-Origin', '*');
+  response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  return response;
+}
+
+export async function OPTIONS() {
+  return corsHeaders(new NextResponse(null, { status: 204 }));
+}
+
 function getSupabaseWithAuth(request: NextRequest, response: NextResponse) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -24,32 +35,33 @@ function getSupabaseWithAuth(request: NextRequest, response: NextResponse) {
 }
 
 export async function POST(request: NextRequest) {
-  const response = NextResponse.json({});
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const resForAuth = NextResponse.json({});
+  corsHeaders(resForAuth);
   if (!supabaseUrl || !serviceKey) {
-    return NextResponse.json({ error: 'Sunucu yapılandırması eksik.' }, { status: 500 });
+    return corsHeaders(NextResponse.json({ error: 'Sunucu yapılandırması eksik.' }, { status: 500 }));
   }
-  const supabaseAuth = getSupabaseWithAuth(request, response);
+  const supabaseAuth = getSupabaseWithAuth(request, resForAuth);
   const { data: { user } } = await supabaseAuth.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: 'Oturum gerekli.' }, { status: 401 });
+    return corsHeaders(NextResponse.json({ error: 'Oturum gerekli.' }, { status: 401 }));
   }
   let body: { business_id?: string; reservation_id?: string };
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Geçersiz istek.' }, { status: 400 });
+    return corsHeaders(NextResponse.json({ error: 'Geçersiz istek.' }, { status: 400 }));
   }
   const businessId = typeof body.business_id === 'string' ? body.business_id.trim() : null;
   const reservationId = typeof body.reservation_id === 'string' ? body.reservation_id.trim() : null;
   if (!businessId) {
-    return NextResponse.json({ error: 'business_id gerekli.' }, { status: 400 });
+    return corsHeaders(NextResponse.json({ error: 'business_id gerekli.' }, { status: 400 }));
   }
   const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
   const { data: business } = await supabase.from('businesses').select('id, name, owner_id').eq('id', businessId).single();
   if (!business?.owner_id) {
-    return NextResponse.json({ error: 'İşletme bulunamadı.' }, { status: 404 });
+    return corsHeaders(NextResponse.json({ error: 'İşletme bulunamadı.' }, { status: 404 }));
   }
   const { data: triggerRow } = await supabase
     .from('push_trigger_settings')
@@ -57,7 +69,7 @@ export async function POST(request: NextRequest) {
     .eq('owner_id', business.owner_id)
     .single();
   if (triggerRow && triggerRow.notify_reservations === false) {
-    return NextResponse.json({ ok: true });
+    return corsHeaders(NextResponse.json({ ok: true }));
   }
   const { data: tokens } = await supabase
     .from('push_tokens')
@@ -74,12 +86,6 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(list.map((to: string) => ({ to, title, body: bodyText, sound: 'default' }))),
     });
   }
-  await supabase.from('app_notifications').insert({
-    user_id: business.owner_id,
-    type: 'reservation_created',
-    title,
-    body: bodyText,
-    data_reservation_id: reservationId || null,
-  });
-  return NextResponse.json({ ok: true });
+  // app_notifications kaydı DB trigger (trg_app_notify_reservation_created) ile ekleniyor; burada tekrar eklenmez.
+  return corsHeaders(NextResponse.json({ ok: true }));
 }
