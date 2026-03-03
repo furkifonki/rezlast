@@ -44,12 +44,10 @@ export async function savePushTokenToSupabase(userId: string, expoPushToken: str
     platform,
     updated_at: new Date().toISOString(),
   };
-  // Önce app_type ile dene (push_tokens-add-app-type migration çalıştıysa iki uygulama ayrı satırda kalır)
   const { error: errWithType } = await supabase.from('push_tokens').upsert(
     { ...payload, app_type: 'owner' },
     { onConflict: 'user_id,app_type' }
   );
   if (!errWithType) return;
-  // Migration yoksa app_type sütunu/constraint yok; sadece user_id ile kaydet (son açılan uygulama kazanır)
   await supabase.from('push_tokens').upsert(payload, { onConflict: 'user_id' });
 }
