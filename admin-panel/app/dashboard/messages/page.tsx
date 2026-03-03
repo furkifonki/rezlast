@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { Suspense, useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 
@@ -54,7 +54,7 @@ const CONV_SELECT = `
   )
 `;
 
-export default function MessagesPage() {
+function MessagesPageContent() {
   const searchParams = useSearchParams();
   const [businessIds, setBusinessIds] = useState<string[]>([]);
   const [conversations, setConversations] = useState<ConversationWithMeta[]>([]);
@@ -380,5 +380,13 @@ export default function MessagesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function MessagesPage() {
+  return (
+    <Suspense fallback={<div className="p-4 text-zinc-500">Yükleniyor...</div>}>
+      <MessagesPageContent />
+    </Suspense>
   );
 }
