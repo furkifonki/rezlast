@@ -9,7 +9,8 @@ function redirectError(request: NextRequest, message: string) {
 
 export async function POST(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const next = searchParams.get('next') ?? '/dashboard';
+  const rawNext = searchParams.get('next') ?? '/dashboard';
+  const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/dashboard';
   const formData = await request.formData();
   const email = (formData.get('email') as string)?.trim();
   const password = formData.get('password') as string;
@@ -53,19 +54,15 @@ export async function POST(request: NextRequest) {
     if (error) {
       const msg =
         error.message === 'fetch failed'
-          ? 'Supabase sunucusuna bağlanılamadı. İnternet bağlantınızı ve .env.local içindeki SUPABASE_URL / ANON_KEY değerlerini kontrol edin. Supabase projesi duraklatılmış olabilir.'
-          : error.message;
+          ? 'Sunucuya bağlanılamadı. Lütfen tekrar deneyin.'
+          : 'Giriş başarısız. E-posta veya şifrenizi kontrol edin.';
       return wantJson
         ? NextResponse.json({ error: msg }, { status: 401 })
         : redirectError(request, msg);
     }
   } catch (e) {
-    const msg =
-      e instanceof Error && e.message === 'fetch failed'
-        ? 'Supabase sunucusuna bağlanılamadı. İnternet ve .env.local ayarlarını kontrol edin.'
-        : e instanceof Error
-          ? e.message
-          : 'Beklenmeyen hata.';
+    console.error('Login error:', e);
+    const msg = 'Sunucu hatası. Lütfen tekrar deneyin.';
     return wantJson
       ? NextResponse.json({ error: msg }, { status: 500 })
       : redirectError(request, msg);

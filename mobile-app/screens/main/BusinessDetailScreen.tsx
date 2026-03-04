@@ -125,7 +125,14 @@ export default function BusinessDetailScreen({ businessId, onBack, onReservation
     if (business?.email) Linking.openURL(`mailto:${business.email}`);
   };
   const openWebsite = () => {
-    if (business?.website) Linking.openURL(business.website.startsWith('http') ? business.website : `https://${business.website}`);
+    if (!business?.website) return;
+    const url = business.website.startsWith('http') ? business.website : `https://${business.website}`;
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+        Linking.openURL(url);
+      }
+    } catch { /* geçersiz URL */ }
   };
 
   const onReservation = () => {

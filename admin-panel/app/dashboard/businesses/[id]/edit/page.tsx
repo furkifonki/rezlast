@@ -254,14 +254,19 @@ function EditBusinessContent() {
   const handlePhotoFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setError('Lütfen bir resim dosyası seçin (JPEG, PNG, WebP vb.).');
+    const ALLOWED_EXTS = ['jpg', 'jpeg', 'png', 'webp'];
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    if (!ALLOWED_EXTS.includes(ext)) {
+      setError('Sadece JPG, PNG ve WebP dosyaları yüklenebilir.');
+      return;
+    }
+    if (!file.type.startsWith('image/') || file.type === 'image/svg+xml') {
+      setError('Geçersiz dosya türü.');
       return;
     }
     clearFeedback();
     setSaving(true);
     const supabase = createClient();
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
     const safeName = `${id}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
 
     const { error: uploadErr } = await supabase.storage.from(BUSINESS_PHOTOS_BUCKET).upload(safeName, file, {
@@ -270,7 +275,8 @@ function EditBusinessContent() {
     });
     if (uploadErr) {
       setSaving(false);
-      setError(uploadErr.message);
+      console.error('Photo upload error:', uploadErr.message);
+      setError('Fotoğraf yüklenirken hata oluştu.');
       e.target.value = '';
       return;
     }

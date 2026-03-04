@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { rateLimit } from '@/lib/rateLimit';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 const BATCH_SIZE = 100;
@@ -8,10 +9,7 @@ export async function POST(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!supabaseUrl || !supabaseKey) {
-    return NextResponse.json(
-      { error: 'Supabase yapılandırması eksik.' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Sunucu hatası.' }, { status: 500 });
   }
 
   const response = NextResponse.json({});
@@ -31,6 +29,20 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: 'Oturum gerekli.' }, { status: 401 });
+  }
+
+  const { data: ownerCheck } = await supabase
+    .from('businesses')
+    .select('id')
+    .eq('owner_id', user.id)
+    .limit(1);
+  if (!ownerCheck?.length) {
+    return NextResponse.json({ error: 'Bu işlem için işletme sahibi olmalısınız.' }, { status: 403 });
+  }
+
+  const rl = rateLimit(`send-push:${user.id}`, 5, 60_000);
+  if (!rl.ok) {
+    return NextResponse.json({ error: 'Çok fazla istek. Lütfen bekleyin.' }, { status: 429 });
   }
 
   let body: { title?: string; body?: string; mode?: string; user_id?: string };
@@ -57,10 +69,8 @@ export async function POST(request: NextRequest) {
   }
   const { data: tokens, error: fetchErr } = await query;
   if (fetchErr) {
-    return NextResponse.json(
-      { error: fetchErr.message || 'Token listesi alınamadı.' },
-      { status: 500 }
-    );
+    console.error('send-push token fetch error:', fetchErr.message);
+    return NextResponse.json({ error: 'Token listesi alınamadı.' }, { status: 500 });
   }
   const list = (tokens ?? [])
     .map((t: { expo_push_token: string }) => t.expo_push_token)

@@ -35,7 +35,7 @@ export default function LoginForm({ initialError }: Props) {
         setLoading(false);
         return;
       }
-      if (data.redirect) {
+      if (data.redirect && typeof data.redirect === 'string' && data.redirect.startsWith('/') && !data.redirect.startsWith('//')) {
         window.location.href = data.redirect;
         return;
       }

@@ -1,19 +1,10 @@
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
+import { rateLimit } from '@/lib/rateLimit';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
-
-function corsHeaders(response: NextResponse) {
-  response.headers.set('Access-Control-Allow-Origin', '*');
-  response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  return response;
-}
-
-export async function OPTIONS() {
-  return corsHeaders(new NextResponse(null, { status: 204 }));
-}
 
 function getSupabaseWithAuth(request: NextRequest, response: NextResponse) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -34,29 +25,39 @@ function getSupabaseWithAuth(request: NextRequest, response: NextResponse) {
   });
 }
 
+export async function OPTIONS(request: NextRequest) {
+  return corsOptions(request);
+}
+
 export async function POST(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const resForAuth = NextResponse.json({});
-  corsHeaders(resForAuth);
+  setCorsHeaders(resForAuth, request);
   if (!supabaseUrl || !serviceKey) {
-    return corsHeaders(NextResponse.json({ error: 'Sunucu yapılandırması eksik.' }, { status: 500 }));
+    return setCorsHeaders(NextResponse.json({ error: 'Sunucu hatası.' }, { status: 500 }), request);
   }
   const supabaseAuth = getSupabaseWithAuth(request, resForAuth);
   const { data: { user } } = await supabaseAuth.auth.getUser();
   if (!user) {
-    return corsHeaders(NextResponse.json({ error: 'Oturum gerekli.' }, { status: 401 }));
+    return setCorsHeaders(NextResponse.json({ error: 'Oturum gerekli.' }, { status: 401 }), request);
   }
+
+  const rl = rateLimit(`notify-msg:${user.id}`, 20, 60_000);
+  if (!rl.ok) {
+    return setCorsHeaders(NextResponse.json({ error: 'Çok fazla istek.' }, { status: 429 }), request);
+  }
+
   let body: { conversation_id?: string; sender_type?: string };
   try {
     body = await request.json();
   } catch {
-    return corsHeaders(NextResponse.json({ error: 'Geçersiz istek.' }, { status: 400 }));
+    return setCorsHeaders(NextResponse.json({ error: 'Geçersiz istek.' }, { status: 400 }), request);
   }
   const conversationId = typeof body.conversation_id === 'string' ? body.conversation_id.trim() : null;
   const senderType = body.sender_type === 'user' || body.sender_type === 'restaurant' ? body.sender_type : null;
   if (!conversationId || !senderType) {
-    return corsHeaders(NextResponse.json({ error: 'conversation_id ve sender_type gerekli.' }, { status: 400 }));
+    return setCorsHeaders(NextResponse.json({ error: 'conversation_id ve sender_type gerekli.' }, { status: 400 }), request);
   }
   const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
   const { data: conv } = await supabase
@@ -65,8 +66,28 @@ export async function POST(request: NextRequest) {
     .eq('id', conversationId)
     .single();
   if (!conv) {
-    return corsHeaders(NextResponse.json({ error: 'Sohbet bulunamadı.' }, { status: 404 }));
+    return setCorsHeaders(NextResponse.json({ error: 'Sohbet bulunamadı.' }, { status: 404 }), request);
   }
+
+  const isCustomer = conv.user_id === user.id;
+  let isOwnerOrStaff = false;
+  if (!isCustomer) {
+    const { data: biz } = await supabase.from('businesses').select('owner_id').eq('id', conv.restaurant_id).single();
+    if (biz?.owner_id === user.id) isOwnerOrStaff = true;
+    if (!isOwnerOrStaff) {
+      const { data: staffRow } = await supabase
+        .from('restaurant_staff')
+        .select('id')
+        .eq('restaurant_id', conv.restaurant_id)
+        .eq('user_id', user.id)
+        .limit(1);
+      if (staffRow?.length) isOwnerOrStaff = true;
+    }
+  }
+  if (!isCustomer && !isOwnerOrStaff) {
+    return setCorsHeaders(NextResponse.json({ error: 'Bu sohbete erişim yetkiniz yok.' }, { status: 403 }), request);
+  }
+
   let businessName = 'İşletme';
   const { data: bizName } = await supabase.from('businesses').select('name').eq('id', conv.restaurant_id).single();
   if (bizName?.name) businessName = bizName.name;
@@ -103,7 +124,7 @@ export async function POST(request: NextRequest) {
         .eq('owner_id', biz.owner_id)
         .single();
       if (triggerRow && triggerRow.notify_messages === false) {
-        return corsHeaders(NextResponse.json({ ok: true }));
+        return setCorsHeaders(NextResponse.json({ ok: true }), request);
       }
       targetUserIds = [biz.owner_id];
     }
@@ -127,7 +148,6 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify(list.map((to: string) => ({ to, title, body: bodyText, sound: 'default' }))),
       });
     }
-    // app_notifications kaydı DB trigger (trg_app_notify_new_message) ile ekleniyor; burada tekrar eklenmez.
   }
-  return corsHeaders(NextResponse.json({ ok: true }));
+  return setCorsHeaders(NextResponse.json({ ok: true }), request);
 }

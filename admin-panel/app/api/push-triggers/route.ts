@@ -34,10 +34,8 @@ export async function GET(request: NextRequest) {
     .single();
 
   if (error && error.code !== 'PGRST116') {
-    return NextResponse.json(
-      { error: error.message || 'Ayarlar okunamadı. push_trigger_settings tablosu mevcut mu?' },
-      { status: 500 }
-    );
+    console.error('push-triggers read error:', error.message);
+    return NextResponse.json({ error: 'Ayarlar okunamadı.' }, { status: 500 });
   }
 
   return NextResponse.json(
@@ -108,10 +106,8 @@ export async function POST(request: NextRequest) {
     );
 
   if (upsertErr) {
-    return NextResponse.json(
-      { error: upsertErr.message || 'Ayarlar kaydedilemedi.' },
-      { status: 500 }
-    );
+    console.error('push-triggers upsert error:', upsertErr.message);
+    return NextResponse.json({ error: 'Ayarlar kaydedilemedi.' }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true, enabled, trigger_30min, trigger_1day, notify_messages, notify_reservations });

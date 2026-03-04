@@ -23,9 +23,9 @@ function tomorrowIstanbul(): string {
 }
 
 export async function GET(request: NextRequest) {
-  const secret = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || request.nextUrl.searchParams.get('secret');
+  const secret = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && secret !== cronSecret) {
+  if (!cronSecret || secret !== cronSecret) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -33,10 +33,8 @@ export async function GET(request: NextRequest) {
   try {
     supabase = createServiceRoleClient();
   } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : 'Service role client oluşturulamadı.' },
-      { status: 500 }
-    );
+    console.error('Cron service role error:', e);
+    return NextResponse.json({ error: 'Sunucu hatası.' }, { status: 500 });
   }
 
   const now = new Date();

@@ -1,19 +1,10 @@
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
+import { setCorsHeaders, corsOptions } from '@/lib/cors';
+import { rateLimit } from '@/lib/rateLimit';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
-
-function corsHeaders(response: NextResponse) {
-  response.headers.set('Access-Control-Allow-Origin', '*');
-  response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  return response;
-}
-
-export async function OPTIONS() {
-  return corsHeaders(new NextResponse(null, { status: 204 }));
-}
 
 function getSupabaseWithAuth(request: NextRequest, response: NextResponse) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -34,34 +25,43 @@ function getSupabaseWithAuth(request: NextRequest, response: NextResponse) {
   });
 }
 
+export async function OPTIONS(request: NextRequest) {
+  return corsOptions(request);
+}
+
 export async function POST(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const resForAuth = NextResponse.json({});
-  corsHeaders(resForAuth);
+  setCorsHeaders(resForAuth, request);
   if (!supabaseUrl || !serviceKey) {
-    return corsHeaders(NextResponse.json({ error: 'Sunucu yapılandırması eksik.' }, { status: 500 }));
+    return setCorsHeaders(NextResponse.json({ error: 'Sunucu hatası.' }, { status: 500 }), request);
   }
   const supabaseAuth = getSupabaseWithAuth(request, resForAuth);
   const { data: { user } } = await supabaseAuth.auth.getUser();
   if (!user) {
-    return corsHeaders(NextResponse.json({ error: 'Oturum gerekli.' }, { status: 401 }));
+    return setCorsHeaders(NextResponse.json({ error: 'Oturum gerekli.' }, { status: 401 }), request);
   }
+
+  const rl = rateLimit(`notify-owner:${user.id}`, 10, 60_000);
+  if (!rl.ok) {
+    return setCorsHeaders(NextResponse.json({ error: 'Çok fazla istek.' }, { status: 429 }), request);
+  }
+
   let body: { business_id?: string; reservation_id?: string };
   try {
     body = await request.json();
   } catch {
-    return corsHeaders(NextResponse.json({ error: 'Geçersiz istek.' }, { status: 400 }));
+    return setCorsHeaders(NextResponse.json({ error: 'Geçersiz istek.' }, { status: 400 }), request);
   }
   const businessId = typeof body.business_id === 'string' ? body.business_id.trim() : null;
-  const reservationId = typeof body.reservation_id === 'string' ? body.reservation_id.trim() : null;
   if (!businessId) {
-    return corsHeaders(NextResponse.json({ error: 'business_id gerekli.' }, { status: 400 }));
+    return setCorsHeaders(NextResponse.json({ error: 'business_id gerekli.' }, { status: 400 }), request);
   }
   const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
   const { data: business } = await supabase.from('businesses').select('id, name, owner_id').eq('id', businessId).single();
   if (!business?.owner_id) {
-    return corsHeaders(NextResponse.json({ error: 'İşletme bulunamadı.' }, { status: 404 }));
+    return setCorsHeaders(NextResponse.json({ error: 'İşletme bulunamadı.' }, { status: 404 }), request);
   }
   const { data: triggerRow } = await supabase
     .from('push_trigger_settings')
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     .eq('owner_id', business.owner_id)
     .single();
   if (triggerRow && triggerRow.notify_reservations === false) {
-    return corsHeaders(NextResponse.json({ ok: true }));
+    return setCorsHeaders(NextResponse.json({ ok: true }), request);
   }
   const { data: tokens } = await supabase
     .from('push_tokens')
@@ -87,6 +87,5 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(list.map((to: string) => ({ to, title, body: bodyText, sound: 'default' }))),
     });
   }
-  // app_notifications kaydı DB trigger (trg_app_notify_reservation_created) ile ekleniyor; burada tekrar eklenmez.
-  return corsHeaders(NextResponse.json({ ok: true }));
+  return setCorsHeaders(NextResponse.json({ ok: true }), request);
 }

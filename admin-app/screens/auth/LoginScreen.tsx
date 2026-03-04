@@ -25,11 +25,20 @@ export default function LoginScreen({ navigation }: Props) {
     }
     setLoading(true);
     const { error: err } = await supabase?.auth.signInWithPassword({ email: email.trim(), password }) ?? { error: new Error('Supabase yok') };
-    setLoading(false);
     if (err) {
-      setError(err.message || 'Giriş başarısız.');
+      setLoading(false);
+      setError('Giriş başarısız. E-posta veya şifrenizi kontrol edin.');
       return;
     }
+    const { data: biz } = await supabase?.from('businesses').select('id').eq('owner_id', (await supabase?.auth.getUser())?.data?.user?.id ?? '').limit(1) ?? { data: null };
+    const { data: staff } = await supabase?.from('restaurant_staff').select('id').eq('user_id', (await supabase?.auth.getUser())?.data?.user?.id ?? '').limit(1) ?? { data: null };
+    if (!biz?.length && !staff?.length) {
+      await supabase?.auth.signOut();
+      setLoading(false);
+      setError('Bu uygulama sadece işletme sahipleri içindir.');
+      return;
+    }
+    setLoading(false);
   };
 
   return (

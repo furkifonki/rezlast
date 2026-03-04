@@ -26,7 +26,7 @@ async function ensureAndroidChannel() {
 
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
   if (!Device.isDevice) {
-    console.warn('[PushAdmin] Fiziksel cihaz değil, push token alınamaz.');
+    if (__DEV__) console.warn('[PushAdmin] Fiziksel cihaz değil.');
     return null;
   }
 
@@ -38,29 +38,29 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
     const { status } = await Notifications.requestPermissionsAsync();
     finalStatus = status;
     if (finalStatus !== 'granted') {
-      console.warn('[PushAdmin] Bildirim izni reddedildi.');
+      if (__DEV__) console.warn('[PushAdmin] Bildirim izni reddedildi.');
       return null;
     }
   }
 
   if (!projectId) {
-    console.warn('[PushAdmin] projectId bulunamadı (app.json extra.eas.projectId).');
+    if (__DEV__) console.warn('[PushAdmin] projectId bulunamadı.');
     return null;
   }
   try {
     const tokenResult = await Notifications.getExpoPushTokenAsync({ projectId });
     const token = tokenResult?.data ?? null;
-    console.log('[PushAdmin] Expo push token:', token);
+    if (__DEV__) console.log('[PushAdmin] Expo push token:', token);
     return token;
   } catch (e) {
-    console.error('[PushAdmin] Token alınamadı:', e);
+    if (__DEV__) console.error('[PushAdmin] Token alınamadı:', e);
     return null;
   }
 }
 
 export async function savePushTokenToSupabase(userId: string, expoPushToken: string): Promise<void> {
   if (!supabase) {
-    console.warn('[PushAdmin] Supabase client null, token kaydedilemiyor.');
+    if (__DEV__) console.warn('[PushAdmin] Supabase client null.');
     return;
   }
   const platform = Platform.OS;
@@ -76,15 +76,15 @@ export async function savePushTokenToSupabase(userId: string, expoPushToken: str
     { onConflict: 'user_id,app_type' }
   );
   if (!errWithType) {
-    console.log('[PushAdmin] Token kaydedildi (app_type=owner).');
+    if (__DEV__) console.log('[PushAdmin] Token kaydedildi (app_type=owner).');
     return;
   }
 
-  console.warn('[PushAdmin] app_type ile kayıt başarısız, fallback deneniyor:', errWithType.message);
+  if (__DEV__) console.warn('[PushAdmin] app_type ile kayıt başarısız, fallback deneniyor.');
   const { error: errFallback } = await supabase.from('push_tokens').upsert(payload, { onConflict: 'user_id' });
   if (errFallback) {
-    console.error('[PushAdmin] Fallback kayıt da başarısız:', errFallback.message);
+    if (__DEV__) console.error('[PushAdmin] Fallback kayıt da başarısız.');
   } else {
-    console.log('[PushAdmin] Token fallback ile kaydedildi.');
+    if (__DEV__) console.log('[PushAdmin] Token fallback ile kaydedildi.');
   }
 }

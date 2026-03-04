@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
+import { rateLimit } from '@/lib/rateLimit';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
@@ -28,13 +29,19 @@ export async function POST(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceKey) {
-    return NextResponse.json({ error: 'Sunucu yapılandırması eksik.' }, { status: 500 });
+    return NextResponse.json({ error: 'Sunucu hatası.' }, { status: 500 });
   }
   const supabaseAuth = getSupabaseWithAuth(request, response);
   const { data: { user } } = await supabaseAuth.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: 'Oturum gerekli.' }, { status: 401 });
   }
+
+  const rl = rateLimit(`notify-cust:${user.id}`, 10, 60_000);
+  if (!rl.ok) {
+    return NextResponse.json({ error: 'Çok fazla istek.' }, { status: 429 });
+  }
+
   let body: { reservation_id?: string };
   try {
     body = await request.json();
@@ -48,12 +55,29 @@ export async function POST(request: NextRequest) {
   const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
   const { data: res } = await supabase
     .from('reservations')
-    .select('id, user_id, businesses ( name )')
+    .select('id, user_id, business_id, businesses ( name )')
     .eq('id', reservationId)
     .single();
   if (!res?.user_id) {
     return NextResponse.json({ error: 'Rezervasyon bulunamadı.' }, { status: 404 });
   }
+
+  const { data: biz } = await supabase.from('businesses').select('owner_id').eq('id', res.business_id).single();
+  const isOwner = biz?.owner_id === user.id;
+  let isStaff = false;
+  if (!isOwner) {
+    const { data: staffRow } = await supabase
+      .from('restaurant_staff')
+      .select('id')
+      .eq('restaurant_id', res.business_id)
+      .eq('user_id', user.id)
+      .limit(1);
+    isStaff = !!staffRow?.length;
+  }
+  if (!isOwner && !isStaff) {
+    return NextResponse.json({ error: 'Bu işlem için yetkiniz yok.' }, { status: 403 });
+  }
+
   const businessName = (res.businesses as { name?: string } | null)?.name ?? 'İşletme';
   const { data: tokens } = await supabase
     .from('push_tokens')
