@@ -145,9 +145,17 @@ export default function AppNavigator(_props: Props) {
     if (!userId) return;
     let cancelled = false;
     (async () => {
-      const token = await registerForPushNotificationsAsync();
-      if (cancelled || !token) return;
-      await savePushTokenToSupabase(userId, token);
+      try {
+        const token = await registerForPushNotificationsAsync();
+        if (cancelled) return;
+        if (!token) {
+          console.warn('[AppNav] Push token alınamadı.');
+          return;
+        }
+        await savePushTokenToSupabase(userId, token);
+      } catch (e) {
+        console.error('[AppNav] Push kayıt hatası:', e);
+      }
     })();
     return () => { cancelled = true; };
   }, [session?.user?.id]);

@@ -111,11 +111,13 @@ export async function POST(request: NextRequest) {
     if (staff) targetUserIds = [...new Set([...targetUserIds, ...(staff as { user_id: string }[]).map((s) => s.user_id)])];
   }
 
+  const targetAppType = senderType === 'user' ? 'owner' : 'customer';
   for (const uid of targetUserIds) {
     const { data: tokens } = await supabase
       .from('push_tokens')
       .select('expo_push_token')
       .eq('user_id', uid)
+      .eq('app_type', targetAppType)
       .not('expo_push_token', 'is', null);
     const list = (tokens ?? []).map((t: { expo_push_token: string }) => t.expo_push_token).filter(Boolean);
     if (list.length > 0) {

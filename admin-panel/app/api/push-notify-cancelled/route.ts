@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
     .from('push_tokens')
     .select('expo_push_token')
     .eq('user_id', res.user_id)
+    .eq('app_type', 'customer')
     .not('expo_push_token', 'is', null);
   const list = (tokens ?? []).map((t: { expo_push_token: string }) => t.expo_push_token).filter(Boolean);
   const title = 'Rezervasyon iptal edildi';

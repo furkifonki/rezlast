@@ -6,7 +6,6 @@ import { supabase } from './supabase';
 
 const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
 
-// Foreground'ta bildirim göster (opsiyonel)
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -15,8 +14,20 @@ Notifications.setNotificationHandler({
   }),
 });
 
+async function ensureAndroidChannel() {
+  if (Platform.OS !== 'android') return;
+  await Notifications.setNotificationChannelAsync('default', {
+    name: 'Varsayılan',
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 250, 250, 250],
+    sound: 'default',
+  });
+}
+
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
   if (!Device.isDevice) return null;
+
+  await ensureAndroidChannel();
 
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;

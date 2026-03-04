@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
   let query = supabase
     .from('push_tokens')
     .select('expo_push_token')
+    .eq('app_type', 'customer')
     .not('expo_push_token', 'is', null);
   if (mode === 'single' && targetUserId) {
     query = query.eq('user_id', targetUserId);
