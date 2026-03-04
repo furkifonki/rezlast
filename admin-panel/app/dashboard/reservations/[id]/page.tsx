@@ -173,6 +173,11 @@ export default function ReservationDetailPage() {
       setReservation((prev) =>
         prev ? { ...prev, status, confirmed_at: payload.confirmed_at as string } : null
       );
+      fetch('/api/push-notify-customer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reservation_id: id }),
+      }).catch(() => {});
       return;
     }
     if (status === 'cancelled') {
@@ -191,6 +196,11 @@ export default function ReservationDetailPage() {
       setReservation((prev) =>
         prev ? { ...prev, status, cancelled_at: payload.cancelled_at as string } : null
       );
+      fetch('/api/push-notify-cancelled', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reservation_id: id }),
+      }).catch(() => {});
       return;
     }
     setActionLoading(true);

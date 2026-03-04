@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
       .from('push_tokens')
       .select('expo_push_token')
       .eq('user_id', uid)
-      .eq('app_type', targetAppType)
+      .or(`app_type.eq.${targetAppType},app_type.is.null`)
       .not('expo_push_token', 'is', null);
     const list = (tokens ?? []).map((t: { expo_push_token: string }) => t.expo_push_token).filter(Boolean);
     if (list.length > 0) {

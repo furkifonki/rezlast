@@ -200,6 +200,19 @@ function ReservationsContent() {
       return;
     }
     setReservations((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+    if (status === 'confirmed') {
+      fetch('/api/push-notify-customer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reservation_id: id }),
+      }).catch(() => {});
+    } else if (status === 'cancelled') {
+      fetch('/api/push-notify-cancelled', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reservation_id: id }),
+      }).catch(() => {});
+    }
   };
 
   return (
