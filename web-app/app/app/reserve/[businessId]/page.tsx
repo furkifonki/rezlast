@@ -84,6 +84,7 @@ export default function ReservePage() {
     loadSlotsForDate();
   }, [reservationDate, loadSlotsForDate]);
 
+  const availableDates = getNextDays(14);
   const slots = (availableSlotsForDate && availableSlotsForDate.length > 0) ? availableSlotsForDate : FALLBACK_TIMES;
   const noSlots = reservationDate && availableSlotsForDate !== null && availableSlotsForDate.length === 0;
   const guestCountOptions = Array.from({ length: 12 }, (_, i) => i + 1);
