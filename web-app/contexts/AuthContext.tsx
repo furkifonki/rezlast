@@ -26,13 +26,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!supabase) {
+    const client = supabase;
+    if (!client) {
       setLoading(false);
       return;
     }
-    supabase.auth.getUser().then(({ data: { user: u } }) => {
+    client.auth.getUser().then(({ data: { user: u } }) => {
       if (u) {
-        supabase.auth.getSession().then(({ data: { session: s } }) => {
+        client.auth.getSession().then(({ data: { session: s } }) => {
           setSession(s);
           setLoading(false);
         });
@@ -41,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       }
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
     return () => subscription.unsubscribe();
