@@ -19,10 +19,14 @@ type Props = {
 export default function ForgotPasswordScreen({ navigation }: Props) {
   const toast = useToast();
   const [email, setEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [done, setDone] = useState(false);
 
-  const handleSubmit = async () => {
+  const handleSendCode = async () => {
     const e = email.trim();
     if (!e) {
       toast.error('E-posta adresi girin.');
@@ -33,15 +37,47 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
       return;
     }
     setLoading(true);
-    const appUrl = process.env.EXPO_PUBLIC_APP_URL;
-    const redirectTo = appUrl ? `${appUrl.replace(/\/$/, '')}/reset-password` : undefined;
-    const { error } = await supabase.auth.resetPasswordForEmail(e, { redirectTo });
+    const { error } = await supabase.auth.resetPasswordForEmail(e);
     setLoading(false);
     if (error) {
       toast.error(error.message);
       return;
     }
     setSent(true);
+  };
+
+  const handleVerifyAndReset = async () => {
+    const code = otpCode.trim().replace(/\s/g, '');
+    if (!code || code.length !== 8) {
+      toast.error('8 haneli doğrulama kodunu girin.');
+      return;
+    }
+    if (password.length < 6) {
+      toast.error('Şifre en az 6 karakter olmalı.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      toast.error('Şifreler eşleşmiyor.');
+      return;
+    }
+    if (!supabase) {
+      toast.error('Bağlantı yapılandırılmamış.');
+      return;
+    }
+    setLoading(true);
+    const { error: verifyErr } = await supabase.auth.verifyOtp({ email: email.trim(), token: code, type: 'recovery' });
+    if (verifyErr) {
+      setLoading(false);
+      toast.error(verifyErr.message || 'Kod geçersiz veya süresi dolmuş.');
+      return;
+    }
+    const { error: updateErr } = await supabase.auth.updateUser({ password });
+    setLoading(false);
+    if (updateErr) {
+      toast.error(updateErr.message);
+      return;
+    }
+    setDone(true);
   };
 
   return (
@@ -52,17 +88,38 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
       <View style={styles.card}>
         <Text style={styles.title}>Şifremi unuttum</Text>
         <Text style={styles.subtitle}>
-          E-posta adresinizi girin, size şifre sıfırlama linki gönderelim. Link web sayfasında açılacak; yeni şifreyi orada belirleyebilirsiniz.
+          {done ? 'Şifreniz güncellendi.' : sent ? 'E-postanıza gelen 8 haneli kodu ve yeni şifrenizi girin.' : 'E-posta adresinizi girin, size 8 haneli doğrulama kodu gönderelim.'}
         </Text>
-        {sent ? (
+        {done ? (
           <View style={styles.sentBlock}>
-            <Text style={styles.sentText}>
-              E-posta gönderildi. Gelen kutunuzu (ve spam klasörünü) kontrol edin.
-            </Text>
+            <Text style={styles.sentText}>Giriş sayfasına yönlendiriliyorsunuz.</Text>
             <TouchableOpacity style={styles.link} onPress={() => navigation.navigate('Login')}>
               <Text style={styles.linkText}>Giriş sayfasına dön</Text>
             </TouchableOpacity>
           </View>
+        ) : sent ? (
+          <>
+            <TextInput style={[styles.input, { backgroundColor: '#f1f5f9', color: '#64748b' }]} value={email} editable={false} />
+            <TextInput
+              style={[styles.input, { textAlign: 'center', letterSpacing: 8, fontSize: 20 }]}
+              placeholder="00000000"
+              placeholderTextColor="#94a3b8"
+              value={otpCode}
+              onChangeText={(t) => setOtpCode(t.replace(/\D/g, '').slice(0, 8))}
+              keyboardType="number-pad"
+              maxLength={8}
+              autoComplete="one-time-code"
+              editable={!loading}
+            />
+            <TextInput style={styles.input} placeholder="Yeni şifre (en az 6 karakter)" placeholderTextColor="#94a3b8" value={password} onChangeText={setPassword} secureTextEntry editable={!loading} />
+            <TextInput style={styles.input} placeholder="Şifre (tekrar)" placeholderTextColor="#94a3b8" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry editable={!loading} />
+            <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleVerifyAndReset} disabled={loading}>
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Şifreyi güncelle</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { setSent(false); setOtpCode(''); setPassword(''); setConfirmPassword(''); }} style={styles.link}>
+              <Text style={styles.linkText}>← Yeni kod iste</Text>
+            </TouchableOpacity>
+          </>
         ) : (
           <>
             <TextInput
@@ -75,24 +132,12 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
               keyboardType="email-address"
               editable={!loading}
             />
-            <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled]}
-              onPress={handleSubmit}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>Sıfırlama linki gönder</Text>
-              )}
+            <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleSendCode} disabled={loading}>
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Doğrulama kodu gönder</Text>}
             </TouchableOpacity>
           </>
         )}
-        <TouchableOpacity
-          style={styles.link}
-          onPress={() => navigation.navigate('Login')}
-          disabled={loading}
-        >
+        <TouchableOpacity style={styles.link} onPress={() => navigation.navigate('Login')} disabled={loading}>
           <Text style={styles.linkText}>← Giriş sayfasına dön</Text>
         </TouchableOpacity>
       </View>

@@ -8,32 +8,99 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'ForgotPassword'>;
 
 export default function ForgotPasswordScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async () => {
+  const handleSendCode = async () => {
     setError(null);
     if (!email.trim()) {
       setError('E-posta gerekli.');
       return;
     }
     setLoading(true);
-    const { error: err } = await supabase?.auth.resetPasswordForEmail(email.trim(), { redirectTo: undefined }) ?? { error: new Error('Supabase yok') };
+    const { error: err } = await supabase?.auth.resetPasswordForEmail(email.trim()) ?? { error: new Error('Supabase yok') };
     setLoading(false);
     if (err) {
       setError(err.message);
       return;
     }
-    setSuccess(true);
+    setSent(true);
+  };
+
+  const handleVerifyAndReset = async () => {
+    setError(null);
+    const code = otpCode.trim().replace(/\s/g, '');
+    if (!code || code.length !== 8) {
+      setError('8 haneli doğrulama kodunu girin.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Şifre en az 6 karakter olmalı.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Şifreler eşleşmiyor.');
+      return;
+    }
+    setLoading(true);
+    const { error: verifyErr } = await supabase?.auth.verifyOtp({ email: email.trim(), token: code, type: 'recovery' }) ?? { error: new Error('Supabase yok') };
+    if (verifyErr) {
+      setLoading(false);
+      setError(verifyErr.message || 'Kod geçersiz veya süresi dolmuş.');
+      return;
+    }
+    const { error: updateErr } = await supabase?.auth.updateUser({ password }) ?? { error: new Error('Supabase yok') };
+    setLoading(false);
+    if (updateErr) {
+      setError(updateErr.message);
+      return;
+    }
+    setDone(true);
   };
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
       <View style={styles.card}>
         <Text style={styles.title}>Şifremi unuttum</Text>
-        <Text style={styles.subtitle}>E-posta adresinize sıfırlama bağlantısı göndereceğiz.</Text>
-        {!success ? (
+        <Text style={styles.subtitle}>
+          {done ? 'Şifreniz güncellendi.' : sent ? 'E-postanıza gelen 8 haneli kodu ve yeni şifrenizi girin.' : 'E-posta adresinizi girin, size 8 haneli doğrulama kodu göndereceğiz.'}
+        </Text>
+        {done ? (
+          <>
+            <Text style={styles.successText}>Giriş sayfasına yönlendiriliyorsunuz...</Text>
+            <TouchableOpacity onPress={() => navigation.replace('Login')} style={[styles.button, { marginTop: 12 }]}>
+              <Text style={styles.buttonText}>Girişe dön</Text>
+            </TouchableOpacity>
+          </>
+        ) : sent ? (
+          <>
+            <TextInput style={[styles.input, { backgroundColor: '#f4f4f5', color: '#71717a' }]} value={email} editable={false} />
+            <TextInput
+              style={[styles.input, { textAlign: 'center', letterSpacing: 8, fontSize: 20 }]}
+              placeholder="00000000"
+              placeholderTextColor="#71717a"
+              value={otpCode}
+              onChangeText={(t) => setOtpCode(t.replace(/\D/g, '').slice(0, 8))}
+              keyboardType="number-pad"
+              maxLength={8}
+              autoComplete="one-time-code"
+            />
+            <TextInput style={styles.input} placeholder="Yeni şifre (en az 6 karakter)" placeholderTextColor="#71717a" value={password} onChangeText={setPassword} secureTextEntry />
+            <TextInput style={styles.input} placeholder="Şifre (tekrar)" placeholderTextColor="#71717a" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
+            {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
+            <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleVerifyAndReset} disabled={loading}>
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Şifreyi güncelle</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { setSent(false); setOtpCode(''); setPassword(''); setConfirmPassword(''); setError(null); }} style={styles.linkWrap}>
+              <Text style={styles.linkText}>← Yeni kod iste</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
           <>
             <TextInput
               style={styles.input}
@@ -45,12 +112,10 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
               autoCapitalize="none"
             />
             {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
-            <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleSubmit} disabled={loading}>
-              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Gönder</Text>}
+            <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleSendCode} disabled={loading}>
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Doğrulama kodu gönder</Text>}
             </TouchableOpacity>
           </>
-        ) : (
-          <Text style={styles.successText}>Bağlantı e-posta ile gönderildi. Gelen kutunuzu kontrol edin.</Text>
         )}
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.linkWrap}>
           <Text style={styles.linkText}>Girişe dön</Text>

@@ -419,20 +419,20 @@ export default function ReservationDetailPage() {
           {error && (
             <p className="text-sm text-red-600 mb-2">{error}</p>
           )}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex gap-3 max-w-4xl">
             {reservation.status === 'pending' && (
               <>
                 <button
                   onClick={() => updateStatus('confirmed')}
                   disabled={actionLoading}
-                  className="rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
+                  className="flex-1 min-w-0 rounded-lg bg-green-700 px-5 py-3 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
                 >
                   {actionLoading ? 'Kontrol ediliyor...' : 'Rezervasyon Onayla'}
                 </button>
                 <button
                   onClick={() => updateStatus('cancelled')}
                   disabled={actionLoading}
-                  className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                  className="flex-1 min-w-0 rounded-lg border border-red-300 bg-white px-5 py-3 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
                 >
                   İptal
                 </button>
@@ -443,14 +443,14 @@ export default function ReservationDetailPage() {
                 <button
                   onClick={() => updateStatus('completed')}
                   disabled={actionLoading}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                  className="flex-1 min-w-0 rounded-lg bg-blue-600 px-5 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                 >
                   Tamamlandı
                 </button>
                 <button
                   onClick={() => updateStatus('cancelled')}
                   disabled={actionLoading}
-                  className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                  className="flex-1 min-w-0 rounded-lg border border-red-300 bg-white px-5 py-3 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
                 >
                   İptal
                 </button>
@@ -464,7 +464,7 @@ export default function ReservationDetailPage() {
                   }
                 }}
                 disabled={actionLoading}
-                className="rounded-lg border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+                className="flex-1 min-w-0 rounded-lg border border-amber-400 bg-amber-50 px-5 py-3 text-sm font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
               >
                 Onaylandıya geri al
               </button>

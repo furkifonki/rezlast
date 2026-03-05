@@ -10,6 +10,8 @@ export default function RegisterScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [step, setStep] = useState<'form' | 'confirm'>('form');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -41,10 +43,60 @@ export default function RegisterScreen({ navigation }: Props) {
         setError('Bu e-posta adresi zaten kullanılıyor. Giriş yapmayı deneyin.');
         return;
       }
-      setSuccess('Hesap oluşturuldu. Giriş sayfasına yönlendiriliyorsunuz...');
-      setTimeout(() => navigation.replace('Login'), 1500);
+      setSuccess('E-postanıza gelen 8 haneli doğrulama kodunu girin.');
+      setStep('confirm');
     }
   };
+
+  const handleVerifyOtp = async () => {
+    setError('');
+    const code = otpCode.trim().replace(/\s/g, '');
+    if (!code || code.length !== 8) {
+      setError('8 haneli doğrulama kodunu girin.');
+      return;
+    }
+    setLoading(true);
+    const { error: err } = await supabase?.auth.verifyOtp({ email: email.trim(), token: code, type: 'email' }) ?? { error: new Error('Supabase yok') };
+    setLoading(false);
+    if (err) {
+      setError(err.message || 'Kod geçersiz veya süresi dolmuş.');
+      return;
+    }
+    setSuccess('Hesap doğrulandı. Giriş sayfasına yönlendiriliyorsunuz...');
+    setTimeout(() => navigation.replace('Login'), 1000);
+  };
+
+  if (step === 'confirm') {
+    return (
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
+        <View style={styles.card}>
+          <Text style={styles.title}>Doğrulama kodu</Text>
+          <Text style={styles.subtitle}>E-postanıza gelen 8 haneli kodu girin.</Text>
+          <TextInput
+            style={[styles.input, { textAlign: 'center', letterSpacing: 8, fontSize: 20 }]}
+            placeholder="00000000"
+            placeholderTextColor="#71717a"
+            value={otpCode}
+            onChangeText={(t) => setOtpCode(t.replace(/\D/g, '').slice(0, 8))}
+            keyboardType="number-pad"
+            maxLength={8}
+            autoComplete="one-time-code"
+          />
+          {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
+          {success ? <View style={styles.successBox}><Text style={styles.successText}>{success}</Text></View> : null}
+          <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleVerifyOtp} disabled={loading}>
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Doğrula</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => { setStep('form'); setOtpCode(''); setError(''); setSuccess(''); }} style={styles.linkWrap}>
+            <Text style={styles.linkText}>← Kayıt formuna dön</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.linkWrap}>
+            <Text style={styles.linkText}>Zaten hesabınız var mı? Giriş yap</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    );
+  }
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>

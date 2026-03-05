@@ -32,6 +32,8 @@ export default function RegisterScreen({ navigation }: Props) {
   const [smsConsent, setSmsConsent] = useState(false);
   const [showKvkkModal, setShowKvkkModal] = useState(false);
   const [kvkkText, setKvkkText] = useState<string | null>(null);
+  const [step, setStep] = useState<'form' | 'confirm'>('form');
+  const [otpCode, setOtpCode] = useState('');
 
   useEffect(() => {
     if (!showKvkkModal || !supabase) return;
@@ -67,7 +69,28 @@ export default function RegisterScreen({ navigation }: Props) {
       toast.error(error.message, 'Kayıt hatası');
       return;
     }
-    const parts = name.split(/\s+/).filter(Boolean);
+    setLoading(false);
+    setStep('confirm');
+  };
+
+  const handleVerifyOtp = async () => {
+    const code = otpCode.trim().replace(/\s/g, '');
+    if (!code || code.length !== 8) {
+      toast.error('8 haneli doğrulama kodunu girin.');
+      return;
+    }
+    if (!supabase) {
+      toast.error('Bağlantı yapılandırılmamış.');
+      return;
+    }
+    setLoading(true);
+    const { error: verifyErr } = await supabase.auth.verifyOtp({ email: email.trim(), token: code, type: 'email' });
+    if (verifyErr) {
+      setLoading(false);
+      toast.error(verifyErr.message || 'Kod geçersiz veya süresi dolmuş.');
+      return;
+    }
+    const parts = fullName.trim().split(/\s+/).filter(Boolean);
     const firstName = parts[0] ?? '';
     const lastName = parts.slice(1).join(' ') ?? '';
     const payload: Record<string, unknown> = {
@@ -81,23 +104,51 @@ export default function RegisterScreen({ navigation }: Props) {
       payload.sms_marketing_consent = smsConsent;
       payload.marketing_consent_at = new Date().toISOString();
     }
-    await new Promise((r) => setTimeout(r, 450));
     const { data: { session } } = await supabase.auth.getSession();
     const userId = session?.user?.id;
-    if (userId && supabase) {
-      const { error: updateErr } = await supabase.from('users').update(payload).eq('id', userId);
-      if (updateErr) {
-        await new Promise((r) => setTimeout(r, 400));
-        await supabase.from('users').update(payload).eq('id', userId);
-      }
+    if (userId) {
+      await supabase.from('users').update(payload).eq('id', userId);
     }
     setLoading(false);
-    toast.success(
-      'E-posta adresinize gelen link ile hesabınızı doğrulayabilirsiniz. (Doğrulama zorunlu değilse doğrudan giriş yapabilirsiniz.)',
-      'Kayıt başarılı'
-    );
+    toast.success('Hesabınız doğrulandı.', 'Kayıt başarılı');
     navigation.navigate('Login');
   };
+
+  if (step === 'confirm') {
+    return (
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          <View style={styles.card}>
+            <View style={styles.logoWrap}>
+              <Image source={require('../../assets/icon.png')} style={styles.logo} resizeMode="contain" />
+            </View>
+            <Text style={styles.title}>Doğrulama kodu</Text>
+            <Text style={styles.subtitle}>E-postanıza gelen 8 haneli kodu girin.</Text>
+            <TextInput
+              style={[styles.input, { textAlign: 'center', letterSpacing: 8, fontSize: 20 }]}
+              placeholder="00000000"
+              placeholderTextColor="#94a3b8"
+              value={otpCode}
+              onChangeText={(t) => setOtpCode(t.replace(/\D/g, '').slice(0, 8))}
+              keyboardType="number-pad"
+              maxLength={8}
+              autoComplete="one-time-code"
+              editable={!loading}
+            />
+            <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleVerifyOtp} disabled={loading}>
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Doğrula</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { setStep('form'); setOtpCode(''); }} style={styles.link}>
+              <Text style={styles.linkText}>← Kayıt formuna dön</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.link}>
+              <Text style={styles.linkText}>Zaten hesabınız var mı? Giriş yapın</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
