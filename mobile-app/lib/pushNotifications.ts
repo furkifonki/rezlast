@@ -50,16 +50,13 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
 export async function savePushTokenToSupabase(userId: string, expoPushToken: string): Promise<void> {
   if (!supabase) return;
   const platform = Platform.OS;
-  const payload = {
-    user_id: userId,
-    expo_push_token: expoPushToken,
-    platform,
-    updated_at: new Date().toISOString(),
-  };
-  const { error: errWithType } = await supabase.from('push_tokens').upsert(
-    { ...payload, app_type: 'customer' },
-    { onConflict: 'user_id,app_type' }
-  );
-  if (!errWithType) return;
-  await supabase.from('push_tokens').upsert(payload, { onConflict: 'user_id' });
+  const now = new Date().toISOString();
+  const row = { user_id: userId, expo_push_token: expoPushToken, platform, app_type: 'customer' as const, updated_at: now };
+
+  const { error: e1 } = await supabase.from('push_tokens').upsert(row, { onConflict: 'user_id,app_type' });
+  if (!e1) return;
+
+  await supabase.from('push_tokens').delete().eq('user_id', userId).eq('app_type', 'customer');
+  await supabase.from('push_tokens').delete().eq('user_id', userId).is('app_type', null);
+  await supabase.from('push_tokens').insert(row);
 }

@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
             .from('push_tokens')
             .select('expo_push_token')
             .eq('user_id', r.user_id)
-            .or('app_type.eq.customer,app_type.is.null')
+            .eq('app_type', 'customer')
             .not('expo_push_token', 'is', null);
           const tokenList = (tokens ?? []).map((t: { expo_push_token: string }) => t.expo_push_token).filter(Boolean);
           const businessName = (r.businesses as { name?: string } | null)?.name ?? 'İşletme';
@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
           .from('push_tokens')
           .select('expo_push_token')
           .eq('user_id', r.user_id)
-          .or('app_type.eq.customer,app_type.is.null')
+          .eq('app_type', 'customer')
           .not('expo_push_token', 'is', null);
         const tokenList = (tokens ?? []).map((t: { expo_push_token: string }) => t.expo_push_token).filter(Boolean);
         const businessName = (r.businesses as { name?: string } | null)?.name ?? 'İşletme';

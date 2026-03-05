@@ -4,7 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../contexts/AuthContext';
-import { registerForPushNotificationsAsync, savePushTokenToSupabase } from '../lib/pushNotifications';
+import { setupPushRegistration } from '../lib/pushNotifications';
 import { MenuProvider, useMenu } from '../contexts/MenuContext';
 import MenuOverlay from '../components/MenuOverlay';
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -143,21 +143,7 @@ export default function AppNavigator(_props: Props) {
   useEffect(() => {
     const userId = session?.user?.id;
     if (!userId) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const token = await registerForPushNotificationsAsync();
-        if (cancelled) return;
-        if (!token) {
-          console.warn('[AppNav] Push token alınamadı.');
-          return;
-        }
-        await savePushTokenToSupabase(userId, token);
-      } catch (e) {
-        console.error('[AppNav] Push kayıt hatası:', e);
-      }
-    })();
-    return () => { cancelled = true; };
+    return setupPushRegistration(() => session?.user?.id);
   }, [session?.user?.id]);
 
   const navigate = (name: string, params?: object) => {

@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     .from('push_tokens')
     .select('expo_push_token')
     .eq('user_id', business.owner_id)
-    .or('app_type.eq.owner,app_type.is.null')
+    .eq('app_type', 'owner')
     .not('expo_push_token', 'is', null);
   const list = (tokens ?? []).map((t: { expo_push_token: string }) => t.expo_push_token).filter(Boolean);
   const title = 'Yeni rezervasyon';
