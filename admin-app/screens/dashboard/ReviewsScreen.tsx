@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import { supabase } from '../../lib/supabase';
 
 type Review = {
   id: string;
   rating: number;
-  body: string | null;
+  comment: string | null;
   is_hidden: boolean;
   created_at: string;
   businesses: { name: string } | null;
@@ -14,28 +14,70 @@ type Review = {
 export default function ReviewsScreen() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  const loadReviews = async () => {
+    const { data: { user } } = await supabase?.auth.getUser() ?? { data: { user: null } };
+    if (!user || !supabase) { setLoading(false); return; }
+    const { data: myBusinesses } = await supabase.from('businesses').select('id').eq('owner_id', user.id);
+    const businessIds = (myBusinesses ?? []).map((b: { id: string }) => b.id);
+    if (businessIds.length === 0) { setReviews([]); setLoading(false); return; }
+    const { data, error: err } = await supabase
+      .from('reviews')
+      .select('id, rating, comment, is_hidden, created_at, businesses ( name )')
+      .in('business_id', businessIds)
+      .order('created_at', { ascending: false });
+    if (err) setReviews([]);
+    else setReviews((data ?? []) as Review[]);
+    setLoading(false);
+  };
 
   useEffect(() => {
     let cancelled = false;
-    async function load() {
-      const { data: { user } } = await supabase?.auth.getUser() ?? { data: { user: null } };
-      if (!user || !supabase) { setLoading(false); return; }
-      const { data: myBusinesses } = await supabase.from('businesses').select('id').eq('owner_id', user.id);
-      const businessIds = (myBusinesses ?? []).map((b: { id: string }) => b.id);
-      if (businessIds.length === 0) { setReviews([]); setLoading(false); return; }
-      const { data, error: err } = await supabase
-        .from('reviews')
-        .select('id, rating, body, is_hidden, created_at, businesses ( name )')
-        .in('business_id', businessIds)
-        .order('created_at', { ascending: false });
+    (async () => {
+      await loadReviews();
       if (cancelled) return;
-      if (err) setReviews([]);
-      else setReviews((data ?? []) as Review[]);
-      setLoading(false);
-    }
-    load();
+    })();
     return () => { cancelled = true; };
   }, []);
+
+  const toggleHidden = async (id: string, current: boolean) => {
+    setActionLoading(id);
+    const { error: err } = await supabase
+      ?.from('reviews')
+      .update({ is_hidden: !current, updated_at: new Date().toISOString() })
+      .eq('id', id) ?? { error: new Error('Supabase yok') };
+    setActionLoading(null);
+    if (err) {
+      Alert.alert('Hata', err.message);
+      return;
+    }
+    setReviews((prev) => prev.map((r) => (r.id === id ? { ...r, is_hidden: !current } : r)));
+  };
+
+  const deleteReview = (id: string) => {
+    Alert.alert(
+      'Yorumu sil',
+      'Bu yorumu kalıcı olarak silmek istediğinize emin misiniz?',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: async () => {
+            setActionLoading(id);
+            const { error: err } = await supabase?.from('reviews').delete().eq('id', id) ?? { error: new Error('Supabase yok') };
+            setActionLoading(null);
+            if (err) {
+              Alert.alert('Hata', err.message);
+              return;
+            }
+            setReviews((prev) => prev.filter((r) => r.id !== id));
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <View style={styles.root}>
@@ -53,9 +95,26 @@ export default function ReviewsScreen() {
                   <View style={[styles.badge, r.is_hidden && styles.badgeHidden]}><Text style={styles.badgeText}>{r.is_hidden ? 'Gizli' : 'Görünür'}</Text></View>
                 </View>
                 <Text style={styles.cardBiz}>{(r.businesses as { name: string } | null)?.name ?? '—'}</Text>
-                {r.body ? <Text style={styles.cardBody} numberOfLines={3}>{r.body}</Text> : null}
+                {r.comment ? <Text style={styles.cardBody} numberOfLines={3}>{r.comment}</Text> : null}
                 <Text style={styles.cardDate}>{r.created_at.slice(0, 10)}</Text>
-                <Text style={styles.hint}>Gizleme / silme için web panelini kullanın.</Text>
+                <View style={styles.actionsRow}>
+                  <TouchableOpacity
+                    style={[styles.btnToggle, r.is_hidden && styles.btnShow]}
+                    onPress={() => toggleHidden(r.id, r.is_hidden)}
+                    disabled={actionLoading === r.id}
+                  >
+                    <Text style={[styles.btnToggleText, r.is_hidden && styles.btnShowText]}>
+                      {actionLoading === r.id ? '...' : r.is_hidden ? 'Göster' : 'Gizle'}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.btnDelete}
+                    onPress={() => deleteReview(r.id)}
+                    disabled={actionLoading === r.id}
+                  >
+                    <Text style={styles.btnDeleteText}>Sil</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ))
           )}
@@ -81,5 +140,11 @@ const styles = StyleSheet.create({
   cardBiz: { fontSize: 14, fontWeight: '600', color: '#18181b', marginBottom: 4 },
   cardBody: { fontSize: 14, color: '#52525b', marginBottom: 4 },
   cardDate: { fontSize: 12, color: '#a1a1aa' },
-  hint: { fontSize: 12, color: '#a1a1aa', marginTop: 8 },
+  actionsRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  btnToggle: { backgroundColor: '#e4e4e7', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
+  btnToggleText: { fontSize: 13, fontWeight: '600', color: '#52525b' },
+  btnShow: { backgroundColor: '#dcfce7' },
+  btnShowText: { color: '#166534' },
+  btnDelete: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#f87171', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
+  btnDeleteText: { fontSize: 13, fontWeight: '600', color: '#b91c1c' },
 });

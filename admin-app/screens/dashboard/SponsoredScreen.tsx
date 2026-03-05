@@ -35,8 +35,13 @@ export default function SponsoredScreen() {
   const [formPriority, setFormPriority] = useState(0);
   const [saving, setSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [businessSearchQuery, setBusinessSearchQuery] = useState('');
 
   const today = new Date().toISOString().slice(0, 10);
+  const businessSearchLower = businessSearchQuery.trim().toLowerCase();
+  const filteredBusinesses = businessSearchLower
+    ? businesses.filter((b) => b.name.toLowerCase().includes(businessSearchLower))
+    : businesses;
 
   useEffect(() => {
     let cancelled = false;
@@ -96,6 +101,7 @@ export default function SponsoredScreen() {
     end.setDate(end.getDate() + 7);
     setFormEndDate(end.toISOString().slice(0, 10));
     setFormPriority(0);
+    setBusinessSearchQuery('');
     setShowForm(true);
   };
 
@@ -105,6 +111,7 @@ export default function SponsoredScreen() {
     setFormStartDate(row.start_date);
     setFormEndDate(row.end_date);
     setFormPriority(row.priority ?? 0);
+    setBusinessSearchQuery('');
     setShowForm(true);
   };
 
@@ -215,23 +222,30 @@ export default function SponsoredScreen() {
               <Text style={styles.formTitle}>{editingId ? 'Kaydı düzenle' : 'Yeni öne çıkan ekle'}</Text>
               <View style={styles.formField}>
                 <Text style={styles.formLabel}>İşletme</Text>
-                <View style={styles.pillRow}>
-                  {businesses.map((b) => {
+                <TextInput
+                  style={styles.searchInput}
+                  value={businessSearchQuery}
+                  onChangeText={setBusinessSearchQuery}
+                  placeholder="İşletme ara..."
+                  placeholderTextColor="#a1a1aa"
+                />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                  {filteredBusinesses.map((b) => {
                     const active = formBusinessId === b.id;
                     return (
                       <TouchableOpacity
                         key={b.id}
-                        style={[styles.pill, active && styles.pillActive]}
+                        style={[styles.chip, active && styles.chipActive]}
                         onPress={() => setFormBusinessId(b.id)}
                         activeOpacity={0.8}
                       >
-                        <Text style={[styles.pillText, active && styles.pillTextActive]} numberOfLines={1}>
+                        <Text style={[styles.chipText, active && styles.chipTextActive]} numberOfLines={1}>
                           {b.name}
                         </Text>
                       </TouchableOpacity>
                     );
                   })}
-                </View>
+                </ScrollView>
               </View>
               <View style={styles.formRow}>
                 <View style={[styles.formField, { flex: 1 }]}>
@@ -373,11 +387,12 @@ const styles = StyleSheet.create({
   formLabel: { fontSize: 12, fontWeight: '600', color: '#4b5563', marginBottom: 4 },
   formRow: { flexDirection: 'row', gap: 12 },
   input: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14, color: '#111827' },
-  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  pill: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: '#f3f4f6' },
-  pillActive: { backgroundColor: '#15803d' },
-  pillText: { fontSize: 13, color: '#374151' },
-  pillTextActive: { color: '#fff', fontWeight: '600' },
+  searchInput: { borderWidth: 1, borderColor: '#d4d4d8', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, color: '#18181b', marginBottom: 10 },
+  chipRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
+  chip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20, backgroundColor: '#f4f4f5', borderWidth: 1, borderColor: '#e4e4e7' },
+  chipActive: { backgroundColor: '#15803d', borderColor: '#15803d' },
+  chipText: { fontSize: 14, color: '#52525b' },
+  chipTextActive: { color: '#fff', fontWeight: '600' },
   formActions: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   saveBtn: { flex: 1, backgroundColor: '#15803d', borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
   saveBtnDisabled: { opacity: 0.7 },
