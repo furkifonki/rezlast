@@ -43,7 +43,7 @@ jobs:
           set -o pipefail
           eas build --platform ios --profile production --non-interactive --auto-submit --no-wait 2>&1 | tee eas.log || {
             # Show the last lines as annotations so they are visible without opening the full log
-            tail -n 25 eas.log | sed -e 's/\x1b\[[0-9;]*m//g' | grep -v '^\s*$' | while IFS= read -r line; do echo "::error::$line"; done
+            tail -n 9 eas.log | sed -e 's/\x1b\[[0-9;]*m//g' | grep -v '^\s*$' | while IFS= read -r line; do echo "::error::$line"; done
             exit 1
           }
           grep -Eo 'https://expo.dev/[^ ]+' eas.log | sort -u | while read -r url; do echo "::notice::$url"; done
