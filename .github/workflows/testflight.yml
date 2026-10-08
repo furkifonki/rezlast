@@ -5,12 +5,16 @@ on:
   workflow_dispatch:
     inputs:
       app:
-        description: "Which app to build"
+        description: "Which app"
         type: choice
         options:
           - mobile-app
           - admin-app
         default: mobile-app
+      build_id:
+        description: "Optional: an existing EAS build ID to send to TestFlight without building again"
+        type: string
+        required: false
 
 jobs:
   build-and-submit:
@@ -36,14 +40,25 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Builds on Expo servers, then sends the build to App Store Connect (TestFlight).
+      # New build on Expo servers, then automatic send to App Store Connect (TestFlight).
       # Supabase keys come from the EAS "production" environment variables on expo.dev.
       - name: Build and submit to TestFlight
+        if: ${{ inputs.build_id == '' }}
         run: |
           set -o pipefail
           eas build --platform ios --profile production --non-interactive --auto-submit --no-wait 2>&1 | tee eas.log || {
-            # Show the last lines as annotations so they are visible without opening the full log
             tail -n 9 eas.log | sed -e 's/\x1b\[[0-9;]*m//g' | grep -v '^\s*$' | while IFS= read -r line; do echo "::error::$line"; done
             exit 1
           }
           grep -Eo 'https://expo.dev/[^ ]+' eas.log | sort -u | while read -r url; do echo "::notice::$url"; done
+
+      # Send an existing build to TestFlight (waits for the build to finish first).
+      - name: Submit existing build to TestFlight
+        if: ${{ inputs.build_id != '' }}
+        run: |
+          set -o pipefail
+          eas submit --platform ios --profile production --id "${{ inputs.build_id }}" --non-interactive --wait 2>&1 | tee eas.log || {
+            tail -n 9 eas.log | sed -e 's/\x1b\[[0-9;]*m//g' | grep -v '^\s*$' | while IFS= read -r line; do echo "::error::$line"; done
+            exit 1
+          }
+          tail -n 5 eas.log | sed -e 's/\x1b\[[0-9;]*m//g' | grep -v '^\s*$' | while IFS= read -r line; do echo "::notice::$line"; done
