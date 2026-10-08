@@ -31,17 +31,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
-    client.auth.getUser().then(({ data: { user: u } }) => {
-      if (u) {
-        client.auth.getSession().then(({ data: { session: s } }) => {
+    // Never leave the page stuck on "Yükleniyor..." if Supabase is slow or unreachable.
+    const timeout = setTimeout(() => setLoading(false), 8000);
+    client.auth
+      .getUser()
+      .then(async ({ data: { user: u } }) => {
+        if (u) {
+          const { data: { session: s } } = await client.auth.getSession();
           setSession(s);
-          setLoading(false);
-        });
-      } else {
+        } else {
+          setSession(null);
+        }
+      })
+      .catch((err) => {
+        console.error('Auth init error:', err);
         setSession(null);
+      })
+      .finally(() => {
+        clearTimeout(timeout);
         setLoading(false);
-      }
-    });
+      });
     const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
